@@ -180,6 +180,8 @@ async function route(request: Request, env: Env): Promise<Response> {
       }
       const role = body.role === "editor" ? "editor" : body.role === "viewer" ? "viewer" : null;
       if (!role) throw new HttpError(400, "Role must be editor or viewer");
+      const operationKey = request.headers.get("Idempotency-Key") || crypto.randomUUID();
+      if (operationKey.length > 200) throw new HttpError(400, "Idempotency-Key is too long");
       const email = body.email.trim().toLowerCase();
       const member = await env.DB.prepare(
         "SELECT id, email, display_name FROM users WHERE lower(email) = ?"
@@ -192,7 +194,7 @@ async function route(request: Request, env: Env): Promise<Response> {
       ).bind(documentId, member.id, "role-" + role).run();
       await env.DB.prepare(
         "INSERT OR IGNORE INTO audit_log (event_id, user_id, document_id, action, payload_json) VALUES (?, ?, ?, ?, ?)"
-      ).bind("document.member.shared:" + documentId + ":" + member.id + ":" + role, identity.id, documentId, "document.member.shared", JSON.stringify({ email, role })).run();
+      ).bind("document.member.shared:" + documentId + ":" + member.id + ":" + operationKey, identity.id, documentId, "document.member.shared", JSON.stringify({ email, role })).run();
       return response(request, env, { ok: true, member: { user_id: member.id, email: member.email, display_name: member.display_name, role } }, 200);
     }
 
@@ -200,11 +202,13 @@ async function route(request: Request, env: Env): Promise<Response> {
       if (callerRole !== "owner") throw new HttpError(403, "Only document owners can remove access");
       const memberId = url.searchParams.get("userId");
       if (!memberId || memberId === identity.id) throw new HttpError(400, "A different userId is required");
+      const operationKey = request.headers.get("Idempotency-Key") || crypto.randomUUID();
+      if (operationKey.length > 200) throw new HttpError(400, "Idempotency-Key is too long");
       await env.DB.prepare("DELETE FROM document_members WHERE document_id = ? AND user_id = ?")
         .bind(documentId, memberId).run();
       await env.DB.prepare(
         "INSERT OR IGNORE INTO audit_log (event_id, user_id, document_id, action, payload_json) VALUES (?, ?, ?, ?, ?)"
-      ).bind("document.member.removed:" + documentId + ":" + memberId, identity.id, documentId, "document.member.removed", JSON.stringify({ userId: memberId })).run();
+      ).bind("document.member.removed:" + documentId + ":" + memberId + ":" + operationKey, identity.id, documentId, "document.member.removed", JSON.stringify({ userId: memberId })).run();
       return response(request, env, { ok: true });
     }
   }
@@ -272,8 +276,13 @@ async function route(request: Request, env: Env): Promise<Response> {
     const body = await request.json().catch(() => ({})) as { title?: unknown };
     const title = normalizeTitle(body.title);
     if (!title) throw new HttpError(400, "Title must contain 1-120 characters");
+    const operationKey = request.headers.get("Idempotency-Key") || crypto.randomUUID();
+    if (operationKey.length > 200) throw new HttpError(400, "Idempotency-Key is too long");
     await env.DB.prepare("UPDATE documents SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
       .bind(title, documentId).run();
+    await env.DB.prepare(
+      "INSERT OR IGNORE INTO audit_log (event_id, user_id, document_id, action, payload_json) VALUES (?, ?, ?, ?, ?)"
+    ).bind("document.title.updated:" + documentId + ":" + operationKey, identity.id, documentId, "document.title.updated", JSON.stringify({ title })).run();
     return response(request, env, { ok: true, title });
   }
 
