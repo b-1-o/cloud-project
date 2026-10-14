@@ -321,12 +321,7 @@ export default function HomePage() {
           </button>
         </div>
 
-        <div className="sidebar-label docs-label">
-          YOUR DOCUMENTS
-          <button className="icon-button" aria-label="Create document" onClick={createDocument} disabled={creating}>
-            ＋
-          </button>
-        </div>
+        <div className="sidebar-label docs-label">YOUR DOCUMENTS</div>
         <button className="new-doc" onClick={createDocument} disabled={creating}>
           <span>＋</span> New document
         </button>
@@ -597,13 +592,13 @@ export default function HomePage() {
               <p className="modal-copy">
                 <strong>{deleteTarget.title}</strong> will be permanently deleted. This cannot be undone.
               </p>
-              <label htmlFor="delete-confirm">Type DELETE to confirm</label>
+              <label htmlFor="delete-confirm">Type delete to confirm</label>
               <input
                 id="delete-confirm"
                 className="delete-confirm-input"
                 value={deleteConfirm}
                 onChange={(e) => setDeleteConfirm(e.target.value)}
-                placeholder="DELETE"
+                placeholder="delete"
                 autoComplete="off"
               />
               <div className="modal-actions">
@@ -620,7 +615,7 @@ export default function HomePage() {
                 <button
                   type="button"
                   className="danger-button"
-                  disabled={deleteConfirm !== "DELETE" || deleting}
+                  disabled={deleteConfirm !== "delete" || deleting}
                   onClick={() => void deleteDocument(deleteTarget)}
                 >
                   {deleting ? "Deleting…" : "Delete forever"}
