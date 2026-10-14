@@ -24,7 +24,7 @@ jobs:
         with:
           node-version: 22
       - run: pnpm install --no-frozen-lockfile
-      - run: pnpm --filter backend exec wrangler d1 migrations apply collab-docs-db --remote --config wrangler.jsonc
+      - run: pnpm --filter backend exec wrangler d1 migrations apply collab-docs-db --remote --env production --config wrangler.jsonc
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -44,8 +44,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
       - run: pnpm install --no-frozen-lockfile
+      - name: Validate production frontend configuration
+        env:
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_OIDC_AUTHORIZATION_URL: ${{ vars.NEXT_PUBLIC_OIDC_AUTHORIZATION_URL }}
+          NEXT_PUBLIC_OIDC_TOKEN_URL: ${{ vars.NEXT_PUBLIC_OIDC_TOKEN_URL }}
+          NEXT_PUBLIC_OIDC_CLIENT_ID: ${{ vars.NEXT_PUBLIC_OIDC_CLIENT_ID }}
+          NEXT_PUBLIC_OIDC_AUDIENCE: ${{ vars.NEXT_PUBLIC_OIDC_AUDIENCE }}
+        run: |
+          for name in NEXT_PUBLIC_API_URL NEXT_PUBLIC_OIDC_AUTHORIZATION_URL NEXT_PUBLIC_OIDC_TOKEN_URL NEXT_PUBLIC_OIDC_CLIENT_ID NEXT_PUBLIC_OIDC_AUDIENCE; do
+            eval value=\"\\$name\"
+            if [ -z \"$value\" ]; then echo \"Missing required GitHub Actions variable: $name\"; exit 1; fi
+          done
       - run: pnpm --filter frontend build
         env:
           NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
