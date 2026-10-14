@@ -8,7 +8,7 @@
 - Pages project `collab-docs` at `https://collab-docs-4tb.pages.dev` (project is created, no deployment yet).
 - Neon project `collab-docs-analytics`, US West 2, PostgreSQL 17; schema is applied.
 
-Resource IDs are recorded in `backend/wrangler.jsonc` after provisioning. The current Cloudflare account API explicitly refused R2 operations because R2 must first be enabled through the dashboard. Do not deploy until the config's R2 binding has been enabled or the optional snapshot path is intentionally disabled. Hyperdrive needs a database origin secret; configure it using the Cloudflare Dashboard so the privileged Neon connection URI is not echoed into tooling logs.
+The D1, KV, Queue and Durable Object bindings are recorded in `backend/wrangler.jsonc`; the local defaults use demo auth, while `--env production` uses production OIDC settings. The current Cloudflare account API explicitly refused R2 operations because R2 must first be enabled through the dashboard. Do not deploy until the config's R2 binding has been enabled or the optional snapshot path is intentionally disabled. Hyperdrive needs a database origin secret; configure it using the Cloudflare Dashboard so the privileged Neon connection URI is not echoed into tooling logs.
 
 ## One-time secrets / settings
 
@@ -21,6 +21,6 @@ Resource IDs are recorded in `backend/wrangler.jsonc` after provisioning. The cu
 
 ## Deploy
 
-From repo root: `pnpm install`, `pnpm typecheck`, `pnpm test`, `pnpm build`. Apply database migrations before the Worker deploy. Deploy with `pnpm --filter backend exec wrangler deploy --config wrangler.jsonc`; deploy `frontend/out` with `pnpm --filter backend exec wrangler pages deploy ../frontend/out --project-name collab-docs`.
+From repo root: `pnpm install`, `pnpm typecheck`, `pnpm test`, `pnpm build`. Apply database migrations before the Worker deploy. Deploy with `pnpm --filter backend deploy` (which selects the production environment); deploy `frontend/out` with `pnpm --filter backend exec wrangler pages deploy ../frontend/out --project-name collab-docs`.
 
-The GitHub Actions workflow is a template and requires valid secrets and real binding IDs. Confirm Cloudflare deployment status and test two separate browser sessions before sharing the app.
+The GitHub Actions workflow is gated by `CLOUDFLARE_DEPLOY_ENABLED=true` and requires valid Cloudflare secrets and repository variables. Confirm Cloudflare deployment status and test two separate browser sessions before sharing the app.
