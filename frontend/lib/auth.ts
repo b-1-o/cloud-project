@@ -85,17 +85,40 @@ async function getAuthClient(): Promise<AuthClient> {
   }
 }
 
-function errorCode(error: unknown): string {
-  if (!error || typeof error !== "object") return "";
-  const details = error as { error?: unknown; code?: unknown; name?: unknown; message?: unknown };
+function errorCode(error: unknown, providerDescription = ""): string {
+  const details = error && typeof error === "object"
+    ? error as {
+        error?: unknown;
+        code?: unknown;
+        name?: unknown;
+        message?: unknown;
+        error_description?: unknown;
+      }
+    : {};
+  const description = [
+    providerDescription,
+    typeof details.error_description === "string" ? details.error_description : "",
+    typeof details.message === "string" ? details.message : "",
+  ].join(" ").toLowerCase();
+
+  // Convert provider descriptions to a short allowlisted category. Never display
+  // or log the description itself because it may contain request-specific data.
+  if (/redirect_uri|redirect uri|callback url/.test(description)) return "redirect_uri_mismatch";
+  if (/offline_access|allow offline access|refresh token.{0,30}(disabled|not enabled)/.test(description)) return "offline_access_not_enabled";
+  if (/(origin|cross-origin).{0,50}(not allowed|denied)|not allowed.{0,30}origin/.test(description)) return "origin_not_allowed";
+  if (/code_verifier|code verifier|pkce/.test(description)) return "pkce_error";
+  if (/(grant_type|grant type).{0,50}(not allowed|not enabled|unsupported)|(?:not allowed|not enabled|unsupported).{0,50}(grant_type|grant type)/.test(description)) return "grant_type_not_allowed";
+  if (/scope.{0,50}(invalid|not allowed|unsupported)|(?:invalid|not allowed|unsupported).{0,50}scope/.test(description)) return "invalid_scope";
+  if (/(client_id|client id).{0,50}(missing|invalid|unknown)|(?:missing|invalid|unknown).{0,50}(client_id|client id)/.test(description)) return "client_configuration_error";
+  if (/audience.{0,50}(invalid|not allowed|unknown)|(?:invalid|not allowed|unknown).{0,50}audience/.test(description)) return "audience_configuration_error";
+  if (/missing required parameter|parameter.{0,30}is required/.test(description)) return "missing_parameter";
+
   const explicit = details.error || details.code;
   if (typeof explicit === "string" && explicit) return explicit;
-  const message = typeof details.message === "string" ? details.message.toLowerCase() : "";
-  if (message.includes("state")) return "invalid_state";
-  if (message.includes("code verifier")) return "missing_code_verifier";
-  if (message.includes("transaction")) return "missing_transaction";
-  if (message.includes("callback")) return "callback_error";
-  if (message.includes("network") || message.includes("fetch")) return "network_error";
+  if (description.includes("state")) return "invalid_state";
+  if (description.includes("transaction")) return "missing_transaction";
+  if (description.includes("callback")) return "callback_error";
+  if (description.includes("network") || description.includes("fetch")) return "network_error";
   return typeof details.name === "string" && details.name !== "Error" ? details.name : "auth0_error";
 }
 
@@ -153,7 +176,8 @@ export async function completeOidcLogin(url: URL): Promise<boolean> {
     }
     return true;
   } catch (error) {
-    const code = safeCode(errorCode(error));
+    const providerDescription = url.searchParams.get("error_description") || "";
+    const code = safeCode(errorCode(error, providerDescription));
     // Log only the sanitized error category. Never log callback URLs, codes,
     // tokens, state values, or the provider's raw error payload.
     console.warn("Auth0 callback processing failed", { code });
@@ -164,10 +188,19 @@ export async function completeOidcLogin(url: URL): Promise<boolean> {
     if (code === "invalid_grant" || code === "missing_code_verifier") {
       throw new Error("Auth0 could not exchange the sign-in code (" + code + "). Check the allowed callback URL and retry sign-in.");
     }
-    if (code === "access_denied" || code === "unauthorized_client" || code === "invalid_scope") {
-      throw new Error("Auth0 rejected the sign-in request (" + code + "). Check the SPA application settings, grant types, and offline-access settings.");
+    if (code === "redirect_uri_mismatch") {
+      throw new Error("Auth0 rejected the callback URL (redirect_uri_mismatch). The redirect URI in the application must exactly match https://collab-docs-4tb.pages.dev/.");
     }
-    throw new Error("Auth0 sign-in callback failed (" + code + "). Check the browser console for the same error category; no tokens or sign-in codes are logged.");
+    if (code === "offline_access_not_enabled" || code === "grant_type_not_allowed" || code === "client_configuration_error" || code === "audience_configuration_error" || code === "origin_not_allowed" || code === "pkce_error" || code === "missing_parameter") {
+      throw new Error("Auth0 sign-in configuration error (" + code + "). Check the matching Auth0 SPA settings and Allowed Web Origins; the raw provider message is intentionally not shown.");
+    }
+    if (code === "access_denied" || code === "unauthorized_client" || code === "invalid_scope") {
+      throw new Error("Auth0 rejected the sign-in request (" + code + "). Check the SPA application settings, Authorization Code and Refresh Token grant types, allowed scopes, and API offline access.");
+    }
+    if (code === "invalid_request") {
+      throw new Error("Auth0 rejected the request (invalid_request), but its safe diagnostic did not identify the cause. Check Auth0 Dashboard → Monitoring → Logs for the failed event description; do not share callback URLs, codes, states, or tokens.");
+    }
+    throw new Error("Auth0 sign-in callback failed (" + code + "). Check Auth0 Dashboard → Monitoring → Logs for the failed event description; no tokens, sign-in codes, or raw provider details are logged.");
   }
 }
 
