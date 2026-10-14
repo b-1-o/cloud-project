@@ -5,6 +5,7 @@
   "scripts": {
     "typecheck": "pnpm --filter frontend typecheck && pnpm --filter backend typecheck",
     "test": "pnpm --filter backend test",
+    "test:e2e": "pnpm --filter frontend test:e2e",
     "build": "pnpm --filter frontend build"
   },
   "engines": { "node": ">=22" }
