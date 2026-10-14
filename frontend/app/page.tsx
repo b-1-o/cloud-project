@@ -44,6 +44,7 @@ export default function HomePage() {
     try {
       const result = await request<{ document: DocumentItem }>("/api/documents", {
         method: "POST",
+        headers: { "Idempotency-Key": crypto.randomUUID() },
         body: JSON.stringify({ title: "Untitled document" }),
       });
       setDocuments((current) => [result.document, ...current]);
