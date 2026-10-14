@@ -175,6 +175,7 @@ export async function completeOidcLogin(url: URL): Promise<boolean> {
     return true;
   } catch (error) {
     const providerDescription = url.searchParams.get("error_description") || "";
+    const redirectError = url.searchParams.get("error");
     const code = safeCode(errorCode(error, providerDescription));
     // Log only the sanitized error category. Never log callback URLs, codes,
     // tokens, state values, or the provider's raw error payload.
@@ -195,8 +196,11 @@ export async function completeOidcLogin(url: URL): Promise<boolean> {
     if (code === "access_denied" || code === "unauthorized_client" || code === "invalid_scope") {
       throw new Error("Auth0 rejected the sign-in request (" + code + "). Check the SPA application settings, Authorization Code and Refresh Token grant types, allowed scopes, and API offline access.");
     }
+    if (code === "invalid_request" && redirectError === "invalid_request") {
+      throw new Error("Auth0 rejected the authorization request before issuing a sign-in code (invalid_request). Check Auth0 Dashboard → Monitoring → Logs for the failed event Description, then verify the SPA app's Authorization Code grant, API audience, and requested scopes. No callback parameters or tokens are shown.");
+    }
     if (code === "invalid_request") {
-      throw new Error("Auth0 rejected the request (invalid_request), but its safe diagnostic did not identify the cause. Check Auth0 Dashboard → Monitoring → Logs for the failed event description; do not share callback URLs, codes, states, or tokens.");
+      throw new Error("Auth0 rejected the code exchange or callback processing (invalid_request). Check Auth0 Dashboard → Monitoring → Logs for the failed event Description, then verify Authorization Code + PKCE and the SPA token endpoint authentication method is None. No callback parameters or tokens are shown.");
     }
     throw new Error("Auth0 sign-in callback failed (" + code + "). Check Auth0 Dashboard → Monitoring → Logs for the failed event description; no tokens, sign-in codes, or raw provider details are logged.");
   }
