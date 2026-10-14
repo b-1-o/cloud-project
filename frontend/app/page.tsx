@@ -8,10 +8,11 @@ type DocumentItem = { id: string; title: string; updated_at: string; workspace_n
 const API = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(API + path, {
-    ...init,
-    headers: { "Content-Type": "application/json", ...(getAccessToken() ? { Authorization: "Bearer " + getAccessToken() } : {}), ...(init?.headers || {}) },
-  });
+  const headers = new Headers(init?.headers);
+  if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  const token = getAccessToken();
+  if (token && !headers.has("Authorization")) headers.set("Authorization", "Bearer " + token);
+  const response = await fetch(API + path, { ...init, headers });
   if (!response.ok) {
     const body = await response.json().catch(() => ({})) as { error?: string };
     throw new Error(body.error || ("Request failed (" + response.status + ")"));
@@ -46,7 +47,12 @@ export default function HomePage() {
     }
   }, []);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("code") && !url.searchParams.has("state") && !url.searchParams.has("error")) {
+      void refresh();
+    }
+  }, [refresh]);
 
   useEffect(() => {
     setSignedIn(Boolean(getAccessToken()));
@@ -87,7 +93,6 @@ export default function HomePage() {
     setDocuments([]);
     setError("");
     window.history.replaceState({}, "", window.location.pathname);
-    void refresh();
   }
 
   async function shareDocument() {
