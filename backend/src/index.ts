@@ -20,7 +20,7 @@ function response(request: Request, env: Env, value: unknown, status = 200): Res
     "Cache-Control": "no-store",
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET,POST,PATCH,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type,Authorization",
+    "Access-Control-Allow-Headers": "Content-Type,Authorization,Idempotency-Key",
     "Vary": "Origin"
   });
   return new Response(JSON.stringify(value), { status, headers });
@@ -110,7 +110,7 @@ async function route(request: Request, env: Env): Promise<Response> {
     return new Response(null, { status: 204, headers: {
       "Access-Control-Allow-Origin": env.FRONTEND_ORIGIN || "*",
       "Access-Control-Allow-Methods": "GET,POST,PATCH,OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type,Authorization",
+      "Access-Control-Allow-Headers": "Content-Type,Authorization,Idempotency-Key",
       "Access-Control-Max-Age": "600",
       "Vary": "Origin"
     } });
