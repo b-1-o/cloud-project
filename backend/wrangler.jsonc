@@ -12,7 +12,7 @@
     "APP_VERSION": "0.1.0"
   },
   "durable_objects": {
-    "bindings": [{ "name": "DOC_ROOMS", "class_name": "DocumentRoom" }]
+    "bindings": [{ "name": "DOC_ROOMS", "class_name": "DocumentRoom" }, { "name": "RATE_LIMITERS", "class_name": "RateLimiter" }]
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DocumentRoom"] }, { "tag": "v2", "new_sqlite_classes": ["RateLimiter"] }],
   "d1_databases": [{
