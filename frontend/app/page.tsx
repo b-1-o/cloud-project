@@ -277,7 +277,8 @@ export default function HomePage() {
     try {
       const result = await request<{ document: DocumentItem }>(
         "/api/documents/" + encodeURIComponent(doc.id) + "/duplicate",
-        { method: "POST", headers: { "Idempotency-Key": crypto.randomUUID() } }
+        { method: "POST", headers: { "Idempotency-Key": crypto.randomUUID() }
+        }
       );
       setViewMode("docs");
       setDocuments((current) => [result.document, ...current]);
@@ -373,6 +374,13 @@ export default function HomePage() {
     setContextMenu(null); setRenamingId(doc.id); setRenameValue(doc.title);
   }
 
+  const isFirstRunEmpty =
+    !loading &&
+    viewMode === "docs" &&
+    filter === "all" &&
+    !search.trim() &&
+    documents.length === 0;
+
   return (
     <main className="shell">
       <Toaster position="bottom-right" richColors closeButton />
@@ -414,7 +422,17 @@ export default function HomePage() {
             </div>
           ))}
           {!loading && filtered.length === 0 && search && <div className="list-placeholder">No documents match “{search}”</div>}
-          {!loading && documents.length === 0 && <div className="list-placeholder">{viewMode === "trash" ? "Trash is empty." : "Your next great idea starts here."}</div>}
+          {!loading && documents.length === 0 && (
+            <div className="list-placeholder">
+              {viewMode === "trash"
+                ? "Trash is empty."
+                : filter === "mine"
+                  ? "No owned documents."
+                  : filter === "shared"
+                    ? "Nothing shared with you."
+                    : "No documents yet."}
+            </div>
+          )}
         </div>
         <div className="sidebar-bottom"><span className="avatar">B</span><div><strong>{signedIn ? "Signed-in account" : "Local workspace"}</strong><small>{signedIn ? "Authenticated session" : "Development session"}</small></div></div>
       </aside>
@@ -422,7 +440,7 @@ export default function HomePage() {
         <header className="topbar">
           <div className="topbar-left">
             <button type="button" className="menu-toggle" aria-label="Toggle sidebar" onClick={() => setSidebarOpen((o) => !o)}>☰</button>
-            <div className="breadcrumbs"><span>Personal workspace</span><span className="slash">/</span><strong>{active?.title || "Home"}</strong></div>
+            <div className="breadcrumbs"><span>Personal workspace</span><span className="slash">/</span><strong>{active?.title || (viewMode === "trash" ? "Trash" : "Home")}</strong></div>
           </div>
           <div className="top-actions">
             <button type="button" className="theme-toggle" onClick={toggleTheme} aria-label="Toggle dark mode">{theme === "dark" ? "☀" : "☾"}</button>
@@ -435,7 +453,25 @@ export default function HomePage() {
         {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError("")} aria-label="Dismiss error">×</button></div>}
         {active ? (
           <CollabEditor key={active.id} documentId={active.id} initialTitle={active.title} apiBase={API} readOnly={active.role === "viewer"} onTitleChange={(title) => setDocuments((list) => list.map((d) => (d.id === active.id ? { ...d, title } : d)))} onDeleteRequest={() => setDeleteTarget(active)} />
-        ) : documents.length === 0 ? (
+        ) : loading ? (
+          <div className="dashboard">
+            <div className="skeleton-row" style={{ maxWidth: 320, margin: "48px auto" }} />
+            <div className="skeleton-row" style={{ maxWidth: 480, margin: "12px auto" }} />
+            <div className="skeleton-row" style={{ maxWidth: 480, margin: "12px auto" }} />
+          </div>
+        ) : viewMode === "trash" && (documents.length === 0 || filtered.length === 0) ? (
+          <div className="empty-state compact-empty">
+            <div className="eyebrow">TRASH</div>
+            <h1>{documents.length === 0 ? "Trash is empty" : "No matches"}</h1>
+            <p>{documents.length === 0 ? "Deleted documents will appear here. You can restore them or delete them forever." : "No trashed documents match your search."}</p>
+          </div>
+        ) : viewMode === "trash" ? (
+          <div className="empty-state compact-empty">
+            <div className="eyebrow">TRASH</div>
+            <h1>{filtered.length} in trash</h1>
+            <p>Open a document from the sidebar, or use ··· to restore or delete forever.</p>
+          </div>
+        ) : isFirstRunEmpty ? (
           <div className="empty-state">
             <div className="empty-art"><div className="art-sheet"><span /><span /><span /><span /></div><div className="art-bubble bubble-one">A</div><div className="art-bubble bubble-two">B</div><div className="art-cursor">✦</div></div>
             <div className="eyebrow">A LITTLE MORE IN SYNC</div>
@@ -443,6 +479,20 @@ export default function HomePage() {
             <p>Create a document and invite your thoughts in. Changes sync live, and your work stays available offline.</p>
             <button className="primary-button" onClick={createDocument} disabled={creating}>{creating ? "Creating…" : "Create your first document"} <span>→</span></button>
             <div className="feature-row"><span>✳ Real-time collaboration</span><span>◉ Offline-ready</span><span>⌁ Built to keep up</span></div>
+          </div>
+        ) : documents.length === 0 || filtered.length === 0 ? (
+          <div className="empty-state compact-empty">
+            <div className="eyebrow">{filter === "mine" ? "OWNED BY YOU" : filter === "shared" ? "SHARED WITH YOU" : "DOCUMENTS"}</div>
+            <h1>{search.trim() ? "No matches" : "No documents"}</h1>
+            <p>
+              {search.trim()
+                ? "No documents match “" + search.trim() + "”."
+                : filter === "mine"
+                  ? "You don’t own any documents in this workspace yet."
+                  : filter === "shared"
+                    ? "Nothing has been shared with you yet."
+                    : "No documents to show."}
+            </p>
           </div>
         ) : (
           <div className="dashboard">
