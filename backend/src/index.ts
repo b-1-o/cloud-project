@@ -364,34 +364,58 @@ const worker = {
 
       const event = body;
       try {
-        if (env.NEON_DATABASE_URL) {
-          const sql = postgres(env.NEON_DATABASE_URL, { max: 1, idle_timeout: 5, connect_timeout: 5 });
+        await env.DB.prepare(
+          "INSERT OR IGNORE INTO audit_log (event_id, user_id, document_id, action, occurred_at, payload_json) VALUES (?, ?, ?, ?, ?, ?)"
+        ).bind(
+          event.eventId,
+          event.userId,
+          event.documentId,
+          event.type,
+          event.occurredAt,
+          JSON.stringify({ updateNumber: event.updateNumber })
+        ).run();
+
+        await env.DB.prepare(
+          "UPDATE documents SET updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+        ).bind(event.documentId).run();
+
+        if (env.HYPERDRIVE?.connectionString) {
+          const sql = postgres(env.HYPERDRIVE.connectionString, { max: 1, prepare: false, fetch_types: false });
           try {
-            await sql`
-              INSERT INTO document_events (event_id, document_id, user_id, update_number, occurred_at)
-              VALUES (${event.eventId}, ${event.documentId}, ${event.userId}, ${event.updateNumber}, ${event.occurredAt})
-              ON CONFLICT (event_id) DO NOTHING
-            `;
+            await sql.begin(async (tx) => {
+              const inserted = await tx.unsafe(
+                "INSERT INTO user_activity (event_id, user_id, document_id, action, occurred_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (event_id) DO NOTHING RETURNING event_id",
+                [event.eventId, event.userId, event.documentId, event.type, event.occurredAt]
+              );
+              if (inserted.length > 0) {
+                await tx.unsafe(
+                  "INSERT INTO document_stats (document_id, update_count, last_updated_at) VALUES ($1, 1, $2) ON CONFLICT (document_id) DO UPDATE SET update_count = document_stats.update_count + 1, last_updated_at = EXCLUDED.last_updated_at",
+                  [event.documentId, event.occurredAt]
+                );
+              }
+            });
           } finally {
-            await sql.end({ timeout: 2 });
+            await sql.end({ timeout: 1 });
           }
         }
+
         message.ack();
-      } catch (err) {
-        console.error(JSON.stringify({ event: "queue.process_error", message: err instanceof Error ? err.message : "unknown" }));
+      } catch (error) {
+        console.error(JSON.stringify({
+          event: "queue.consume_failed",
+          eventId: event.eventId,
+          message: error instanceof Error ? error.message : String(error)
+        }));
         message.retry();
       }
     }
   }
-};
+} satisfies ExportedHandler<Env>;
 
-export default Sentry.withSentry(
-  (env: Env) => ({
-    dsn: env.SENTRY_DSN,
-    environment: env.ENVIRONMENT || "development",
-    tracesSampleRate: 0.1
-  }),
-  worker
-);
+export default Sentry.withSentry((env: Env) => ({
+  dsn: env.SENTRY_DSN,
+  environment: env.ENVIRONMENT,
+  tracesSampleRate: env.ENVIRONMENT === "production" ? 0.1 : 1.0
+}), worker);
 
 export { DocumentRoom, RateLimiter };
