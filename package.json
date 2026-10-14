@@ -1,0 +1,11 @@
+{
+  "name": "collab-docs",
+  "private": true,
+  "packageManager": "pnpm@10.15.0",
+  "scripts": {
+    "typecheck": "pnpm --filter frontend typecheck && pnpm --filter backend typecheck",
+    "test": "pnpm --filter backend test",
+    "build": "pnpm --filter frontend build"
+  },
+  "engines": { "node": ">=22" }
+}
