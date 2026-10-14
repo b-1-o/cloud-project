@@ -1,0 +1,4 @@
+# Copy to .dev.vars. Never commit .dev.vars.
+ENVIRONMENT=development
+AUTH_MODE=demo
+FRONTEND_ORIGIN=http://localhost:3000
