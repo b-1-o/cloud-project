@@ -76,9 +76,12 @@ jobs:
           NEXT_PUBLIC_OIDC_CLIENT_ID: ${{ vars.NEXT_PUBLIC_OIDC_CLIENT_ID }}
           NEXT_PUBLIC_OIDC_REDIRECT_URI: ${{ vars.NEXT_PUBLIC_OIDC_REDIRECT_URI }}
           NEXT_PUBLIC_OIDC_AUDIENCE: ${{ vars.NEXT_PUBLIC_OIDC_AUDIENCE }}
+          NEXT_PUBLIC_OIDC_SCOPES: ${{ vars.NEXT_PUBLIC_OIDC_SCOPES }}
         run: |
           test -n "$NEXT_PUBLIC_API_URL" || { echo "::error::Missing repository variable NEXT_PUBLIC_API_URL"; exit 1; }
+          case "$NEXT_PUBLIC_API_URL" in https://*.workers.dev) ;; *) echo "::error::NEXT_PUBLIC_API_URL must be the HTTPS production Worker URL"; exit 1 ;; esac
           test -n "$NEXT_PUBLIC_OIDC_AUTHORIZATION_URL" || { echo "::error::Missing repository variable NEXT_PUBLIC_OIDC_AUTHORIZATION_URL"; exit 1; }
+          [[ " $NEXT_PUBLIC_OIDC_SCOPES " == *" offline_access "* ]] || { echo "::error::NEXT_PUBLIC_OIDC_SCOPES must include offline_access for refresh-token rotation"; exit 1; }
           test -n "$NEXT_PUBLIC_OIDC_TOKEN_URL" || { echo "::error::Missing repository variable NEXT_PUBLIC_OIDC_TOKEN_URL"; exit 1; }
           test -n "$NEXT_PUBLIC_OIDC_CLIENT_ID" || { echo "::error::Missing repository variable NEXT_PUBLIC_OIDC_CLIENT_ID"; exit 1; }
           test "$NEXT_PUBLIC_OIDC_REDIRECT_URI" = "https://collab-docs-4tb.pages.dev/" || { echo "::error::NEXT_PUBLIC_OIDC_REDIRECT_URI must equal https://collab-docs-4tb.pages.dev/"; exit 1; }
