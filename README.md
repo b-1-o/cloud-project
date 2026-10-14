@@ -28,17 +28,17 @@ Local demo identity is allowed only while ENVIRONMENT is not production. Product
 
 ## Deployment checklist
 
-- The IDs in backend/wrangler.jsonc are placeholders until D1, KV, and Queues are provisioned.
+- D1, KV, and Queue IDs are provisioned in `backend/wrangler.jsonc`; R2 is not bound because the Cloudflare account must enable R2 first.
 - Enable R2 for the Cloudflare account before creating the snapshots bucket.
 - Configure AUTH_JWKS_URL, AUTH_ISSUER, AUTH_AUDIENCE and all platform credentials as secrets/vars; do not commit tokens.
-- GitHub Actions runs type checks, tests, and the frontend build. The deploy workflow requires CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets.
+- GitHub Actions runs type checks, unit tests, Playwright smoke tests, and the frontend build. Deployment requires the opt-in variable `CLOUDFLARE_DEPLOY_ENABLED=true`, the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets, plus the API URL and OIDC build variables described in docs/DEPLOYMENT.md.
 - The Pages workflow expects `frontend/out`. Set the repository variable NEXT_PUBLIC_API_URL to the deployed Worker URL.
 
 ## Security, reliability, and honest status
 
 JWTs are verified against configured remote JWKS, issuer, and audience. Production without identity settings is denied. All document access is checked against workspace roles; viewers are read-only. WebSocket tickets expire quickly and a SQLite-backed guard prevents replay. Queue events have deterministic IDs and audit inserts are idempotent.
 
-The local demo identity is not suitable for public deployments. Add an OIDC login flow before inviting external users. Free plans have quotas and limits that can change. Targets such as availability >= 99.5%, API p95 < 300 ms, sync lag < 500 ms, and error rate < 1% are SLO intentions, not measured results. No Grafana dashboard, Sentry project, load-test results, or public demo is claimed until created and verified.
+The local demo identity is not suitable for public deployments. Configure the OIDC provider using docs/AUTH.md before inviting external users. Free plans have quotas and limits that can change. Targets such as availability >= 99.5%, API p95 < 300 ms, sync lag < 500 ms, and error rate < 1% are SLO intentions, not measured results. A Grafana dashboard exists, but custom metrics are not yet being exported. No Sentry project, measured load-test result, or published application deployment is claimed until verified.
 
 ## Trade-offs
 
