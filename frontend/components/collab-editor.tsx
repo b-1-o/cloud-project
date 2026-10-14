@@ -51,6 +51,7 @@ export function CollabEditor({ documentId, initialTitle, apiBase, readOnly = fal
     let connecting = false;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     let reconnectAttempt = 0;
+    let lastPongAt = 0;
     const persistence = new IndexeddbPersistence("collab-docs-" + documentId, doc);
 
     const scheduleReconnect = () => {
@@ -89,6 +90,7 @@ export function CollabEditor({ documentId, initialTitle, apiBase, readOnly = fal
         socket.onopen = () => {
           connecting = false;
           reconnectAttempt = 0;
+          lastPongAt = Date.now();
           setConnection("live");
           try {
             socket?.send(JSON.stringify({ type: "sync", state: encode(Y.encodeStateAsUpdate(doc)) }));
@@ -99,7 +101,7 @@ export function CollabEditor({ documentId, initialTitle, apiBase, readOnly = fal
         socket.onmessage = (event) => {
           try {
             const message = JSON.parse(String(event.data)) as { type: string; update?: string; state?: string; error?: string };
-            if (message.type === "pong") return;
+            if (message.type === "pong") { lastPongAt = Date.now(); return; }
             if (message.type === "sync" && message.state) Y.applyUpdate(doc, decode(message.state), "remote");
             if (message.type === "update" && message.update) Y.applyUpdate(doc, decode(message.update), "remote");
             if (message.type === "error" && message.error === "read_only") setConnection("live");
@@ -141,6 +143,10 @@ export function CollabEditor({ documentId, initialTitle, apiBase, readOnly = fal
 
     const heartbeat = window.setInterval(() => {
       if (socket?.readyState === WebSocket.OPEN) {
+        if (lastPongAt > 0 && Date.now() - lastPongAt > 55_000) {
+          socket.close(4000, "Heartbeat timeout");
+          return;
+        }
         try { socket.send(JSON.stringify({ type: "ping", at: Date.now() })); } catch { socket.close(); }
       }
     }, 25_000);
