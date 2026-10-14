@@ -3,11 +3,11 @@
   "private": true,
   "scripts": {
     "dev": "wrangler dev --config wrangler.jsonc",
-    "deploy": "wrangler deploy --config wrangler.jsonc",
+    "deploy": "wrangler deploy --env production --config wrangler.jsonc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "db:migrate:local": "wrangler d1 migrations apply collab-docs-db --local --config wrangler.jsonc",
-    "db:migrate:remote": "wrangler d1 migrations apply collab-docs-db --remote --config wrangler.jsonc"
+    "db:migrate:remote": "wrangler d1 migrations apply collab-docs-db --remote --env production --config wrangler.jsonc"
   },
   "dependencies": { "@sentry/cloudflare": "^11.6.0", "jose": "^6.1.0", "postgres": "^3.4.7", "yjs": "^13.6.27" },
   "devDependencies": {
