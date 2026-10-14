@@ -171,7 +171,7 @@ export default function HomePage() {
             <span className="avatar small-avatar">B</span></div>
         </header>
         {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError("")} aria-label="Dismiss error">×</button></div>}
-        {active ? <CollabEditor key={active.id} documentId={active.id} initialTitle={active.title} apiBase={API} onTitleChange={(title) => setDocuments((list) => list.map((d) => d.id === active.id ? { ...d, title } : d))} /> : (
+        {active ? <CollabEditor key={active.id} documentId={active.id} initialTitle={active.title} apiBase={API} readOnly={active.role === "viewer"} onTitleChange={(title) => setDocuments((list) => list.map((d) => d.id === active.id ? { ...d, title } : d))} /> : (
           <div className="empty-state">
             <div className="empty-art"><div className="art-sheet"><span /><span /><span /><span /></div><div className="art-bubble bubble-one">A</div><div className="art-bubble bubble-two">B</div><div className="art-cursor">✦</div></div>
             <div className="eyebrow">A LITTLE MORE IN SYNC</div>
