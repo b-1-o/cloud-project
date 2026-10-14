@@ -110,7 +110,7 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: {
       "Access-Control-Allow-Origin": env.FRONTEND_ORIGIN || "*",
-      "Access-Control-Allow-Methods": "GET,POST,PATCH,OPTIONS",
+      "Access-Control-Allow-Methods": "GET,POST,PATCH,DELETE,OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type,Authorization,Idempotency-Key",
       "Access-Control-Max-Age": "600",
       "Vary": "Origin"
@@ -285,7 +285,7 @@ const worker = {
     const startedAt = Date.now();
     try {
       const url = new URL(request.url);
-      if (url.pathname.startsWith("/api/") && url.pathname !== "/api/health") {
+      if (url.pathname.startsWith("/api/") && url.pathname !== "/api/health" && request.method !== "OPTIONS") {
         const ip = request.headers.get("cf-connecting-ip") || "local";
         const limiterId = env.RATE_LIMITERS.idFromName(ip);
         const limitResponse = await env.RATE_LIMITERS.get(limiterId).fetch(
@@ -300,6 +300,8 @@ const worker = {
               "Cache-Control": "no-store",
               "Retry-After": String(limitResult.retryAfter || 60),
               "Access-Control-Allow-Origin": env.FRONTEND_ORIGIN || "*",
+              "Access-Control-Allow-Methods": "GET,POST,PATCH,DELETE,OPTIONS",
+              "Access-Control-Allow-Headers": "Content-Type,Authorization,Idempotency-Key",
               "Vary": "Origin"
             }
           });
