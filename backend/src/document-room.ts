@@ -60,6 +60,9 @@ export class DocumentRoom {
     this.ctx.storage.sql.exec(
       "CREATE TABLE IF NOT EXISTS issued_tickets (ticket_id TEXT PRIMARY KEY, document_id TEXT NOT NULL, user_id TEXT NOT NULL, role TEXT NOT NULL, expires_at INTEGER NOT NULL, consumed INTEGER NOT NULL DEFAULT 0);"
     );
+    this.ctx.storage.sql.exec(
+      "CREATE TABLE IF NOT EXISTS event_outbox (event_id TEXT PRIMARY KEY, payload_json TEXT NOT NULL, created_at INTEGER NOT NULL);"
+    );
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -157,6 +160,26 @@ export class DocumentRoom {
     try { socket.close(); } catch { /* already closed */ }
   }
 
+  async alarm(): Promise<void> {
+    const pending = this.ctx.storage.sql.exec(
+      "SELECT event_id, payload_json FROM event_outbox ORDER BY created_at ASC LIMIT 100"
+    ).toArray() as Array<{ event_id: string; payload_json: string }>;
+    let failed = false;
+    for (const row of pending) {
+      try {
+        await this.env.DOCUMENT_EVENTS.send(JSON.parse(row.payload_json) as DocumentEvent, { contentType: "json" });
+        this.ctx.storage.sql.exec("DELETE FROM event_outbox WHERE event_id = ?", row.event_id);
+      } catch (error) {
+        failed = true;
+        console.error(JSON.stringify({ event: "queue.outbox_retry_failed", eventId: row.event_id, message: String(error) }));
+      }
+    }
+    const remaining = this.ctx.storage.sql.exec("SELECT COUNT(*) AS count FROM event_outbox").toArray() as Array<{ count: number }>;
+    if (failed || Number(remaining[0]?.count || 0) > 0) {
+      await this.ctx.storage.setAlarm(Date.now() + 5_000);
+    }
+  }
+
   webSocketError(_socket: WebSocket, error: unknown): void {
     console.error(JSON.stringify({ event: "ws.error", message: String(error) }));
   }
@@ -219,7 +242,17 @@ export class DocumentRoom {
         updateNumber,
         occurredAt: new Date().toISOString()
       };
-      await this.env.DOCUMENT_EVENTS.send(event);
+      this.ctx.storage.sql.exec(
+        "INSERT OR IGNORE INTO event_outbox (event_id, payload_json, created_at) VALUES (?, ?, ?)",
+        event.eventId, JSON.stringify(event), Date.now()
+      );
+      try {
+        await this.env.DOCUMENT_EVENTS.send(event, { contentType: "json" });
+        this.ctx.storage.sql.exec("DELETE FROM event_outbox WHERE event_id = ?", event.eventId);
+      } catch (error) {
+        console.error(JSON.stringify({ event: "queue.publish_deferred", eventId: event.eventId, message: String(error) }));
+        await this.ctx.storage.setAlarm(Date.now() + 5_000);
+      }
       const broadcast = JSON.stringify({ type: "update", update: encoded });
       for (const peer of this.ctx.getWebSockets()) {
         if (peer === socket) continue;
