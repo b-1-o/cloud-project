@@ -121,7 +121,14 @@ export class DocumentRoom {
   }
 
   async webSocketMessage(socket: WebSocket, raw: string | ArrayBuffer): Promise<void> {
-    if (typeof raw !== "string") return;
+    if (typeof raw !== "string") {
+      socket.close(1003, "Text messages only");
+      return;
+    }
+    if (raw.length > 3_000_000) {
+      socket.close(1009, "Message is too large");
+      return;
+    }
     let message: { type?: string; update?: string; state?: string };
     try {
       message = JSON.parse(raw) as typeof message;
