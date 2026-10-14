@@ -1,0 +1,12 @@
+node_modules
+.pnpm-store
+.next
+out
+dist
+coverage
+.wrangler
+.dev.vars
+.env
+.env.*
+!.env.example
+.DS_Store
