@@ -3,6 +3,7 @@ import postgres from "postgres";
 import { canEdit, canRead, normalizeTitle } from "./access";
 import type { DocumentEvent, Env } from "./document-room";
 import { DocumentRoom } from "./document-room";
+import { RateLimiter } from "./rate-limiter";
 
 type Identity = { id: string; email: string | null; name: string };
 type DocumentRow = { id: string; title: string; updated_at: string; workspace_name?: string; role?: string };
@@ -220,6 +221,27 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const startedAt = Date.now();
     try {
+      const url = new URL(request.url);
+      if (url.pathname.startsWith("/api/") && url.pathname !== "/api/health") {
+        const ip = request.headers.get("cf-connecting-ip") || "local";
+        const limiterId = env.RATE_LIMITERS.idFromName(ip);
+        const limitResponse = await env.RATE_LIMITERS.get(limiterId).fetch(
+          "https://rate-limiter.internal/check?key=" + encodeURIComponent(ip) + "&limit=120&windowMs=60000"
+        );
+        const limitResult = await limitResponse.json() as { allowed?: boolean; retryAfter?: number };
+        if (!limitResponse.ok || limitResult.allowed !== true) {
+          return new Response(JSON.stringify({ error: "rate_limited" }), {
+            status: 429,
+            headers: {
+              "Content-Type": "application/json; charset=utf-8",
+              "Cache-Control": "no-store",
+              "Retry-After": String(limitResult.retryAfter || 60),
+              "Access-Control-Allow-Origin": env.FRONTEND_ORIGIN || "*",
+              "Vary": "Origin"
+            }
+          });
+        }
+      }
       const result = await route(request, env);
       if (result.status !== 101) {
         console.log(JSON.stringify({ event: "http.request", method: request.method, path: new URL(request.url).pathname, status: result.status, duration_ms: Date.now() - startedAt }));
@@ -274,4 +296,4 @@ export default {
   }
 };
 
-export { DocumentRoom };
+export { DocumentRoom, RateLimiter };
