@@ -4,6 +4,14 @@ The static frontend uses Auth0's SPA SDK with OAuth 2.0 Authorization Code Flow 
 
 In Auth0, enable Refresh Token Rotation for the SPA and enable Allow Offline Access for the API. The SDK cache is backed by sessionStorage, scoped to the current tab, so the session can survive reloads in that tab without putting token data into localStorage. Browser storage is still accessible to same-origin JavaScript; prevent XSS, avoid unsafe HTML injection, and keep the Content Security Policy restrictive. Logout clears the SDK cache and redirects through Auth0.
 
+### Authorize the SPA to request the API audience
+
+The frontend requests an access token for the API identifier `https://collab-docs-api`. If the API's user-access policy requires a client grant, the SPA must be explicitly authorized for that API or Auth0 returns `Client is not authorized to access resource server` before issuing a code.
+
+In Auth0 Dashboard, open **Applications → Applications → Collab Docs → APIs**, select **Edit** for the API identified by `https://collab-docs-api`, and set **User-Delegated Access** to **Authorized**. Select only the API permissions the application should be allowed to request, then save. This is a user-delegated authorization-code flow; do not enable Client Credentials or add a client secret to the SPA. The frontend currently requests `openid profile email offline_access`; API permissions are not currently used as the application's RBAC source of truth. The Worker's database-backed workspace/document membership checks remain authoritative.
+
+If the API has a user access policy of `require_client_grant`, the per-application user-delegated grant is the intended fix. Avoid changing the API to `allow_all` just to work around a missing per-app grant, because that widens access for other applications.
+
 The Worker independently verifies Bearer JWTs using the configured AUTH_JWKS_URL, AUTH_ISSUER, and AUTH_AUDIENCE. The access token's issuer and audience must match those exact Worker settings; a frontend login alone is not a substitute for server-side verification. Store these values in GitHub Actions secrets and production Worker secrets. Never put them in frontend variables or source control. The repository deploy workflow validates them and syncs them to the Worker after deploy.
 
 ## RBAC
