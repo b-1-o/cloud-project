@@ -102,7 +102,7 @@ export async function getAccessToken(): Promise<string | null> {
   if (typeof window === "undefined" || !configured()) return null;
   try {
     const client = await getAuthClient();
-    return await client.getTokenSilently();
+    return (await client.getTokenSilently()) || null;
   } catch (error) {
     const code = errorCode(error);
     if (["login_required", "missing_refresh_token", "invalid_grant", "consent_required", "interaction_required"].includes(code)) {
