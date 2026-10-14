@@ -102,7 +102,7 @@ export default function HomePage() {
     try {
       const result = await request<{ member: { email: string; role: string } }>(
         "/api/documents/" + encodeURIComponent(active.id) + "/members",
-        { method: "POST", body: JSON.stringify({ email: inviteEmail, role: inviteRole }) }
+        { method: "POST", headers: { "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ email: inviteEmail, role: inviteRole }) }
       );
       setShareMessage("Access granted to " + result.member.email + " as " + result.member.role + ".");
       setInviteEmail("");
@@ -159,12 +159,12 @@ export default function HomePage() {
           ))}
           {!loading && documents.length === 0 && <div className="list-placeholder">Your next great idea starts here.</div>}
         </div>
-        <div className="sidebar-bottom"><span className="avatar">B</span><div><strong>Local workspace</strong><small>Development session</small></div><span className="more">···</span></div>
+        <div className="sidebar-bottom"><span className="avatar">B</span><div><strong>{signedIn ? "Signed-in account" : "Local workspace"}</strong><small>{signedIn ? "Authenticated session" : "Development session"}</small></div><span className="more">···</span></div>
       </aside>
       <section className="main-panel">
         <header className="topbar">
           <div className="breadcrumbs"><span>Personal workspace</span><span className="slash">/</span><strong>{active?.title || "Documents"}</strong></div>
-          <div className="top-actions"><span className="secure-label"><span className="green-dot" /> Autosave enabled</span><button className="share-button" onClick={() => { setShareMessage(""); setShareOpen(true); }} disabled={!active}>↗ Share</button>
+          <div className="top-actions"><span className="secure-label"><span className="green-dot" /> Autosave enabled</span><button className="share-button" onClick={() => { setShareMessage(""); setShareOpen(true); }} disabled={!active || active.role !== "owner"}>↗ Share</button>
             {process.env.NEXT_PUBLIC_OIDC_AUTHORIZATION_URL && (signedIn
               ? <button className="auth-button" onClick={signOut}>Sign out</button>
               : <button className="auth-button" onClick={signIn}>Sign in</button>)}
