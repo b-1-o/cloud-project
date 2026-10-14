@@ -16,7 +16,7 @@ The dashboard is a useful starting point, not evidence that telemetry is flowing
 | API latency | `http_request_duration_seconds_bucket` | p95 target < 300 ms |
 | API error rate | `http_requests_total` grouped by status | 5xx ratio target < 1% |
 
-The Worker enables Cloudflare Workers Observability and emits structured JSON request, error, collaboration, snapshot and queue logs. Cloudflare's native OpenTelemetry export is the recommended path to forward Worker traces/logs to an OTLP-compatible destination; configure the endpoint, authentication header, and dataset in the Cloudflare dashboard. Keep all tokens as Worker/GitHub secrets and never attach them to client builds. Define counters/histograms with bounded labels (route template, outcome); do not label metrics by document ID, user ID, email, or raw path because that creates high cardinality and may leak personal information.
+The Worker config enables Cloudflare Worker logs and traces with 100% log sampling and 10% trace sampling. Cloudflare's native OpenTelemetry export forwards logs and traces to an OTLP destination configured in the Cloudflare dashboard; create separate Grafana Cloud destinations for logs and traces, then add their exact destination names under `observability.logs.destinations` and `observability.traces.destinations` in Wrangler. This built-in export does **not** export custom metrics, so the dashboard's named metric contract is currently a target, not live telemetry. To complete it, derive log-based metrics in Grafana/Loki or configure a separate metrics exporter. Keep tokens only in platform secrets and never in client builds. Use bounded labels (route template, outcome), not document ID, user ID, email, or raw path.
 
 ## SLO definitions
 
