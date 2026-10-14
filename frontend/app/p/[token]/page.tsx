@@ -7,8 +7,8 @@ import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
+import Collaboration from "@tiptap/extension-collaboration";
 import * as Y from "yjs";
-import { Collaboration } from "@tiptap/extension-collaboration";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 
@@ -70,7 +70,9 @@ export default function PublicDocumentPage() {
       <header className="public-bar">
         <a className="brand" href="/">
           <span className="brand-mark">C</span>
-          <span>collab<span className="brand-light">docs</span></span>
+          <span>
+            collab<span className="brand-light">docs</span>
+          </span>
         </a>
         <span className="public-badge">Public · view only</span>
       </header>
