@@ -72,7 +72,7 @@ export function CollabEditor({ documentId, initialTitle, apiBase, readOnly = fal
       try {
         await persistence.whenSynced;
         if (disposed) return;
-        const token = getAccessToken();
+        const token = await getAccessToken();
         const response = await fetch(apiBase + "/api/documents/" + encodeURIComponent(documentId) + "/ticket", {
           method: "POST",
           headers: token ? { Authorization: "Bearer " + token } : {},
@@ -187,16 +187,19 @@ export function CollabEditor({ documentId, initialTitle, apiBase, readOnly = fal
     onTitleChange(next);
     if (titleTimer.current) clearTimeout(titleTimer.current);
     titleTimer.current = setTimeout(() => {
-      const token = getAccessToken();
-      void fetch(apiBase + "/api/documents/" + encodeURIComponent(documentId), {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": crypto.randomUUID(),
-          ...(token ? { Authorization: "Bearer " + token } : {}),
-        },
-        body: JSON.stringify({ title: next }),
-      }).catch((err) => console.warn("Title update failed", err));
+      void getAccessToken().then((token) =>
+        fetch(apiBase + "/api/documents/" + encodeURIComponent(documentId), {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": crypto.randomUUID(),
+            ...(token ? { Authorization: "Bearer " + token } : {}),
+          },
+          body: JSON.stringify({ title: next }),
+        }).then((response) => {
+          if (!response.ok) throw new Error("Title update failed (" + response.status + ")");
+        })
+      ).catch((err) => console.warn("Title update failed", err));
     }, 350);
   }
 

@@ -9,6 +9,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@auth0/auth0-spa-js": "2.28.3",
     "@sentry/nextjs": "^11.7.0",
     "@tiptap/extension-collaboration": "^2.11.5",
     "@tiptap/react": "^2.11.5",
