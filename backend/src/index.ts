@@ -1,4 +1,5 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
+import * as Sentry from "@sentry/cloudflare";
 import postgres from "postgres";
 import { canEdit, canRead, normalizeTitle } from "./access";
 import type { DocumentEvent, Env } from "./document-room";
@@ -217,7 +218,7 @@ async function route(request: Request, env: Env): Promise<Response> {
   return response(request, env, { error: "Not found" }, 404);
 }
 
-export default {
+const worker = {
   async fetch(request: Request, env: Env): Promise<Response> {
     const startedAt = Date.now();
     try {
@@ -273,16 +274,18 @@ export default {
         if (env.HYPERDRIVE?.connectionString) {
           const sql = postgres(env.HYPERDRIVE.connectionString, { max: 1, prepare: false, fetch_types: false });
           try {
-            const inserted = await sql.unsafe(
+            await sql.begin(async (tx) => {
+            const inserted = await tx.unsafe(
               "INSERT INTO user_activity (event_id, user_id, document_id, action, occurred_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (event_id) DO NOTHING RETURNING event_id",
               [event.eventId, event.userId, event.documentId, event.type, event.occurredAt]
             );
             if (inserted.length > 0) {
-              await sql.unsafe(
+              await tx.unsafe(
                 "INSERT INTO document_stats (document_id, update_count, last_updated_at) VALUES ($1, 1, $2) ON CONFLICT (document_id) DO UPDATE SET update_count = document_stats.update_count + 1, last_updated_at = EXCLUDED.last_updated_at",
                 [event.documentId, event.occurredAt]
               );
             }
+          });
           } finally {
             await sql.end({ timeout: 1 });
           }
@@ -294,6 +297,12 @@ export default {
       }
     }
   }
-};
+} satisfies ExportedHandler<Env>;
+
+export default Sentry.withSentry((env: Env) => ({
+  dsn: env.SENTRY_DSN,
+  environment: env.ENVIRONMENT,
+  tracesSampleRate: env.ENVIRONMENT === "production" ? 0.1 : 0
+}), worker);
 
 export { DocumentRoom, RateLimiter };
