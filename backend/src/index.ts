@@ -279,8 +279,6 @@ async function route(request: Request, env: Env): Promise<Response> {
     return response(request, env, { ticket, expiresIn: 60 });
   }
 
-
-
   if (parts.length === 3 && parts[2] && request.method === "PATCH") {
     const documentId = parts[2];
     const role = await roleForDocument(env, documentId, identity.id);
@@ -296,6 +294,20 @@ async function route(request: Request, env: Env): Promise<Response> {
       "INSERT OR IGNORE INTO audit_log (event_id, user_id, document_id, action, payload_json) VALUES (?, ?, ?, ?, ?)"
     ).bind("document.title.updated:" + documentId + ":" + operationKey, identity.id, documentId, "document.title.updated", JSON.stringify({ title })).run();
     return response(request, env, { ok: true, title });
+  }
+
+  if (parts.length === 3 && parts[2] && request.method === "DELETE") {
+    const documentId = parts[2];
+    const role = await roleForDocument(env, documentId, identity.id);
+    if (!role || role !== "owner") throw new HttpError(403, "Only document owners can delete documents");
+    const operationKey = request.headers.get("Idempotency-Key") || crypto.randomUUID();
+    if (operationKey.length > 200) throw new HttpError(400, "Idempotency-Key is too long");
+    await env.DB.prepare("DELETE FROM document_members WHERE document_id = ?").bind(documentId).run();
+    await env.DB.prepare("DELETE FROM documents WHERE id = ?").bind(documentId).run();
+    await env.DB.prepare(
+      "INSERT OR IGNORE INTO audit_log (event_id, user_id, document_id, action, payload_json) VALUES (?, ?, ?, ?, ?)"
+    ).bind("document.deleted:" + documentId + ":" + operationKey, identity.id, documentId, "document.deleted", JSON.stringify({})).run();
+    return response(request, env, { ok: true });
   }
 
   return response(request, env, { error: "Not found" }, 404);
@@ -352,59 +364,34 @@ const worker = {
 
       const event = body;
       try {
-        // The audit insert is idempotent, while metadata refresh may safely run on redelivery.
-        await env.DB.prepare(
-          "INSERT OR IGNORE INTO audit_log (event_id, user_id, document_id, action, occurred_at, payload_json) VALUES (?, ?, ?, ?, ?, ?)"
-        ).bind(
-          event.eventId,
-          event.userId,
-          event.documentId,
-          event.type,
-          event.occurredAt,
-          JSON.stringify({ updateNumber: event.updateNumber })
-        ).run();
-
-        await env.DB.prepare(
-          "UPDATE documents SET updated_at = CURRENT_TIMESTAMP WHERE id = ?"
-        ).bind(event.documentId).run();
-
-        if (env.HYPERDRIVE?.connectionString) {
-          const sql = postgres(env.HYPERDRIVE.connectionString, { max: 1, prepare: false, fetch_types: false });
+        if (env.NEON_DATABASE_URL) {
+          const sql = postgres(env.NEON_DATABASE_URL, { max: 1, idle_timeout: 5, connect_timeout: 5 });
           try {
-            await sql.begin(async (tx) => {
-              const inserted = await tx.unsafe(
-                "INSERT INTO user_activity (event_id, user_id, document_id, action, occurred_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (event_id) DO NOTHING RETURNING event_id",
-                [event.eventId, event.userId, event.documentId, event.type, event.occurredAt]
-              );
-              if (inserted.length > 0) {
-                await tx.unsafe(
-                  "INSERT INTO document_stats (document_id, update_count, last_updated_at) VALUES ($1, 1, $2) ON CONFLICT (document_id) DO UPDATE SET update_count = document_stats.update_count + 1, last_updated_at = EXCLUDED.last_updated_at",
-                  [event.documentId, event.occurredAt]
-                );
-              }
-            });
+            await sql`
+              INSERT INTO document_events (event_id, document_id, user_id, update_number, occurred_at)
+              VALUES (${event.eventId}, ${event.documentId}, ${event.userId}, ${event.updateNumber}, ${event.occurredAt})
+              ON CONFLICT (event_id) DO NOTHING
+            `;
           } finally {
-            await sql.end({ timeout: 1 });
+            await sql.end({ timeout: 2 });
           }
         }
-
         message.ack();
-      } catch (error) {
-        console.error(JSON.stringify({
-          event: "queue.consume_failed",
-          eventId: event.eventId,
-          message: error instanceof Error ? error.message : String(error)
-        }));
+      } catch (err) {
+        console.error(JSON.stringify({ event: "queue.process_error", message: err instanceof Error ? err.message : "unknown" }));
         message.retry();
       }
     }
   }
-} satisfies ExportedHandler<Env>;
+};
 
-export default Sentry.withSentry((env: Env) => ({
-  dsn: env.SENTRY_DSN,
-  environment: env.ENVIRONMENT,
-  tracesSampleRate: env.ENVIRONMENT === "production" ? 0.1 : 0
-}), worker);
+export default Sentry.withSentry(
+  (env: Env) => ({
+    dsn: env.SENTRY_DSN,
+    environment: env.ENVIRONMENT || "development",
+    tracesSampleRate: 0.1
+  }),
+  worker
+);
 
 export { DocumentRoom, RateLimiter };
