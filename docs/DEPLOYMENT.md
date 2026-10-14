@@ -37,7 +37,7 @@ Before deployment, validate that the API's access token has that audience and th
 Set the following **repository variables** after the actual Worker URL and Auth0 tenant are known:
 
 - `CLOUDFLARE_DEPLOY_ENABLED=true`
-- `NEXT_PUBLIC_API_URL` = the actual deployed Worker URL
+- `NEXT_PUBLIC_API_URL=https://collab-docs-api-production.collab-docs-b1o.workers.dev` (the Worker will serve this URL after the gated deployment runs)
 - `NEXT_PUBLIC_OIDC_AUTHORIZATION_URL`
 - `NEXT_PUBLIC_OIDC_TOKEN_URL`
 - `NEXT_PUBLIC_OIDC_CLIENT_ID`
