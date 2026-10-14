@@ -62,18 +62,14 @@ async function ensureIdentity(env: Env, identity: Identity): Promise<void> {
     "INSERT OR IGNORE INTO users (id, email, display_name) VALUES (?, ?, ?)"
   ).bind(identity.id, identity.email, identity.name.slice(0, 120)).run();
 
-  const workspace = await env.DB.prepare(
-    "SELECT workspace_id FROM workspace_members WHERE user_id = ? LIMIT 1"
-  ).bind(identity.id).first<{ workspace_id: string }>();
-  if (!workspace) {
-    const workspaceId = crypto.randomUUID();
-    await env.DB.prepare(
-      "INSERT INTO workspaces (id, name, created_by) VALUES (?, ?, ?)"
-    ).bind(workspaceId, "Personal workspace", identity.id).run();
-    await env.DB.prepare(
-      "INSERT INTO workspace_members (workspace_id, user_id, role_id) VALUES (?, ?, 'role-owner')"
-    ).bind(workspaceId, identity.id).run();
-  }
+  // Deterministic key + INSERT OR IGNORE makes concurrent first requests safe.
+  const workspaceId = "personal:" + identity.id;
+  await env.DB.prepare(
+    "INSERT OR IGNORE INTO workspaces (id, name, created_by) VALUES (?, ?, ?)"
+  ).bind(workspaceId, "Personal workspace", identity.id).run();
+  await env.DB.prepare(
+    "INSERT OR IGNORE INTO workspace_members (workspace_id, user_id, role_id) VALUES (?, ?, 'role-owner')"
+  ).bind(workspaceId, identity.id).run();
 }
 
 async function roleForDocument(env: Env, documentId: string, userId: string): Promise<string | null> {
@@ -131,6 +127,28 @@ async function route(request: Request, env: Env): Promise<Response> {
     return response(request, env, { error: "Not found" }, 404);
   }
 
+  if (parts.length === 4 && parts[2] && parts[3] === "socket" && request.headers.get("Upgrade")?.toLowerCase() === "websocket") {
+    const documentId = parts[2];
+    const ticket = url.searchParams.get("ticket");
+    if (!ticket) throw new HttpError(401, "WebSocket ticket required");
+    const raw = await env.SESSIONS.get("ticket:" + ticket);
+    if (!raw) throw new HttpError(401, "Ticket expired or already used");
+    const payload = JSON.parse(raw) as { documentId: string; userId: string; role: string; expiresAt: number };
+    if (payload.documentId !== documentId || payload.expiresAt <= Date.now()) {
+      await env.SESSIONS.delete("ticket:" + ticket);
+      throw new HttpError(401, "Ticket is invalid");
+    }
+    await env.SESSIONS.delete("ticket:" + ticket);
+    const forwarded = new Request(request, { headers: new Headers(request.headers) });
+    forwarded.headers.set("x-ticket-id", ticket);
+    forwarded.headers.set("x-user-id", payload.userId);
+    forwarded.headers.set("x-user-role", payload.role);
+    const roomUrl = new URL(forwarded.url);
+    roomUrl.searchParams.set("documentId", documentId);
+    const roomRequest = new Request(roomUrl.toString(), { method: "GET", headers: forwarded.headers });
+    return roomFor(env, documentId).fetch(roomRequest);
+  }
+
   const identity = await authenticate(request, env);
   await ensureIdentity(env, identity);
 
@@ -145,15 +163,26 @@ async function route(request: Request, env: Env): Promise<Response> {
       "SELECT workspace_id FROM workspace_members WHERE user_id = ? ORDER BY created_at ASC LIMIT 1"
     ).bind(identity.id).first<{ workspace_id: string }>();
     if (!workspace) throw new HttpError(500, "User workspace could not be initialized");
-    const documentId = crypto.randomUUID();
+    const idempotencyKey = request.headers.get("Idempotency-Key");
+    if (idempotencyKey && idempotencyKey.length > 200) throw new HttpError(400, "Idempotency-Key is too long");
+    let documentId = crypto.randomUUID();
+    if (idempotencyKey) {
+      const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(identity.id + ":" + idempotencyKey));
+      const hex = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+      documentId = "idem_" + hex;
+    }
     await env.DB.prepare(
-      "INSERT INTO documents (id, workspace_id, title, created_by) VALUES (?, ?, ?, ?)"
+      "INSERT OR IGNORE INTO documents (id, workspace_id, title, created_by) VALUES (?, ?, ?, ?)"
     ).bind(documentId, workspace.workspace_id, title, identity.id).run();
+    const savedDocument = await env.DB.prepare(
+      "SELECT id, title, updated_at FROM documents WHERE id = ? AND created_by = ?"
+    ).bind(documentId, identity.id).first<{ id: string; title: string; updated_at: string }>();
+    if (!savedDocument) throw new HttpError(500, "Document could not be created");
     await env.DB.prepare(
       "INSERT OR IGNORE INTO audit_log (event_id, user_id, document_id, action, payload_json) VALUES (?, ?, ?, ?, ?)"
-    ).bind("document.created:" + documentId, identity.id, documentId, "document.created", JSON.stringify({ title })).run();
+    ).bind("document.created:" + documentId, identity.id, documentId, "document.created", JSON.stringify({ title: savedDocument.title })).run();
     return response(request, env, {
-      document: { id: documentId, title, updated_at: new Date().toISOString(), workspace_name: "Personal workspace", role: "owner" }
+      document: { ...savedDocument, workspace_name: "Personal workspace", role: "owner" }
     }, 201);
   }
 
@@ -181,27 +210,7 @@ async function route(request: Request, env: Env): Promise<Response> {
     return response(request, env, { ticket, expiresIn: 60 });
   }
 
-  if (parts.length === 4 && parts[2] && parts[3] === "socket" && request.headers.get("Upgrade")?.toLowerCase() === "websocket") {
-    const documentId = parts[2];
-    const ticket = url.searchParams.get("ticket");
-    if (!ticket) throw new HttpError(401, "WebSocket ticket required");
-    const raw = await env.SESSIONS.get("ticket:" + ticket);
-    if (!raw) throw new HttpError(401, "Ticket expired or already used");
-    const payload = JSON.parse(raw) as { documentId: string; userId: string; role: string; expiresAt: number };
-    if (payload.documentId !== documentId || payload.expiresAt <= Date.now()) {
-      await env.SESSIONS.delete("ticket:" + ticket);
-      throw new HttpError(401, "Ticket is invalid");
-    }
-    await env.SESSIONS.delete("ticket:" + ticket);
-    const forwarded = new Request(request, { headers: new Headers(request.headers) });
-    forwarded.headers.set("x-ticket-id", ticket);
-    forwarded.headers.set("x-user-id", payload.userId);
-    forwarded.headers.set("x-user-role", payload.role);
-    const roomUrl = new URL(forwarded.url);
-    roomUrl.searchParams.set("documentId", documentId);
-    const roomRequest = new Request(roomUrl.toString(), { method: "GET", headers: forwarded.headers });
-    return roomFor(env, documentId).fetch(roomRequest);
-  }
+
 
   if (parts.length === 3 && parts[2] && request.method === "PATCH") {
     const documentId = parts[2];
