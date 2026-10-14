@@ -145,7 +145,11 @@ export class DocumentRoom {
         socket.send(JSON.stringify({ type: "error", error: "read_only" }));
         return;
       }
-      if (message.update) await this.applyAndPersist(socket, attachment, message.update);
+      if (message.update && message.update.length <= 2_800_000) {
+        await this.applyAndPersist(socket, attachment, message.update);
+      } else if (message.update) {
+        socket.send(JSON.stringify({ type: "error", error: "update_too_large" }));
+      }
     }
   }
 
