@@ -7,6 +7,18 @@ import { DocumentRoom } from "./document-room";
 import { RateLimiter } from "./rate-limiter";
 
 type Identity = { id: string; email: string | null; name: string };
+
+function isDocumentEvent(value: unknown): value is DocumentEvent {
+  if (!value || typeof value !== "object") return false;
+  const event = value as Record<string, unknown>;
+  return event.type === "document.updated" &&
+    typeof event.eventId === "string" &&
+    typeof event.documentId === "string" &&
+    typeof event.userId === "string" &&
+    typeof event.updateNumber === "number" &&
+    Number.isFinite(event.updateNumber) &&
+    typeof event.occurredAt === "string";
+}
 type DocumentRow = { id: string; title: string; updated_at: string; workspace_name?: string; role?: string };
 class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -332,60 +344,57 @@ const worker = {
   async queue(batch: MessageBatch<unknown>, env: Env): Promise<void> {
     for (const message of batch.messages) {
       const body: unknown = message.body;
-      if (
-        !body ||
-        typeof body !== "object" ||
-        !("eventId" in body) ||
-        typeof body.eventId !== "string" ||
-        !("type" in body) ||
-        body.type !== "document.updated" ||
-        !("documentId" in body) ||
-        typeof body.documentId !== "string" ||
-        !("userId" in body) ||
-        typeof body.userId !== "string" ||
-        !("updateNumber" in body) ||
-        typeof body.updateNumber !== "number" ||
-        !("occurredAt" in body) ||
-        typeof body.occurredAt !== "string"
-      ) {
+      if (!isDocumentEvent(body)) {
         console.error(JSON.stringify({ event: "queue.invalid_message" }));
         message.retry();
         continue;
       }
-      const event = body as DocumentEvent;
+
+      const event = body;
       try {
-          message.ack();
-          continue;
-        }
+        // The audit insert is idempotent, while metadata refresh may safely run on redelivery.
+        await env.DB.prepare(
+          "INSERT OR IGNORE INTO audit_log (event_id, user_id, document_id, action, occurred_at, payload_json) VALUES (?, ?, ?, ?, ?, ?)"
+        ).bind(
+          event.eventId,
+          event.userId,
+          event.documentId,
+          event.type,
+          event.occurredAt,
+          JSON.stringify({ updateNumber: event.updateNumber })
+        ).run();
+
         await env.DB.prepare(
           "UPDATE documents SET updated_at = CURRENT_TIMESTAMP WHERE id = ?"
         ).bind(event.documentId).run();
-        await env.DB.prepare(
-          "INSERT OR IGNORE INTO audit_log (event_id, user_id, document_id, action, occurred_at, payload_json) VALUES (?, ?, ?, ?, ?, ?)"
-        ).bind(event.eventId, event.userId, event.documentId, event.type, event.occurredAt, JSON.stringify({ updateNumber: event.updateNumber })).run();
 
         if (env.HYPERDRIVE?.connectionString) {
           const sql = postgres(env.HYPERDRIVE.connectionString, { max: 1, prepare: false, fetch_types: false });
           try {
             await sql.begin(async (tx) => {
-            const inserted = await tx.unsafe(
-              "INSERT INTO user_activity (event_id, user_id, document_id, action, occurred_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (event_id) DO NOTHING RETURNING event_id",
-              [event.eventId, event.userId, event.documentId, event.type, event.occurredAt]
-            );
-            if (inserted.length > 0) {
-              await tx.unsafe(
-                "INSERT INTO document_stats (document_id, update_count, last_updated_at) VALUES ($1, 1, $2) ON CONFLICT (document_id) DO UPDATE SET update_count = document_stats.update_count + 1, last_updated_at = EXCLUDED.last_updated_at",
-                [event.documentId, event.occurredAt]
+              const inserted = await tx.unsafe(
+                "INSERT INTO user_activity (event_id, user_id, document_id, action, occurred_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (event_id) DO NOTHING RETURNING event_id",
+                [event.eventId, event.userId, event.documentId, event.type, event.occurredAt]
               );
-            }
-          });
+              if (inserted.length > 0) {
+                await tx.unsafe(
+                  "INSERT INTO document_stats (document_id, update_count, last_updated_at) VALUES ($1, 1, $2) ON CONFLICT (document_id) DO UPDATE SET update_count = document_stats.update_count + 1, last_updated_at = EXCLUDED.last_updated_at",
+                  [event.documentId, event.occurredAt]
+                );
+              }
+            });
           } finally {
             await sql.end({ timeout: 1 });
           }
         }
+
         message.ack();
       } catch (error) {
-        console.error(JSON.stringify({ event: "queue.consume_failed", eventId: event.eventId, message: String(error) }));
+        console.error(JSON.stringify({
+          event: "queue.consume_failed",
+          eventId: event.eventId,
+          message: error instanceof Error ? error.message : String(error)
+        }));
         message.retry();
       }
     }
