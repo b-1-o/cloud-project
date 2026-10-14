@@ -4,14 +4,25 @@ import { useEffect, useRef, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Collaboration from "@tiptap/extension-collaboration";
+import Underline from "@tiptap/extension-underline";
+import Placeholder from "@tiptap/extension-placeholder";
 import * as Y from "yjs";
 import { getAccessToken } from "@/lib/auth";
 import { IndexeddbPersistence } from "y-indexeddb";
 
-type Props = { documentId: string; initialTitle: string; apiBase: string; readOnly?: boolean; onTitleChange: (title: string) => void };
+type Props = {
+  documentId: string;
+  initialTitle: string;
+  apiBase: string;
+  readOnly?: boolean;
+  onTitleChange: (title: string) => void;
+  onDeleteRequest?: () => void;
+};
+
 type TicketResponse = { ticket: string; expiresIn: number };
 
 const MAX_ENCODED_UPDATE = 2_800_000;
+
 function encode(data: Uint8Array) {
   let binary = "";
   const chunk = 0x8000;
@@ -20,6 +31,7 @@ function encode(data: Uint8Array) {
   }
   return btoa(binary);
 }
+
 function decode(value: string) {
   if (value.length > MAX_ENCODED_UPDATE) throw new Error("Collaboration update is too large");
   const binary = atob(value);
@@ -28,22 +40,53 @@ function decode(value: string) {
   return bytes;
 }
 
-export function CollabEditor({ documentId, initialTitle, apiBase, readOnly = false, onTitleChange }: Props) {
+export function CollabEditor({
+  documentId,
+  initialTitle,
+  apiBase,
+  readOnly = false,
+  onTitleChange,
+  onDeleteRequest,
+}: Props) {
   const [title, setTitle] = useState(initialTitle);
   const [connection, setConnection] = useState<"connecting" | "live" | "offline">("connecting");
   const [wordCount, setWordCount] = useState(0);
   const [doc] = useState(() => new Y.Doc());
+  const [menuOpen, setMenuOpen] = useState(false);
   const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const editor = useEditor({
-    immediatelyRender: false,
-    editable: !readOnly,
-    extensions: [StarterKit.configure({ history: false }), Collaboration.configure({ document: doc })],
-    editorProps: { attributes: { class: "tiptap-editor", "aria-label": "Document editor" } },
-    onUpdate: ({ editor: instance }) => {
-      const text = instance.getText().trim();
-      setWordCount(text ? text.split(/\s+/).length : 0);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const editor = useEditor(
+    {
+      immediatelyRender: false,
+      editable: !readOnly,
+      extensions: [
+        StarterKit.configure({ history: false }),
+        Underline,
+        Placeholder.configure({ placeholder: "Start writing something wonderful…" }),
+        Collaboration.configure({ document: doc }),
+      ],
+      editorProps: {
+        attributes: {
+          class: "tiptap-editor",
+          "aria-label": "Document editor",
+        },
+      },
+      onUpdate: ({ editor: instance }) => {
+        const text = instance.getText().trim();
+        setWordCount(text ? text.split(/\s+/).length : 0);
+      },
     },
-  }, [doc, readOnly]);
+    [doc, readOnly]
+  );
+
+  useEffect(() => {
+    function onOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onOutside);
+    return () => document.removeEventListener("mousedown", onOutside);
+  }, []);
 
   useEffect(() => {
     let socket: WebSocket | null = null;
@@ -57,7 +100,7 @@ export function CollabEditor({ documentId, initialTitle, apiBase, readOnly = fal
     const scheduleReconnect = () => {
       if (disposed || retryTimer) return;
       setConnection("offline");
-      const delay = Math.min(30_000, 1_000 * (2 ** Math.min(reconnectAttempt, 5)));
+      const delay = Math.min(30_000, 1_000 * 2 ** Math.min(reconnectAttempt, 5));
       reconnectAttempt += 1;
       retryTimer = setTimeout(() => {
         retryTimer = null;
@@ -73,12 +116,12 @@ export function CollabEditor({ documentId, initialTitle, apiBase, readOnly = fal
         await persistence.whenSynced;
         if (disposed) return;
         const token = await getAccessToken();
-        const response = await fetch(apiBase + "/api/documents/" + encodeURIComponent(documentId) + "/ticket", {
-          method: "POST",
-          headers: token ? { Authorization: "Bearer " + token } : {},
-        });
+        const response = await fetch(
+          apiBase + "/api/documents/" + encodeURIComponent(documentId) + "/ticket",
+          { method: "POST", headers: token ? { Authorization: "Bearer " + token } : {} }
+        );
         if (!response.ok) throw new Error("Collaboration ticket request failed (" + response.status + ")");
-        const { ticket } = await response.json() as TicketResponse;
+        const { ticket } = (await response.json()) as TicketResponse;
         if (disposed) return;
 
         const url = new URL(apiBase || window.location.origin);
@@ -100,13 +143,22 @@ export function CollabEditor({ documentId, initialTitle, apiBase, readOnly = fal
         };
         socket.onmessage = (event) => {
           try {
-            const message = JSON.parse(String(event.data)) as { type: string; update?: string; state?: string; error?: string };
-            if (message.type === "pong") { lastPongAt = Date.now(); return; }
+            const message = JSON.parse(String(event.data)) as {
+              type: string;
+              update?: string;
+              state?: string;
+              error?: string;
+            };
+            if (message.type === "pong") {
+              lastPongAt = Date.now();
+              return;
+            }
             if (message.type === "sync" && message.state) Y.applyUpdate(doc, decode(message.state), "remote");
-            if (message.type === "update" && message.update) Y.applyUpdate(doc, decode(message.update), "remote");
+            if (message.type === "update" && message.update)
+              Y.applyUpdate(doc, decode(message.update), "remote");
             if (message.type === "error" && message.error === "read_only") setConnection("live");
-          } catch (err) {
-            console.error("Invalid collaboration message", err);
+          } catch {
+            /* ignore malformed messages */
           }
         };
         socket.onclose = () => {
@@ -115,15 +167,16 @@ export function CollabEditor({ documentId, initialTitle, apiBase, readOnly = fal
         };
         socket.onerror = () => {
           connecting = false;
-          try { socket?.close(); } catch { /* the socket may already be closed */ }
+          try {
+            socket?.close();
+          } catch {
+            /* already closed */
+          }
           scheduleReconnect();
         };
-      } catch (err) {
+      } catch {
         connecting = false;
-        if (!disposed) {
-          console.warn("Collaboration connection unavailable; local edits remain saved", err);
-          scheduleReconnect();
-        }
+        if (!disposed) scheduleReconnect();
       }
     }
 
@@ -147,7 +200,11 @@ export function CollabEditor({ documentId, initialTitle, apiBase, readOnly = fal
           socket.close(4000, "Heartbeat timeout");
           return;
         }
-        try { socket.send(JSON.stringify({ type: "ping", at: Date.now() })); } catch { socket.close(); }
+        try {
+          socket.send(JSON.stringify({ type: "ping", at: Date.now() }));
+        } catch {
+          socket.close();
+        }
       }
     }, 25_000);
 
@@ -158,7 +215,11 @@ export function CollabEditor({ documentId, initialTitle, apiBase, readOnly = fal
         retryTimer = null;
       }
       if (socket?.readyState === WebSocket.OPEN) return;
-      try { socket?.close(); } catch { /* already closed */ }
+      try {
+        socket?.close();
+      } catch {
+        /* already closed */
+      }
       void connect();
     };
 
@@ -174,7 +235,11 @@ export function CollabEditor({ documentId, initialTitle, apiBase, readOnly = fal
       if (titleTimer.current) clearTimeout(titleTimer.current);
       titleTimer.current = null;
       doc.off("update", onUpdate);
-      try { socket?.close(1000, "Document editor unmounted"); } catch { /* already closed */ }
+      try {
+        socket?.close(1000, "Document editor unmounted");
+      } catch {
+        /* already closed */
+      }
       persistence.destroy();
       doc.destroy();
     };
@@ -187,40 +252,228 @@ export function CollabEditor({ documentId, initialTitle, apiBase, readOnly = fal
     onTitleChange(next);
     if (titleTimer.current) clearTimeout(titleTimer.current);
     titleTimer.current = setTimeout(() => {
-      void getAccessToken().then((token) =>
-        fetch(apiBase + "/api/documents/" + encodeURIComponent(documentId), {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            "Idempotency-Key": crypto.randomUUID(),
-            ...(token ? { Authorization: "Bearer " + token } : {}),
-          },
-          body: JSON.stringify({ title: next }),
-        }).then((response) => {
-          if (!response.ok) throw new Error("Title update failed (" + response.status + ")");
-        })
-      ).catch((err) => console.warn("Title update failed", err));
+      void getAccessToken()
+        .then((token) =>
+          fetch(apiBase + "/api/documents/" + encodeURIComponent(documentId), {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              "Idempotency-Key": crypto.randomUUID(),
+              ...(token ? { Authorization: "Bearer " + token } : {}),
+            },
+            body: JSON.stringify({ title: next }),
+          }).then((response) => {
+            if (!response.ok) throw new Error("Title update failed (" + response.status + ")");
+          })
+        )
+        .catch(() => {
+          /* title will retry on next edit */
+        });
     }, 350);
+  }
+
+  function toolClass(active: boolean) {
+    return active ? "tool active-tool" : "tool";
   }
 
   return (
     <div className="editor-layout">
-      <div className="editor-meta"><div className="doc-badge">DOC</div><div><div className="editor-subtitle">DOCUMENT</div><input className="title-input" aria-label="Document title" value={title} maxLength={120} readOnly={readOnly} onChange={(event) => changeTitle(event.target.value)} /></div></div>
-      <div className="editor-toolbar">
-        <div className="toolbar-left">
-          <button className={editor?.isActive("bold") ? "tool active-tool" : "tool"} onClick={() => editor?.chain().focus().toggleBold().run()} disabled={readOnly} aria-label="Bold"><strong>B</strong></button>
-          <button className={editor?.isActive("italic") ? "tool active-tool" : "tool"} onClick={() => editor?.chain().focus().toggleItalic().run()} disabled={readOnly} aria-label="Italic"><em>I</em></button>
-          <span className="tool-divider" />
-          <button className={editor?.isActive("heading", { level: 1 }) ? "tool active-tool" : "tool"} onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()} disabled={readOnly} aria-label="Heading 1">H1</button>
-          <button className={editor?.isActive("heading", { level: 2 }) ? "tool active-tool" : "tool"} onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()} disabled={readOnly} aria-label="Heading 2">H2</button>
-          <span className="tool-divider" />
-          <button className="tool" onClick={() => editor?.chain().focus().toggleBulletList().run()} disabled={readOnly} aria-label="Bullet list">☷</button>
-          <button className="tool" onClick={() => editor?.chain().focus().toggleBlockquote().run()} disabled={readOnly} aria-label="Quote">❞</button>
+      <div className="editor-meta">
+        <div className="doc-badge">DOC</div>
+        <div className="editor-title-wrap">
+          <div className="editor-subtitle">DOCUMENT</div>
+          <input
+            className="title-input"
+            aria-label="Document title"
+            value={title}
+            maxLength={120}
+            readOnly={readOnly}
+            onChange={(e) => changeTitle(e.target.value)}
+          />
         </div>
-        <div className="connection-status"><span className={"status-dot " + connection} />{connection === "live" ? "Live sync" : connection === "offline" ? "Offline · saved locally" : "Connecting…"}</div>
+        <div className="editor-meta-actions" ref={menuRef}>
+          <button
+            type="button"
+            className="editor-more-btn"
+            aria-label="Document menu"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((o) => !o)}
+          >
+            ···
+          </button>
+          {menuOpen && (
+            <div className="editor-dropdown" role="menu">
+              <button
+                type="button"
+                role="menuitem"
+                className="danger-item"
+                disabled={readOnly || !onDeleteRequest}
+                onClick={() => {
+                  setMenuOpen(false);
+                  onDeleteRequest?.();
+                }}
+              >
+                Delete document…
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-      <div className="paper-wrap"><div className="paper"><EditorContent editor={editor} /></div></div>
-      <footer className="editor-footer"><span><span className="green-dot" /> {connection === "live" ? "All changes synced" : "Changes saved on this device"}</span><span>{wordCount} words <i>·</i> {connection === "offline" ? "Offline mode" : "Private workspace"}</span></footer>
+
+      <div className="editor-toolbar" role="toolbar" aria-label="Formatting">
+        <div className="toolbar-left">
+          <button
+            type="button"
+            className={toolClass(editor?.isActive("bold") ?? false)}
+            onClick={() => editor?.chain().focus().toggleBold().run()}
+            disabled={readOnly}
+            aria-label="Bold"
+            aria-pressed={editor?.isActive("bold")}
+          >
+            <strong>B</strong>
+          </button>
+          <button
+            type="button"
+            className={toolClass(editor?.isActive("italic") ?? false)}
+            onClick={() => editor?.chain().focus().toggleItalic().run()}
+            disabled={readOnly}
+            aria-label="Italic"
+            aria-pressed={editor?.isActive("italic")}
+          >
+            <em>I</em>
+          </button>
+          <button
+            type="button"
+            className={toolClass(editor?.isActive("underline") ?? false)}
+            onClick={() => editor?.chain().focus().toggleUnderline().run()}
+            disabled={readOnly}
+            aria-label="Underline"
+            aria-pressed={editor?.isActive("underline")}
+          >
+            <span style={{ textDecoration: "underline" }}>U</span>
+          </button>
+          <button
+            type="button"
+            className={toolClass(editor?.isActive("strike") ?? false)}
+            onClick={() => editor?.chain().focus().toggleStrike().run()}
+            disabled={readOnly}
+            aria-label="Strikethrough"
+            aria-pressed={editor?.isActive("strike")}
+          >
+            <span style={{ textDecoration: "line-through" }}>S</span>
+          </button>
+          <button
+            type="button"
+            className={toolClass(editor?.isActive("code") ?? false)}
+            onClick={() => editor?.chain().focus().toggleCode().run()}
+            disabled={readOnly}
+            aria-label="Inline code"
+            aria-pressed={editor?.isActive("code")}
+          >
+            {"</>"}
+          </button>
+          <span className="tool-divider" />
+          <button
+            type="button"
+            className={toolClass(editor?.isActive("heading", { level: 1 }) ?? false)}
+            onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
+            disabled={readOnly}
+            aria-label="Heading 1"
+          >
+            H1
+          </button>
+          <button
+            type="button"
+            className={toolClass(editor?.isActive("heading", { level: 2 }) ?? false)}
+            onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
+            disabled={readOnly}
+            aria-label="Heading 2"
+          >
+            H2
+          </button>
+          <button
+            type="button"
+            className={toolClass(editor?.isActive("heading", { level: 3 }) ?? false)}
+            onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}
+            disabled={readOnly}
+            aria-label="Heading 3"
+          >
+            H3
+          </button>
+          <span className="tool-divider" />
+          <button
+            type="button"
+            className={toolClass(editor?.isActive("bulletList") ?? false)}
+            onClick={() => editor?.chain().focus().toggleBulletList().run()}
+            disabled={readOnly}
+            aria-label="Bullet list"
+          >
+            • List
+          </button>
+          <button
+            type="button"
+            className={toolClass(editor?.isActive("orderedList") ?? false)}
+            onClick={() => editor?.chain().focus().toggleOrderedList().run()}
+            disabled={readOnly}
+            aria-label="Ordered list"
+          >
+            1. List
+          </button>
+          <button
+            type="button"
+            className={toolClass(editor?.isActive("blockquote") ?? false)}
+            onClick={() => editor?.chain().focus().toggleBlockquote().run()}
+            disabled={readOnly}
+            aria-label="Quote"
+          >
+            ❝
+          </button>
+          <button
+            type="button"
+            className={toolClass(editor?.isActive("codeBlock") ?? false)}
+            onClick={() => editor?.chain().focus().toggleCodeBlock().run()}
+            disabled={readOnly}
+            aria-label="Code block"
+          >
+            Code
+          </button>
+          <span className="tool-divider" />
+          <button
+            type="button"
+            className="tool"
+            onClick={() => editor?.chain().focus().setHorizontalRule().run()}
+            disabled={readOnly}
+            aria-label="Horizontal rule"
+          >
+            —
+          </button>
+        </div>
+        <div className="connection-status" role="status" aria-live="polite">
+          <span className={"status-dot " + connection} />
+          {connection === "live"
+            ? "Live sync"
+            : connection === "offline"
+              ? "Offline · saved locally"
+              : "Connecting…"}
+        </div>
+      </div>
+
+      <div className="paper-wrap">
+        <div className="paper">
+          <EditorContent editor={editor} />
+        </div>
+      </div>
+
+      <footer className="editor-footer">
+        <span>
+          <span className="green-dot" />{" "}
+          {connection === "live" ? "All changes synced" : "Changes saved on this device"}
+        </span>
+        <span>
+          {wordCount} words <i>·</i>{" "}
+          {connection === "offline" ? "Offline mode" : "Private workspace"}
+        </span>
+      </footer>
     </div>
   );
 }
