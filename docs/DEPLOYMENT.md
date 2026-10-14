@@ -17,7 +17,7 @@ Resource IDs are recorded in `backend/wrangler.jsonc` after provisioning. The cu
 3. Configure Worker secrets `AUTH_JWKS_URL`, `AUTH_ISSUER`, and `AUTH_AUDIENCE` for your identity provider. Do not use demo mode in production.
 4. Build the static site with `NEXT_PUBLIC_API_URL=https://<worker-host>`; set the Worker `FRONTEND_ORIGIN=https://collab-docs-4tb.pages.dev`.
 5. Configure Hyperdrive to the Neon database via Dashboard, then add its ID to the Wrangler Hyperdrive binding and add the Postgres client dependency.
-6. Configure Sentry project/DSN in its dashboard and Grafana OTLP credentials before claiming external telemetry is live.
+6. Configure Sentry project/DSN in its dashboard and Grafana OTLP credentials before claiming external telemetry is live. For GitHub deployment set Actions variable `CLOUDFLARE_DEPLOY_ENABLED=true`; without this opt-in, deploy jobs are skipped. Add `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, and `SENTRY_PROJECT` as repository variables and `SENTRY_AUTH_TOKEN` as a secret if using Sentry source-map uploads.
 
 ## Deploy
 
