@@ -9,7 +9,7 @@
     "db:migrate:local": "wrangler d1 migrations apply collab-docs-db --local --config wrangler.jsonc",
     "db:migrate:remote": "wrangler d1 migrations apply collab-docs-db --remote --config wrangler.jsonc"
   },
-  "dependencies": { "jose": "^6.1.0", "postgres": "^3.4.7", "yjs": "^13.6.27" },
+  "dependencies": { "@sentry/cloudflare": "^11.6.0", "jose": "^6.1.0", "postgres": "^3.4.7", "yjs": "^13.6.27" },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20261010.0",
     "typescript": "^5.9.2",
