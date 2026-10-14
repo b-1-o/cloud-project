@@ -16,6 +16,7 @@ export interface Env {
   SNAPSHOTS?: R2Bucket;
   DOCUMENT_EVENTS: Queue<DocumentEvent>;
   DOC_ROOMS: DurableObjectNamespace;
+  RATE_LIMITERS: DurableObjectNamespace;
   ENVIRONMENT: string;
   AUTH_MODE?: string;
   AUTH_JWKS_URL?: string;
@@ -23,6 +24,7 @@ export interface Env {
   AUTH_AUDIENCE?: string;
   FRONTEND_ORIGIN?: string;
   APP_VERSION?: string;
+  SENTRY_DSN?: string;
   HYPERDRIVE?: { connectionString: string };
 }
 
