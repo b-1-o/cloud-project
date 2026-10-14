@@ -1,0 +1,267 @@
+import { createRemoteJWKSet, jwtVerify } from "jose";
+import postgres from "postgres";
+import { canEdit, canRead, normalizeTitle } from "./access";
+import type { DocumentEvent, Env } from "./document-room";
+import { DocumentRoom } from "./document-room";
+
+type Identity = { id: string; email: string | null; name: string };
+type DocumentRow = { id: string; title: string; updated_at: string; workspace_name?: string; role?: string };
+class HttpError extends Error {
+  constructor(public status: number, message: string) { super(message); }
+}
+const jwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
+
+function response(request: Request, env: Env, value: unknown, status = 200): Response {
+  const origin = env.FRONTEND_ORIGIN || "*";
+  const headers = new Headers({
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Methods": "GET,POST,PATCH,OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type,Authorization",
+    "Vary": "Origin"
+  });
+  return new Response(JSON.stringify(value), { status, headers });
+}
+
+async function authenticate(request: Request, env: Env): Promise<Identity> {
+  if (env.ENVIRONMENT !== "production" && env.AUTH_MODE === "demo") {
+    return { id: "demo-user", email: "demo@localhost", name: "Local Demo" };
+  }
+  const authorization = request.headers.get("Authorization") || "";
+  const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
+  if (!token) throw new HttpError(401, "Authentication required");
+  if (!env.AUTH_JWKS_URL || !env.AUTH_ISSUER || !env.AUTH_AUDIENCE) {
+    throw new HttpError(503, "Identity provider is not configured");
+  }
+  try {
+    let keySet = jwksCache.get(env.AUTH_JWKS_URL);
+    if (!keySet) {
+      keySet = createRemoteJWKSet(new URL(env.AUTH_JWKS_URL));
+      jwksCache.set(env.AUTH_JWKS_URL, keySet);
+    }
+    const verified = await jwtVerify(token, keySet, {
+      issuer: env.AUTH_ISSUER,
+      audience: env.AUTH_AUDIENCE
+    });
+    const sub = verified.payload.sub;
+    if (!sub) throw new HttpError(401, "Token subject is missing");
+    const email = typeof verified.payload.email === "string" ? verified.payload.email : null;
+    const name = typeof verified.payload.name === "string" ? verified.payload.name : (email || sub);
+    return { id: sub, email, name };
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
+    throw new HttpError(401, "Invalid access token");
+  }
+}
+
+async function ensureIdentity(env: Env, identity: Identity): Promise<void> {
+  await env.DB.prepare(
+    "INSERT OR IGNORE INTO users (id, email, display_name) VALUES (?, ?, ?)"
+  ).bind(identity.id, identity.email, identity.name.slice(0, 120)).run();
+
+  const workspace = await env.DB.prepare(
+    "SELECT workspace_id FROM workspace_members WHERE user_id = ? LIMIT 1"
+  ).bind(identity.id).first<{ workspace_id: string }>();
+  if (!workspace) {
+    const workspaceId = crypto.randomUUID();
+    await env.DB.prepare(
+      "INSERT INTO workspaces (id, name, created_by) VALUES (?, ?, ?)"
+    ).bind(workspaceId, "Personal workspace", identity.id).run();
+    await env.DB.prepare(
+      "INSERT INTO workspace_members (workspace_id, user_id, role_id) VALUES (?, ?, 'role-owner')"
+    ).bind(workspaceId, identity.id).run();
+  }
+}
+
+async function roleForDocument(env: Env, documentId: string, userId: string): Promise<string | null> {
+  const result = await env.DB.prepare(
+    "SELECT COALESCE(document_role.name, workspace_role.name) AS role " +
+    "FROM documents d " +
+    "JOIN workspace_members wm ON wm.workspace_id = d.workspace_id AND wm.user_id = ? " +
+    "JOIN roles workspace_role ON workspace_role.id = wm.role_id " +
+    "LEFT JOIN document_members dm ON dm.document_id = d.id AND dm.user_id = ? " +
+    "LEFT JOIN roles document_role ON document_role.id = dm.role_id " +
+    "WHERE d.id = ?"
+  ).bind(userId, userId, documentId).first<{ role: string }>();
+  return result?.role ?? null;
+}
+
+async function listDocuments(env: Env, userId: string): Promise<DocumentRow[]> {
+  const result = await env.DB.prepare(
+    "SELECT DISTINCT d.id, d.title, d.updated_at, w.name AS workspace_name, " +
+    "COALESCE(document_role.name, workspace_role.name) AS role " +
+    "FROM documents d JOIN workspaces w ON w.id = d.workspace_id " +
+    "JOIN workspace_members wm ON wm.workspace_id = w.id AND wm.user_id = ? " +
+    "JOIN roles workspace_role ON workspace_role.id = wm.role_id " +
+    "LEFT JOIN document_members dm ON dm.document_id = d.id AND dm.user_id = ? " +
+    "LEFT JOIN roles document_role ON document_role.id = dm.role_id " +
+    "ORDER BY d.updated_at DESC LIMIT 100"
+  ).bind(userId, userId).all<DocumentRow>();
+  return result.results;
+}
+
+function roomFor(env: Env, documentId: string) {
+  return env.DOC_ROOMS.get(env.DOC_ROOMS.idFromName(documentId));
+}
+
+async function route(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const parts = url.pathname.split("/").filter(Boolean);
+  if (request.method === "OPTIONS") {
+    return response(request, env, {}, 204);
+  }
+  if (url.pathname === "/api/health" && request.method === "GET") {
+    return response(request, env, { ok: true, service: "collab-docs-api", version: env.APP_VERSION || "dev" });
+  }
+
+  if (parts[0] !== "api" || parts[1] !== "documents") {
+    return response(request, env, { error: "Not found" }, 404);
+  }
+
+  const identity = await authenticate(request, env);
+  await ensureIdentity(env, identity);
+
+  if (parts.length === 2 && request.method === "GET") {
+    return response(request, env, { documents: await listDocuments(env, identity.id) });
+  }
+
+  if (parts.length === 2 && request.method === "POST") {
+    const body = await request.json().catch(() => ({})) as { title?: unknown };
+    const title = normalizeTitle(body.title) || "Untitled document";
+    const workspace = await env.DB.prepare(
+      "SELECT workspace_id FROM workspace_members WHERE user_id = ? ORDER BY created_at ASC LIMIT 1"
+    ).bind(identity.id).first<{ workspace_id: string }>();
+    if (!workspace) throw new HttpError(500, "User workspace could not be initialized");
+    const documentId = crypto.randomUUID();
+    await env.DB.prepare(
+      "INSERT INTO documents (id, workspace_id, title, created_by) VALUES (?, ?, ?, ?)"
+    ).bind(documentId, workspace.workspace_id, title, identity.id).run();
+    await env.DB.prepare(
+      "INSERT OR IGNORE INTO audit_log (event_id, user_id, document_id, action, payload_json) VALUES (?, ?, ?, ?, ?)"
+    ).bind("document.created:" + documentId, identity.id, documentId, "document.created", JSON.stringify({ title })).run();
+    return response(request, env, {
+      document: { id: documentId, title, updated_at: new Date().toISOString(), workspace_name: "Personal workspace", role: "owner" }
+    }, 201);
+  }
+
+  if (parts.length === 4 && parts[2] && parts[3] === "ticket" && request.method === "POST") {
+    const documentId = parts[2];
+    const role = await roleForDocument(env, documentId, identity.id);
+    if (!role || !canRead(role)) throw new HttpError(404, "Document not found");
+    const ticket = crypto.randomUUID();
+    const expiresAt = Date.now() + 60_000;
+    const payload = { documentId, userId: identity.id, role, expiresAt };
+    await env.SESSIONS.put("ticket:" + ticket, JSON.stringify(payload), { expirationTtl: 60 });
+    const issued = await roomFor(env, documentId).fetch(
+      "https://room.internal/__issue_ticket?documentId=" + encodeURIComponent(documentId),
+      { method: "POST", headers: {
+        "x-ticket-id": ticket,
+        "x-user-id": identity.id,
+        "x-user-role": role,
+        "x-ticket-expiry": String(expiresAt)
+      } }
+    );
+    if (!issued.ok) {
+      await env.SESSIONS.delete("ticket:" + ticket);
+      throw new HttpError(503, "Could not issue collaboration ticket");
+    }
+    return response(request, env, { ticket, expiresIn: 60 });
+  }
+
+  if (parts.length === 4 && parts[2] && parts[3] === "socket" && request.headers.get("Upgrade")?.toLowerCase() === "websocket") {
+    const documentId = parts[2];
+    const ticket = url.searchParams.get("ticket");
+    if (!ticket) throw new HttpError(401, "WebSocket ticket required");
+    const raw = await env.SESSIONS.get("ticket:" + ticket);
+    if (!raw) throw new HttpError(401, "Ticket expired or already used");
+    const payload = JSON.parse(raw) as { documentId: string; userId: string; role: string; expiresAt: number };
+    if (payload.documentId !== documentId || payload.expiresAt <= Date.now()) {
+      await env.SESSIONS.delete("ticket:" + ticket);
+      throw new HttpError(401, "Ticket is invalid");
+    }
+    await env.SESSIONS.delete("ticket:" + ticket);
+    const forwarded = new Request(request, { headers: new Headers(request.headers) });
+    forwarded.headers.set("x-ticket-id", ticket);
+    forwarded.headers.set("x-user-id", payload.userId);
+    forwarded.headers.set("x-user-role", payload.role);
+    const roomUrl = new URL(forwarded.url);
+    roomUrl.searchParams.set("documentId", documentId);
+    const roomRequest = new Request(roomUrl.toString(), forwarded);
+    return roomFor(env, documentId).fetch(roomRequest);
+  }
+
+  if (parts.length === 3 && parts[2] && request.method === "PATCH") {
+    const documentId = parts[2];
+    const role = await roleForDocument(env, documentId, identity.id);
+    if (!role || !canEdit(role)) throw new HttpError(404, "Document not found or read-only");
+    const body = await request.json().catch(() => ({})) as { title?: unknown };
+    const title = normalizeTitle(body.title);
+    if (!title) throw new HttpError(400, "Title must contain 1-120 characters");
+    await env.DB.prepare("UPDATE documents SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+      .bind(title, documentId).run();
+    return response(request, env, { ok: true, title });
+  }
+
+  return response(request, env, { error: "Not found" }, 404);
+}
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const startedAt = Date.now();
+    try {
+      const result = await route(request, env);
+      if (result.status !== 101) {
+        console.log(JSON.stringify({ event: "http.request", method: request.method, path: new URL(request.url).pathname, status: result.status, duration_ms: Date.now() - startedAt }));
+      }
+      return result;
+    } catch (error) {
+      const status = error instanceof HttpError ? error.status : 500;
+      const message = error instanceof Error ? error.message : "Unexpected error";
+      console.error(JSON.stringify({ event: "http.error", status, method: request.method, path: new URL(request.url).pathname, duration_ms: Date.now() - startedAt, message }));
+      return response(request, env, { error: status === 500 ? "Internal server error" : message }, status);
+    }
+  },
+
+  async queue(batch: MessageBatch<DocumentEvent>, env: Env): Promise<void> {
+    for (const message of batch.messages) {
+      const event = message.body;
+      try {
+        if (event.type !== "document.updated") {
+          message.ack();
+          continue;
+        }
+        await env.DB.prepare(
+          "UPDATE documents SET updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+        ).bind(event.documentId).run();
+        await env.DB.prepare(
+          "INSERT OR IGNORE INTO audit_log (event_id, user_id, document_id, action, occurred_at, payload_json) VALUES (?, ?, ?, ?, ?, ?)"
+        ).bind(event.eventId, event.userId, event.documentId, event.type, event.occurredAt, JSON.stringify({ updateNumber: event.updateNumber })).run();
+
+        if (env.HYPERDRIVE?.connectionString) {
+          const sql = postgres(env.HYPERDRIVE.connectionString, { max: 1, prepare: false, fetch_types: false });
+          try {
+            const inserted = await sql.unsafe(
+              "INSERT INTO user_activity (event_id, user_id, document_id, action, occurred_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (event_id) DO NOTHING RETURNING event_id",
+              [event.eventId, event.userId, event.documentId, event.type, event.occurredAt]
+            );
+            if (inserted.length > 0) {
+              await sql.unsafe(
+                "INSERT INTO document_stats (document_id, update_count, last_updated_at) VALUES ($1, 1, $2) ON CONFLICT (document_id) DO UPDATE SET update_count = document_stats.update_count + 1, last_updated_at = EXCLUDED.last_updated_at",
+                [event.documentId, event.occurredAt]
+              );
+            }
+          } finally {
+            await sql.end({ timeout: 1 });
+          }
+        }
+        message.ack();
+      } catch (error) {
+        console.error(JSON.stringify({ event: "queue.consume_failed", eventId: event.eventId, message: String(error) }));
+        message.retry();
+      }
+    }
+  }
+};
+
+export { DocumentRoom };
