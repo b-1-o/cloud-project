@@ -20,7 +20,7 @@ Each `DocumentRoom` Durable Object stores Yjs updates in its SQLite storage. Aft
 
 ## OIDC setup
 
-Auth0 Free is the selected provider for the existing generic OIDC/PKCE client. Create a Single Page Application (public client) and an API whose identifier is exactly `https://collab-docs-api`. Register `https://collab-docs-4tb.pages.dev/` as an allowed callback URL and allow the exact Pages origin for browser token exchange. Do not create or use a browser client secret.
+Auth0 Free is the selected provider for the existing generic OIDC/PKCE client. Create a Single Page Application (public client) and an API whose identifier is exactly `https://collab-docs-api`. Register `https://collab-docs-4tb.pages.dev/` as the allowed callback and logout URL, and allow the exact Pages origin for browser token exchange. Enable Refresh Token Rotation on the SPA and Allow Offline Access on the API. The frontend uses Auth0's SPA SDK with PKCE and the offline_access scope; do not create or use a browser client secret.
 
 The tenant-specific URLs are not known until the tenant is created. For a standard Auth0 tenant they follow these forms, with the tenant domain replacing `YOUR_TENANT_DOMAIN`:
 
@@ -43,7 +43,7 @@ Set the following **repository variables** after the actual Worker URL and Auth0
 - `NEXT_PUBLIC_OIDC_CLIENT_ID`
 - `NEXT_PUBLIC_OIDC_REDIRECT_URI=https://collab-docs-4tb.pages.dev/`
 - `NEXT_PUBLIC_OIDC_AUDIENCE=https://collab-docs-api`
-- Optional: `NEXT_PUBLIC_OIDC_SCOPES=openid profile email`, `NEXT_PUBLIC_SENTRY_DSN`
+- Optional: `NEXT_PUBLIC_OIDC_SCOPES=openid profile email offline_access`, `NEXT_PUBLIC_SENTRY_DSN`
 
 Set these **repository secrets**:
 
