@@ -278,7 +278,7 @@ export class DocumentRoom {
             console.error(JSON.stringify({ event: "snapshot.write_deferred", documentId: attachment.documentId, updateNumber, message: String(error) }));
           }
         } else {
-          console.warn(JSON.stringify({ event: "snapshot.r2_unavailable", documentId: attachment.documentId, updateNumber }));
+          console.log(JSON.stringify({ event: "snapshot.compacted_local_only", documentId: attachment.documentId, updateNumber, externalArchive: "disabled" }));
         }
       }
 
