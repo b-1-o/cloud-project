@@ -14,7 +14,7 @@
   "durable_objects": {
     "bindings": [{ "name": "DOC_ROOMS", "class_name": "DocumentRoom" }]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DocumentRoom"] }],
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DocumentRoom"] }, { "tag": "v2", "new_sqlite_classes": ["RateLimiter"] }],
   "d1_databases": [{
     "binding": "DB",
     "database_name": "collab-docs-db",
