@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Collaboration from "@tiptap/extension-collaboration";
@@ -9,14 +9,19 @@ import { getAccessToken } from "@/lib/auth";
 import { IndexeddbPersistence } from "y-indexeddb";
 
 type Props = { documentId: string; initialTitle: string; apiBase: string; onTitleChange: (title: string) => void };
-type TicketResponse = { ticket: string };
+type TicketResponse = { ticket: string; expiresIn: number };
 
+const MAX_ENCODED_UPDATE = 2_800_000;
 function encode(data: Uint8Array) {
   let binary = "";
-  for (let i = 0; i < data.length; i += 1) binary += String.fromCharCode(data[i]);
+  const chunk = 0x8000;
+  for (let i = 0; i < data.length; i += chunk) {
+    binary += String.fromCharCode(...data.subarray(i, Math.min(i + chunk, data.length)));
+  }
   return btoa(binary);
 }
 function decode(value: string) {
+  if (value.length > MAX_ENCODED_UPDATE) throw new Error("Collaboration update is too large");
   const binary = atob(value);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
@@ -28,6 +33,7 @@ export function CollabEditor({ documentId, initialTitle, apiBase, onTitleChange 
   const [connection, setConnection] = useState<"connecting" | "live" | "offline">("connecting");
   const [wordCount, setWordCount] = useState(0);
   const [doc] = useState(() => new Y.Doc());
+  const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [StarterKit.configure({ history: false }), Collaboration.configure({ document: doc })],
@@ -41,57 +47,127 @@ export function CollabEditor({ documentId, initialTitle, apiBase, onTitleChange 
   useEffect(() => {
     let socket: WebSocket | null = null;
     let disposed = false;
+    let connecting = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let reconnectAttempt = 0;
     const persistence = new IndexeddbPersistence("collab-docs-" + documentId, doc);
 
+    const scheduleReconnect = () => {
+      if (disposed || retryTimer) return;
+      setConnection("offline");
+      const delay = Math.min(30_000, 1_000 * (2 ** Math.min(reconnectAttempt, 5)));
+      reconnectAttempt += 1;
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
+        void connect();
+      }, delay);
+    };
+
     async function connect() {
-      await persistence.whenSynced;
-      if (disposed) return;
+      if (disposed || connecting) return;
+      connecting = true;
+      setConnection("connecting");
       try {
-        const response = await fetch(apiBase + "/api/documents/" + encodeURIComponent(documentId) + "/ticket", { method: "POST", headers: getAccessToken() ? { Authorization: "Bearer " + getAccessToken() } : {} });
-        if (!response.ok) throw new Error("Ticket request failed");
+        await persistence.whenSynced;
+        if (disposed) return;
+        const token = getAccessToken();
+        const response = await fetch(apiBase + "/api/documents/" + encodeURIComponent(documentId) + "/ticket", {
+          method: "POST",
+          headers: token ? { Authorization: "Bearer " + token } : {},
+        });
+        if (!response.ok) throw new Error("Collaboration ticket request failed (" + response.status + ")");
         const { ticket } = await response.json() as TicketResponse;
+        if (disposed) return;
+
         const url = new URL(apiBase || window.location.origin);
         url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
         url.pathname = "/api/documents/" + encodeURIComponent(documentId) + "/socket";
         url.search = "?ticket=" + encodeURIComponent(ticket);
         socket = new WebSocket(url.toString());
+
         socket.onopen = () => {
+          connecting = false;
+          reconnectAttempt = 0;
           setConnection("live");
-          socket?.send(JSON.stringify({ type: "sync", state: encode(Y.encodeStateAsUpdate(doc)) }));
+          try {
+            socket?.send(JSON.stringify({ type: "sync", state: encode(Y.encodeStateAsUpdate(doc)) }));
+          } catch {
+            socket?.close(1009, "Local document is too large");
+          }
         };
         socket.onmessage = (event) => {
           try {
-            const message = JSON.parse(String(event.data)) as { type: string; update?: string; state?: string };
+            const message = JSON.parse(String(event.data)) as { type: string; update?: string; state?: string; error?: string };
+            if (message.type === "pong") return;
             if (message.type === "sync" && message.state) Y.applyUpdate(doc, decode(message.state), "remote");
             if (message.type === "update" && message.update) Y.applyUpdate(doc, decode(message.update), "remote");
+            if (message.type === "error" && message.error === "read_only") setConnection("live");
           } catch (err) {
             console.error("Invalid collaboration message", err);
           }
         };
-        socket.onclose = () => { if (!disposed) setConnection("offline"); };
-        socket.onerror = () => { if (!disposed) setConnection("offline"); };
+        socket.onclose = () => {
+          connecting = false;
+          if (!disposed) scheduleReconnect();
+        };
+        socket.onerror = () => {
+          connecting = false;
+          try { socket?.close(); } catch { /* the socket may already be closed */ }
+          scheduleReconnect();
+        };
       } catch (err) {
-        console.error("Collaboration connection failed", err);
-        setConnection("offline");
+        connecting = false;
+        if (!disposed) {
+          console.warn("Collaboration connection unavailable; local edits remain saved", err);
+          scheduleReconnect();
+        }
       }
     }
 
     const onUpdate = (update: Uint8Array, origin: unknown) => {
-      if (origin === "remote" || disposed) return;
-      if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: "update", update: encode(update) }));
+      if (origin === "remote" || disposed || socket?.readyState !== WebSocket.OPEN) return;
+      try {
+        const encoded = encode(update);
+        if (encoded.length > MAX_ENCODED_UPDATE) {
+          socket.close(1009, "Update is too large");
+          return;
+        }
+        socket.send(JSON.stringify({ type: "update", update: encoded }));
+      } catch {
+        socket?.close(1009, "Update encoding failed");
+      }
     };
+
+    const heartbeat = window.setInterval(() => {
+      if (socket?.readyState === WebSocket.OPEN) {
+        try { socket.send(JSON.stringify({ type: "ping", at: Date.now() })); } catch { socket.close(); }
+      }
+    }, 25_000);
+
+    const reconnectWhenOnline = () => {
+      if (disposed) return;
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+        retryTimer = null;
+      }
+      if (socket?.readyState === WebSocket.OPEN) return;
+      try { socket?.close(); } catch { /* already closed */ }
+      void connect();
+    };
+
     doc.on("update", onUpdate);
     void connect();
-    const reconnect = () => {
-      if (!disposed && (!socket || socket.readyState === WebSocket.CLOSED)) void connect();
-    };
-    window.addEventListener("online", reconnect);
+    window.addEventListener("online", reconnectWhenOnline);
 
     return () => {
       disposed = true;
-      window.removeEventListener("online", reconnect);
+      window.removeEventListener("online", reconnectWhenOnline);
+      window.clearInterval(heartbeat);
+      if (retryTimer) clearTimeout(retryTimer);
+      if (titleTimer.current) clearTimeout(titleTimer.current);
+      titleTimer.current = null;
       doc.off("update", onUpdate);
-      socket?.close();
+      try { socket?.close(1000, "Document editor unmounted"); } catch { /* already closed */ }
       persistence.destroy();
       doc.destroy();
     };
@@ -101,19 +177,24 @@ export function CollabEditor({ documentId, initialTitle, apiBase, onTitleChange 
     const next = value.slice(0, 120);
     setTitle(next);
     onTitleChange(next);
-    const timerKey = "collab-docs-title-" + documentId;
-    window.clearTimeout(Number(sessionStorage.getItem(timerKey) || 0));
-    const timer = window.setTimeout(() => {
+    if (titleTimer.current) clearTimeout(titleTimer.current);
+    titleTimer.current = setTimeout(() => {
+      const token = getAccessToken();
       void fetch(apiBase + "/api/documents/" + encodeURIComponent(documentId), {
-        method: "PATCH", headers: { "Content-Type": "application/json", ...(getAccessToken() ? { Authorization: "Bearer " + getAccessToken() } : {}) }, body: JSON.stringify({ title: next }),
-      }).catch(() => undefined);
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": crypto.randomUUID(),
+          ...(token ? { Authorization: "Bearer " + token } : {}),
+        },
+        body: JSON.stringify({ title: next }),
+      }).catch((err) => console.warn("Title update failed", err));
     }, 350);
-    sessionStorage.setItem(timerKey, String(timer));
   }
 
   return (
     <div className="editor-layout">
-      <div className="editor-meta"><div className="doc-badge">DOC</div><div><div className="editor-subtitle">DOCUMENT</div><input className="title-input" aria-label="Document title" value={title} onChange={(event) => changeTitle(event.target.value)} /></div></div>
+      <div className="editor-meta"><div className="doc-badge">DOC</div><div><div className="editor-subtitle">DOCUMENT</div><input className="title-input" aria-label="Document title" value={title} maxLength={120} onChange={(event) => changeTitle(event.target.value)} /></div></div>
       <div className="editor-toolbar">
         <div className="toolbar-left">
           <button className={editor?.isActive("bold") ? "tool active-tool" : "tool"} onClick={() => editor?.chain().focus().toggleBold().run()} aria-label="Bold"><strong>B</strong></button>
