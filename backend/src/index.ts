@@ -19,7 +19,7 @@ function response(request: Request, env: Env, value: unknown, status = 200): Res
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
     "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "GET,POST,PATCH,OPTIONS",
+    "Access-Control-Allow-Methods": "GET,POST,PATCH,DELETE,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type,Authorization,Idempotency-Key",
     "Vary": "Origin"
   });
@@ -76,11 +76,11 @@ async function roleForDocument(env: Env, documentId: string, userId: string): Pr
   const result = await env.DB.prepare(
     "SELECT COALESCE(document_role.name, workspace_role.name) AS role " +
     "FROM documents d " +
-    "JOIN workspace_members wm ON wm.workspace_id = d.workspace_id AND wm.user_id = ? " +
-    "JOIN roles workspace_role ON workspace_role.id = wm.role_id " +
+    "LEFT JOIN workspace_members wm ON wm.workspace_id = d.workspace_id AND wm.user_id = ? " +
+    "LEFT JOIN roles workspace_role ON workspace_role.id = wm.role_id " +
     "LEFT JOIN document_members dm ON dm.document_id = d.id AND dm.user_id = ? " +
     "LEFT JOIN roles document_role ON document_role.id = dm.role_id " +
-    "WHERE d.id = ?"
+    "WHERE d.id = ? AND (wm.user_id IS NOT NULL OR dm.user_id IS NOT NULL)"
   ).bind(userId, userId, documentId).first<{ role: string }>();
   return result?.role ?? null;
 }
@@ -90,10 +90,11 @@ async function listDocuments(env: Env, userId: string): Promise<DocumentRow[]> {
     "SELECT DISTINCT d.id, d.title, d.updated_at, w.name AS workspace_name, " +
     "COALESCE(document_role.name, workspace_role.name) AS role " +
     "FROM documents d JOIN workspaces w ON w.id = d.workspace_id " +
-    "JOIN workspace_members wm ON wm.workspace_id = w.id AND wm.user_id = ? " +
-    "JOIN roles workspace_role ON workspace_role.id = wm.role_id " +
+    "LEFT JOIN workspace_members wm ON wm.workspace_id = w.id AND wm.user_id = ? " +
+    "LEFT JOIN roles workspace_role ON workspace_role.id = wm.role_id " +
     "LEFT JOIN document_members dm ON dm.document_id = d.id AND dm.user_id = ? " +
     "LEFT JOIN roles document_role ON document_role.id = dm.role_id " +
+    "WHERE wm.user_id IS NOT NULL OR dm.user_id IS NOT NULL " +
     "ORDER BY d.updated_at DESC LIMIT 100"
   ).bind(userId, userId).all<DocumentRow>();
   return result.results;
@@ -154,6 +155,58 @@ async function route(request: Request, env: Env): Promise<Response> {
 
   if (parts.length === 2 && request.method === "GET") {
     return response(request, env, { documents: await listDocuments(env, identity.id) });
+  }
+
+  if (parts.length === 4 && parts[2] && parts[3] === "members") {
+    const documentId = parts[2];
+    const callerRole = await roleForDocument(env, documentId, identity.id);
+    if (!callerRole) throw new HttpError(404, "Document not found");
+
+    if (request.method === "GET") {
+      if (callerRole !== "owner") throw new HttpError(403, "Only document owners can manage access");
+      const members = await env.DB.prepare(
+        "SELECT u.id AS user_id, u.email, u.display_name, r.name AS role, dm.created_at " +
+        "FROM document_members dm JOIN users u ON u.id = dm.user_id JOIN roles r ON r.id = dm.role_id " +
+        "WHERE dm.document_id = ? ORDER BY dm.created_at ASC"
+      ).bind(documentId).all<{ user_id: string; email: string | null; display_name: string; role: string; created_at: string }>();
+      return response(request, env, { members: members.results });
+    }
+
+    if (request.method === "POST") {
+      if (callerRole !== "owner") throw new HttpError(403, "Only document owners can share access");
+      const body = await request.json().catch(() => ({})) as { email?: unknown; role?: unknown };
+      if (typeof body.email !== "string" || body.email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email.trim())) {
+        throw new HttpError(400, "A valid member email is required");
+      }
+      const role = body.role === "editor" ? "editor" : body.role === "viewer" ? "viewer" : null;
+      if (!role) throw new HttpError(400, "Role must be editor or viewer");
+      const email = body.email.trim().toLowerCase();
+      const member = await env.DB.prepare(
+        "SELECT id, email, display_name FROM users WHERE lower(email) = ?"
+      ).bind(email).first<{ id: string; email: string; display_name: string }>();
+      if (!member) throw new HttpError(404, "That person must sign in once before you can share a document with them");
+      if (member.id === identity.id) throw new HttpError(400, "You already own this document");
+      await env.DB.prepare(
+        "INSERT INTO document_members (document_id, user_id, role_id) VALUES (?, ?, ?) " +
+        "ON CONFLICT(document_id, user_id) DO UPDATE SET role_id = excluded.role_id"
+      ).bind(documentId, member.id, "role-" + role).run();
+      await env.DB.prepare(
+        "INSERT OR IGNORE INTO audit_log (event_id, user_id, document_id, action, payload_json) VALUES (?, ?, ?, ?, ?)"
+      ).bind("document.member.shared:" + documentId + ":" + member.id + ":" + role, identity.id, documentId, "document.member.shared", JSON.stringify({ email, role })).run();
+      return response(request, env, { ok: true, member: { user_id: member.id, email: member.email, display_name: member.display_name, role } }, 200);
+    }
+
+    if (request.method === "DELETE") {
+      if (callerRole !== "owner") throw new HttpError(403, "Only document owners can remove access");
+      const memberId = url.searchParams.get("userId");
+      if (!memberId || memberId === identity.id) throw new HttpError(400, "A different userId is required");
+      await env.DB.prepare("DELETE FROM document_members WHERE document_id = ? AND user_id = ?")
+        .bind(documentId, memberId).run();
+      await env.DB.prepare(
+        "INSERT OR IGNORE INTO audit_log (event_id, user_id, document_id, action, payload_json) VALUES (?, ?, ?, ?, ?)"
+      ).bind("document.member.removed:" + documentId + ":" + memberId, identity.id, documentId, "document.member.removed", JSON.stringify({ userId: memberId })).run();
+      return response(request, env, { ok: true });
+    }
   }
 
   if (parts.length === 2 && request.method === "POST") {
