@@ -10,13 +10,12 @@ This section records the last read-only account inspection; it is not a claim th
 - Pages project `collab-docs` exists at `https://collab-docs-4tb.pages.dev`, but it has no deployment yet.
 - No Worker script was deployed at the time of inspection.
 - Neon project `collab-docs-analytics` exists. A Cloudflare Hyperdrive configuration has not been created, so the optional analytics connection is not active.
-- R2 is intentionally **not enabled or bound**. No R2 subscription or bucket is needed for the current portfolio deployment.
 
 The D1, KV, Queue and Durable Object bindings are recorded in `backend/wrangler.jsonc`. Local defaults use demo auth, while `--env production` uses OIDC. Production requests fail closed until the identity provider settings are configured. The deployment workflow remains gated by `CLOUDFLARE_DEPLOY_ENABLED=true`.
 
-## Snapshot behavior without R2
+## Document snapshots
 
-Each `DocumentRoom` Durable Object stores document updates in its SQLite storage. After 100 persisted updates, it writes the latest Yjs state to the room's local `doc_snapshots` table and prunes the compacted update rows. With R2 absent, that latest snapshot remains only in Durable Object SQLite: there is no separate object-store archive or off-site snapshot copy. This is adequate for a portfolio demo but should not be described as a production backup strategy. R2 is an optional future enhancement and is deliberately excluded to avoid an additional subscription and usage billing.
+Each `DocumentRoom` Durable Object stores Yjs updates in its SQLite storage. After 100 persisted updates, it writes the latest encoded document state into the room's local `doc_snapshots` table and removes the compacted update rows. The room retains one latest compacted snapshot locally; there is no separate archive or off-site backup. This is acceptable for a portfolio demo but is not a production backup strategy.
 
 ## One-time secrets and settings
 
@@ -28,6 +27,6 @@ Each `DocumentRoom` Durable Object stores document updates in its SQLite storage
 
 ## Deploy
 
-From the repository root run `pnpm install`, `pnpm typecheck`, `pnpm test`, and `pnpm build`. The remote D1 migration is a state-changing operation; confirm before applying it to the live database. The current schema must be applied before the Worker is useful. After auth configuration and environment variables are verified, deploy the Worker with `pnpm --filter backend deploy` and the static export with `pnpm --filter backend exec wrangler pages deploy ../frontend/out --project-name collab-docs`.
+From the repository root run `pnpm install`, `pnpm typecheck`, `pnpm test`, and `pnpm build`. The remote D1 migration is a state-changing operation; apply it only after verifying the target database. The current schema must be applied before the Worker is useful. After auth configuration and environment variables are verified, deploy the Worker with `pnpm --filter backend deploy` and the static export with `pnpm --filter backend exec wrangler pages deploy ../frontend/out --project-name collab-docs`.
 
 The GitHub Actions workflow is gated by `CLOUDFLARE_DEPLOY_ENABLED=true` and requires valid Cloudflare secrets and repository variables. Confirm deployment status and test two separate browser sessions before sharing the app. Do not claim a published deployment until a successful deployment is visible in Cloudflare.

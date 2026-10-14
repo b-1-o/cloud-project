@@ -5,7 +5,6 @@ flowchart LR
   API --> KV[(KV tickets / flags)]
   API --> DO[DocumentRoom Durable Object]
   DO --> SQLite[(DO SQLite: updates + latest snapshot)]
-  DO -. optional archive disabled for portfolio .-> R2[(Optional R2 snapshot bucket)]
   DO --> Q[Cloudflare Queue]
   Q --> Consumer[Queue consumer / same Worker]
   Consumer --> D1

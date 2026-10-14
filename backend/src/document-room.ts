@@ -13,7 +13,6 @@ export type DocumentEvent = {
 export interface Env {
   DB: D1Database;
   SESSIONS: KVNamespace;
-  SNAPSHOTS?: R2Bucket;
   DOCUMENT_EVENTS: Queue<DocumentEvent>;
   DOC_ROOMS: DurableObjectNamespace;
   RATE_LIMITERS: DurableObjectNamespace;
@@ -64,9 +63,6 @@ export class DocumentRoom {
     );
     this.ctx.storage.sql.exec(
       "CREATE TABLE IF NOT EXISTS event_outbox (event_id TEXT PRIMARY KEY, payload_json TEXT NOT NULL, created_at INTEGER NOT NULL);"
-    );
-    this.ctx.storage.sql.exec(
-      "CREATE TABLE IF NOT EXISTS snapshot_outbox (snapshot_key TEXT PRIMARY KEY, document_id TEXT NOT NULL, snapshot BLOB NOT NULL, version INTEGER NOT NULL, created_at INTEGER NOT NULL);"
     );
   }
 
@@ -196,26 +192,8 @@ export class DocumentRoom {
       }
     }
 
-    if (this.env.SNAPSHOTS) {
-      const snapshots = this.ctx.storage.sql.exec(
-        "SELECT snapshot_key, document_id, snapshot, version FROM snapshot_outbox ORDER BY created_at ASC LIMIT 10"
-      ).toArray() as Array<{ snapshot_key: string; document_id: string; snapshot: ArrayBuffer | ArrayBufferView; version: number }>;
-      for (const row of snapshots) {
-        try {
-          await this.env.SNAPSHOTS.put(row.snapshot_key, asBytes(row.snapshot), {
-            httpMetadata: { contentType: "application/octet-stream" },
-            customMetadata: { documentId: row.document_id, version: String(row.version) }
-          });
-          this.ctx.storage.sql.exec("DELETE FROM snapshot_outbox WHERE snapshot_key = ?", row.snapshot_key);
-        } catch (error) {
-          failed = true;
-          console.error(JSON.stringify({ event: "snapshot.outbox_retry_failed", snapshotKey: row.snapshot_key, message: String(error) }));
-        }
-      }
-    }
-
     const remaining = this.ctx.storage.sql.exec(
-      "SELECT (SELECT COUNT(*) FROM event_outbox) + (SELECT COUNT(*) FROM snapshot_outbox) AS count"
+      "SELECT COUNT(*) AS count FROM event_outbox"
     ).toArray() as Array<{ count: number }>;
     if (failed || Number(remaining[0]?.count || 0) > 0) {
       await this.ctx.storage.setAlarm(Date.now() + 5_000);
@@ -262,24 +240,7 @@ export class DocumentRoom {
           snapshot, updateNumber, Date.now()
         );
         this.ctx.storage.sql.exec("DELETE FROM doc_updates WHERE id <= ?", updateNumber);
-        if (this.env.SNAPSHOTS) {
-          const snapshotKey = attachment.documentId + "/" + String(updateNumber) + ".bin";
-          try {
-            await this.env.SNAPSHOTS.put(snapshotKey, snapshot, {
-              httpMetadata: { contentType: "application/octet-stream" },
-              customMetadata: { documentId: attachment.documentId, version: String(updateNumber) }
-            });
-          } catch (error) {
-            this.ctx.storage.sql.exec(
-              "INSERT OR IGNORE INTO snapshot_outbox (snapshot_key, document_id, snapshot, version, created_at) VALUES (?, ?, ?, ?, ?)",
-              snapshotKey, attachment.documentId, snapshot, updateNumber, Date.now()
-            );
-            await this.ctx.storage.setAlarm(Date.now() + 5_000);
-            console.error(JSON.stringify({ event: "snapshot.write_deferred", documentId: attachment.documentId, updateNumber, message: String(error) }));
-          }
-        } else {
-          console.log(JSON.stringify({ event: "snapshot.compacted_local_only", documentId: attachment.documentId, updateNumber, externalArchive: "disabled" }));
-        }
+        console.log(JSON.stringify({ event: "snapshot.compacted", documentId: attachment.documentId, updateNumber, storage: "durable_object_sqlite" }));
       }
 
       const event: DocumentEvent = {

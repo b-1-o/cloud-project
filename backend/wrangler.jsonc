@@ -25,7 +25,6 @@
     "AUTH_MODE": "demo",
     "APP_VERSION": "0.1.0"
   },
-  // SNAPSHOTS/R2 intentionally not bound: compacted document state stays in Durable Object SQLite.
   "durable_objects": {
     "bindings": [
       {
