@@ -6,9 +6,9 @@
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true, "head_sampling_rate": 1 },
   "vars": {
-    "ENVIRONMENT": "development",
-    "FRONTEND_ORIGIN": "http://localhost:3000",
-    "AUTH_MODE": "demo",
+    "ENVIRONMENT": "production",
+    "FRONTEND_ORIGIN": "https://collab-docs-4tb.pages.dev",
+    "AUTH_MODE": "oidc",
     "APP_VERSION": "0.1.0"
   },
   "durable_objects": {
@@ -18,11 +18,10 @@
   "d1_databases": [{
     "binding": "DB",
     "database_name": "collab-docs-db",
-    "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+    "database_id": "c734b3ed-c5d3-41d2-81b8-50f845ffc315",
     "migrations_dir": "migrations"
   }],
-  "kv_namespaces": [{ "binding": "SESSIONS", "id": "REPLACE_WITH_KV_NAMESPACE_ID" }],
-  "r2_buckets": [{ "binding": "SNAPSHOTS", "bucket_name": "collab-docs-snapshots" }],
+  "kv_namespaces": [{ "binding": "SESSIONS", "id": "07b59a5b8e7544ed89d87f853ce489f8" }],
   "queues": {
     "producers": [{ "binding": "DOCUMENT_EVENTS", "queue": "document-events" }],
     "consumers": [{
