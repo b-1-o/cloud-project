@@ -73,7 +73,6 @@ async function ensureIdentity(env: Env, identity: Identity): Promise<void> {
   await env.DB.prepare(
     "INSERT OR IGNORE INTO users (id, email, display_name) VALUES (?, ?, ?)"
   ).bind(identity.id, identity.email, identity.name.slice(0, 120)).run();
-
   const workspaceId = "personal:" + identity.id;
   await env.DB.prepare(
     "INSERT OR IGNORE INTO workspaces (id, name, created_by) VALUES (?, ?, ?)"
@@ -133,6 +132,25 @@ async function route(request: Request, env: Env): Promise<Response> {
   }
   if (url.pathname === "/api/health" && request.method === "GET") {
     return response(request, env, { ok: true, service: "collab-docs-api", version: env.APP_VERSION || "dev" });
+  }
+
+  if (parts[0] === "api" && parts[1] === "public" && parts[2] && request.method === "GET") {
+    const token = parts[2];
+    if (token.length < 16 || token.length > 80) throw new HttpError(400, "Invalid share token");
+    const doc = await env.DB.prepare(
+      "SELECT id, title, updated_at FROM documents WHERE public_token = ?"
+    ).bind(token).first<{ id: string; title: string; updated_at: string }>();
+    if (!doc) throw new HttpError(404, "Shared document not found");
+    const snap = await roomFor(env, doc.id).fetch(
+      "https://room.internal/__snapshot?documentId=" + encodeURIComponent(doc.id)
+    );
+    if (!snap.ok) throw new HttpError(503, "Could not load document content");
+    const body = await snap.json() as { state?: string };
+    return response(request, env, {
+      document: { id: doc.id, title: doc.title, updated_at: doc.updated_at },
+      state: body.state || "",
+      mode: "public-readonly"
+    });
   }
 
   if (parts[0] !== "api" || parts[1] !== "documents") {
@@ -278,6 +296,30 @@ async function route(request: Request, env: Env): Promise<Response> {
     return response(request, env, { ticket, expiresIn: 60 });
   }
 
+  if (parts.length === 4 && parts[2] && parts[3] === "public-link" && (request.method === "POST" || request.method === "DELETE")) {
+    const documentId = parts[2];
+    const role = await roleForDocument(env, documentId, identity.id);
+    if (!role || role !== "owner") throw new HttpError(403, "Only owners can manage public links");
+    if (request.method === "DELETE") {
+      await env.DB.prepare("UPDATE documents SET public_token = NULL WHERE id = ?").bind(documentId).run();
+      return response(request, env, { ok: true, publicUrl: null });
+    }
+    const existing = await env.DB.prepare(
+      "SELECT public_token FROM documents WHERE id = ?"
+    ).bind(documentId).first<{ public_token: string | null }>();
+    let token = existing?.public_token || null;
+    if (!token) {
+      token = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "").slice(0, 8);
+      await env.DB.prepare("UPDATE documents SET public_token = ? WHERE id = ?").bind(token, documentId).run();
+    }
+    const origin = env.FRONTEND_ORIGIN || "";
+    return response(request, env, {
+      ok: true,
+      token,
+      publicUrl: origin ? origin.replace(/\/$/, "") + "/p/" + token : "/p/" + token
+    });
+  }
+
   if (parts.length === 3 && parts[2] && request.method === "PATCH") {
     const documentId = parts[2];
     const role = await roleForDocument(env, documentId, identity.id);
@@ -298,9 +340,7 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (parts.length === 3 && parts[2] && request.method === "DELETE") {
     const documentId = parts[2];
     const role = await roleForDocument(env, documentId, identity.id);
-    if (!role) {
-      return response(request, env, { ok: true });
-    }
+    if (!role) return response(request, env, { ok: true });
     if (role !== "owner") throw new HttpError(403, "Only document owners can delete documents");
     const operationKey = request.headers.get("Idempotency-Key") || crypto.randomUUID();
     if (operationKey.length > 200) throw new HttpError(400, "Idempotency-Key is too long");
@@ -362,7 +402,6 @@ const worker = {
         message.retry();
         continue;
       }
-
       const event = body;
       try {
         await env.DB.prepare(
@@ -372,13 +411,12 @@ const worker = {
           event.userId,
           event.documentId,
           event.type,
+          event.occurredAt,
           JSON.stringify({ updateNumber: event.updateNumber })
         ).run();
-
         await env.DB.prepare(
           "UPDATE documents SET updated_at = CURRENT_TIMESTAMP WHERE id = ?"
         ).bind(event.documentId).run();
-
         if (env.HYPERDRIVE?.connectionString) {
           const sql = postgres(env.HYPERDRIVE.connectionString, { max: 1, prepare: false, fetch_types: false });
           try {
@@ -398,7 +436,6 @@ const worker = {
             await sql.end({ timeout: 1 });
           }
         }
-
         message.ack();
       } catch (error) {
         console.error(JSON.stringify({
