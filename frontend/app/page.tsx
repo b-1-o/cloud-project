@@ -10,7 +10,7 @@ const API = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
   if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-  const token = getAccessToken();
+  const token = await getAccessToken();
   if (token && !headers.has("Authorization")) headers.set("Authorization", "Bearer " + token);
   const response = await fetch(API + path, { ...init, headers });
   if (!response.ok) {
@@ -55,7 +55,6 @@ export default function HomePage() {
   }, [refresh]);
 
   useEffect(() => {
-    setSignedIn(Boolean(getAccessToken()));
     async function finishSignIn() {
       try {
         const completed = await completeOidcLogin(new URL(window.location.href));
@@ -63,8 +62,11 @@ export default function HomePage() {
           setSignedIn(true);
           setError("");
           await refresh();
+          return;
         }
+        setSignedIn(Boolean(await getAccessToken()));
       } catch (err) {
+        setSignedIn(false);
         setError(err instanceof Error ? err.message : "Sign-in failed");
       }
     }
@@ -86,13 +88,13 @@ export default function HomePage() {
     }
   }
 
-  function signOut() {
-    clearAccessToken();
+  async function signOut() {
     setSignedIn(false);
     setActive(null);
     setDocuments([]);
     setError("");
     window.history.replaceState({}, "", window.location.pathname);
+    await clearAccessToken();
   }
 
   async function shareDocument() {
