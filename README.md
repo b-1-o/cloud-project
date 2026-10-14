@@ -13,7 +13,7 @@ A real-time collaborative document editor built on a Cloudflare-first architectu
 
 Browser (Next.js static export) -> Cloudflare Pages -> Worker API -> D1 metadata + KV ticket cache + one Durable Object per document. The Durable Object persists CRDT updates in SQLite, broadcasts updates, snapshots periodically to R2, and emits idempotent events to Cloudflare Queues. The consumer records audit events and has an optional Neon analytics path through Hyperdrive. Structured logs go to Cloudflare Workers Observability; Grafana OTLP and Sentry exports need account-side credentials and setup.
 
-See docs/architecture.mmd and docs/adr/.
+See [the runtime dashboard](https://violetgoldfinch3041.grafana.net/d/collab-docs-runtime), docs/architecture.mmd, docs/adr/, docs/AUTH.md, docs/OBSERVABILITY.md, and docs/TESTING.md.
 
 ## Local development
 
