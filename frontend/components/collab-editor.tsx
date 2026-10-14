@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { EditorContent, useEditor } from "@tiptap/react";
+import { BubbleMenu, EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Collaboration from "@tiptap/extension-collaboration";
 import Underline from "@tiptap/extension-underline";
@@ -55,6 +55,10 @@ export function CollabEditor({
   const [wordCount, setWordCount] = useState(0);
   const [doc] = useState(() => new Y.Doc());
   const [menuOpen, setMenuOpen] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [comments, setComments] = useState<Array<{ id: string; body: string; author_name?: string; resolved?: number }>>([]);
+  const [commentDraft, setCommentDraft] = useState("");
+  const [commentsLoading, setCommentsLoading] = useState(false);
   const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -271,6 +275,45 @@ export function CollabEditor({
     );
   }
 
+  async function loadComments() {
+    setCommentsLoading(true);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(apiBase + "/api/documents/" + encodeURIComponent(documentId) + "/comments", {
+        headers: token ? { Authorization: "Bearer " + token } : {},
+      });
+      if (!res.ok) throw new Error("Could not load comments");
+      const data = (await res.json()) as { comments: Array<{ id: string; body: string; author_name?: string; resolved?: number }> };
+      setComments(data.comments || []);
+    } catch {
+      toast.error("Could not load comments");
+    } finally {
+      setCommentsLoading(false);
+    }
+  }
+
+  async function submitComment() {
+    const body = commentDraft.trim();
+    if (!body) return;
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(apiBase + "/api/documents/" + encodeURIComponent(documentId) + "/comments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: "Bearer " + token } : {}),
+        },
+        body: JSON.stringify({ body }),
+      });
+      if (!res.ok) throw new Error("Could not post comment");
+      setCommentDraft("");
+      toast.success("Comment added");
+      await loadComments();
+    } catch {
+      toast.error("Could not post comment");
+    }
+  }
+
   function toolClass(active: boolean) {
     return active ? "tool active-tool" : "tool";
   }
@@ -292,6 +335,7 @@ export function CollabEditor({
               <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); exportHtml(); }}>Export HTML</button>
               <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); exportMarkdown(); }}>Export Markdown</button>
               <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); copyShareLink(); }}>Copy app link</button>
+              <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setCommentsOpen(true); void loadComments(); }}>Comments</button>
               <div className="context-divider" />
               <button type="button" role="menuitem" className="danger-item" disabled={readOnly || !onDeleteRequest} onClick={() => { setMenuOpen(false); onDeleteRequest?.(); }}>Delete document…</button>
             </div>
@@ -325,9 +369,43 @@ export function CollabEditor({
       </div>
       <div className="paper-wrap">
         <div className="paper paper-a4">
+          {editor && (
+            <BubbleMenu editor={editor} tippyOptions={{ duration: 150 }} className="bubble-menu">
+              <button type="button" className={toolClass(editor.isActive("bold"))} onClick={() => editor.chain().focus().toggleBold().run()} aria-label="Bold"><strong>B</strong></button>
+              <button type="button" className={toolClass(editor.isActive("italic"))} onClick={() => editor.chain().focus().toggleItalic().run()} aria-label="Italic"><em>I</em></button>
+              <button type="button" className={toolClass(editor.isActive("underline"))} onClick={() => editor.chain().focus().toggleUnderline().run()} aria-label="Underline"><span style={{ textDecoration: "underline" }}>U</span></button>
+              <button type="button" className={toolClass(editor.isActive("strike"))} onClick={() => editor.chain().focus().toggleStrike().run()} aria-label="Strikethrough"><span style={{ textDecoration: "line-through" }}>S</span></button>
+              <button type="button" className={toolClass(editor.isActive("code"))} onClick={() => editor.chain().focus().toggleCode().run()} aria-label="Inline code">{"</>"}</button>
+              <button type="button" className="tool" onClick={() => { setCommentsOpen(true); void loadComments(); }} aria-label="Add comment">💬</button>
+            </BubbleMenu>
+          )}
           <EditorContent editor={editor} />
         </div>
       </div>
+      {commentsOpen && (
+        <aside className="comments-panel" aria-label="Comments">
+          <div className="comments-header">
+            <strong>Comments</strong>
+            <button type="button" className="modal-close" onClick={() => setCommentsOpen(false)} aria-label="Close comments">×</button>
+          </div>
+          <div className="comments-list">
+            {commentsLoading && <div className="list-placeholder">Loading…</div>}
+            {!commentsLoading && comments.length === 0 && <div className="list-placeholder">No comments yet.</div>}
+            {comments.map((c) => (
+              <div key={c.id} className={"comment-item" + (c.resolved ? " resolved" : "")}>
+                <div className="comment-meta">{c.author_name || "Someone"}</div>
+                <p>{c.body}</p>
+              </div>
+            ))}
+          </div>
+          {!readOnly && (
+            <div className="comment-compose">
+              <textarea value={commentDraft} onChange={(e) => setCommentDraft(e.target.value)} placeholder="Write a comment…" rows={3} aria-label="Comment text" />
+              <button type="button" className="primary-button" onClick={() => void submitComment()} disabled={!commentDraft.trim()}>Post</button>
+            </div>
+          )}
+        </aside>
+      )}
       <footer className="editor-footer">
         <span><span className="green-dot" /> {connection === "live" ? "All changes synced" : "Changes saved on this device"}</span>
         <span>{wordCount} words <i>·</i> {connection === "offline" ? "Offline mode" : "Private workspace"}</span>
