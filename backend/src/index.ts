@@ -109,7 +109,17 @@ async function route(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const parts = url.pathname.split("/").filter(Boolean);
   if (request.method === "OPTIONS") {
-    return response(request, env, {}, 204);
+    return new Response(null, { status: 204, headers: {
+      "Access-Control-Allow-Origin": env.FRONTEND_ORIGIN || "*",
+      "Access-Control-Allow-Methods": "GET,POST,PATCH,OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type,Authorization",
+      "Access-Control-Max-Age": "600",
+      "Vary": "Origin"
+    } });
+  }
+  const requestOrigin = request.headers.get("Origin");
+  if (env.ENVIRONMENT === "production" && requestOrigin && env.FRONTEND_ORIGIN && requestOrigin !== env.FRONTEND_ORIGIN) {
+    throw new HttpError(403, "Origin not allowed");
   }
   if (url.pathname === "/api/health" && request.method === "GET") {
     return response(request, env, { ok: true, service: "collab-docs-api", version: env.APP_VERSION || "dev" });
@@ -187,7 +197,7 @@ async function route(request: Request, env: Env): Promise<Response> {
     forwarded.headers.set("x-user-role", payload.role);
     const roomUrl = new URL(forwarded.url);
     roomUrl.searchParams.set("documentId", documentId);
-    const roomRequest = new Request(roomUrl.toString(), forwarded);
+    const roomRequest = new Request(roomUrl.toString(), { method: "GET", headers: forwarded.headers });
     return roomFor(env, documentId).fetch(roomRequest);
   }
 
