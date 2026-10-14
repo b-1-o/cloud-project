@@ -263,9 +263,10 @@ export function CollabEditor({
   }
 
   function copyShareLink() {
-    const link = window.location.origin + "/?doc=" + encodeURIComponent(documentId);
-    void navigator.clipboard.writeText(link).then(
-      () => toast.success("App link copied"),
+    const link = new URL("/", window.location.origin);
+    link.searchParams.set("doc", documentId);
+    void navigator.clipboard.writeText(link.toString()).then(
+      () => toast.success("App link copied — opens this document"),
       () => toast.error("Could not copy link")
     );
   }
