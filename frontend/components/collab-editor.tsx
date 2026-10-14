@@ -142,7 +142,7 @@ export function CollabEditor({
         };
         socket.onmessage = (event) => {
           try {
-            const message = JSON.parse(String(event.data)) as { type: string; update?: string; state?: string; error?: string };
+            const message = JSON.parse(String(event.data)) as { type: string; update?: string; state?: string };
             if (message.type === "pong") { lastPongAt = Date.now(); return; }
             if (message.type === "sync" && message.state) Y.applyUpdate(doc, decode(message.state), "remote");
             if (message.type === "update" && message.update) Y.applyUpdate(doc, decode(message.update), "remote");
@@ -305,17 +305,17 @@ export function CollabEditor({
           <button type="button" className={toolClass(editor?.isActive("strike") ?? false)} onClick={() => editor?.chain().focus().toggleStrike().run()} disabled={readOnly} aria-label="Strikethrough"><span style={{ textDecoration: "line-through" }}>S</span></button>
           <button type="button" className={toolClass(editor?.isActive("code") ?? false)} onClick={() => editor?.chain().focus().toggleCode().run()} disabled={readOnly} aria-label="Inline code">{"</>"}</button>
           <span className="tool-divider" />
-          <button type="button" className={toolClass(editor?.isActive("heading", { level: 1 }) ?? false)} onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()} disabled={readOnly}>H1</button>
-          <button type="button" className={toolClass(editor?.isActive("heading", { level: 2 }) ?? false)} onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()} disabled={readOnly}>H2</button>
-          <button type="button" className={toolClass(editor?.isActive("heading", { level: 3 }) ?? false)} onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()} disabled={readOnly}>H3</button>
+          <button type="button" className={toolClass(editor?.isActive("heading", { level: 1 }) ?? false)} onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()} disabled={readOnly} aria-label="Heading 1">H1</button>
+          <button type="button" className={toolClass(editor?.isActive("heading", { level: 2 }) ?? false)} onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()} disabled={readOnly} aria-label="Heading 2">H2</button>
+          <button type="button" className={toolClass(editor?.isActive("heading", { level: 3 }) ?? false)} onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()} disabled={readOnly} aria-label="Heading 3">H3</button>
           <span className="tool-divider" />
-          <button type="button" className={toolClass(editor?.isActive("bulletList") ?? false)} onClick={() => editor?.chain().focus().toggleBulletList().run()} disabled={readOnly}>• List</button>
-          <button type="button" className={toolClass(editor?.isActive("orderedList") ?? false)} onClick={() => editor?.chain().focus().toggleOrderedList().run()} disabled={readOnly}>1. List</button>
+          <button type="button" className={toolClass(editor?.isActive("bulletList") ?? false)} onClick={() => editor?.chain().focus().toggleBulletList().run()} disabled={readOnly} aria-label="Bullet list">• List</button>
+          <button type="button" className={toolClass(editor?.isActive("orderedList") ?? false)} onClick={() => editor?.chain().focus().toggleOrderedList().run()} disabled={readOnly} aria-label="Ordered list">1. List</button>
           <button type="button" className={toolClass(editor?.isActive("taskList") ?? false)} onClick={() => editor?.chain().focus().toggleTaskList().run()} disabled={readOnly} aria-label="Checklist">☐</button>
-          <button type="button" className={toolClass(editor?.isActive("blockquote") ?? false)} onClick={() => editor?.chain().focus().toggleBlockquote().run()} disabled={readOnly}>❝</button>
-          <button type="button" className={toolClass(editor?.isActive("codeBlock") ?? false)} onClick={() => editor?.chain().focus().toggleCodeBlock().run()} disabled={readOnly}>Code</button>
+          <button type="button" className={toolClass(editor?.isActive("blockquote") ?? false)} onClick={() => editor?.chain().focus().toggleBlockquote().run()} disabled={readOnly} aria-label="Quote">❝</button>
+          <button type="button" className={toolClass(editor?.isActive("codeBlock") ?? false)} onClick={() => editor?.chain().focus().toggleCodeBlock().run()} disabled={readOnly} aria-label="Code block">Code</button>
           <span className="tool-divider" />
-          <button type="button" className="tool" onClick={() => editor?.chain().focus().setHorizontalRule().run()} disabled={readOnly}>—</button>
+          <button type="button" className="tool" onClick={() => editor?.chain().focus().setHorizontalRule().run()} disabled={readOnly} aria-label="Horizontal rule">—</button>
         </div>
         <div className="connection-status" role="status" aria-live="polite">
           <span className={"status-dot " + connection} />
