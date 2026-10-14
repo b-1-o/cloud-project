@@ -3,36 +3,150 @@
   "name": "collab-docs-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-13",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "observability": {
-    "logs": { "enabled": true, "head_sampling_rate": 1, "persist": true },
-    "traces": { "enabled": true, "head_sampling_rate": 0.1, "persist": true }
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 0.1,
+      "persist": true
+    }
   },
   "vars": {
-    "ENVIRONMENT": "production",
-    "FRONTEND_ORIGIN": "https://collab-docs-4tb.pages.dev",
-    "AUTH_MODE": "oidc",
+    "ENVIRONMENT": "development",
+    "FRONTEND_ORIGIN": "http://localhost:3000",
+    "AUTH_MODE": "demo",
     "APP_VERSION": "0.1.0"
   },
   "durable_objects": {
-    "bindings": [{ "name": "DOC_ROOMS", "class_name": "DocumentRoom" }, { "name": "RATE_LIMITERS", "class_name": "RateLimiter" }]
+    "bindings": [
+      {
+        "name": "DOC_ROOMS",
+        "class_name": "DocumentRoom"
+      },
+      {
+        "name": "RATE_LIMITERS",
+        "class_name": "RateLimiter"
+      }
+    ]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DocumentRoom"] }, { "tag": "v2", "new_sqlite_classes": ["RateLimiter"] }],
-  "d1_databases": [{
-    "binding": "DB",
-    "database_name": "collab-docs-db",
-    "database_id": "c734b3ed-c5d3-41d2-81b8-50f845ffc315",
-    "migrations_dir": "migrations"
-  }],
-  "kv_namespaces": [{ "binding": "SESSIONS", "id": "07b59a5b8e7544ed89d87f853ce489f8" }],
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "DocumentRoom"
+      ]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": [
+        "RateLimiter"
+      ]
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "collab-docs-db",
+      "database_id": "c734b3ed-c5d3-41d2-81b8-50f845ffc315",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "SESSIONS",
+      "id": "07b59a5b8e7544ed89d87f853ce489f8"
+    }
+  ],
   "queues": {
-    "producers": [{ "binding": "DOCUMENT_EVENTS", "queue": "document-events" }],
-    "consumers": [{
-      "queue": "document-events",
-      "max_batch_size": 25,
-      "max_batch_timeout": 5,
-      "max_retries": 3,
-      "dead_letter_queue": "document-events-dlq"
-    }]
+    "producers": [
+      {
+        "binding": "DOCUMENT_EVENTS",
+        "queue": "document-events"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "document-events",
+        "max_batch_size": 25,
+        "max_batch_timeout": 5,
+        "max_retries": 3,
+        "dead_letter_queue": "document-events-dlq"
+      }
+    ]
+  },
+  "env": {
+    "production": {
+      "name": "collab-docs-api-production",
+      "vars": {
+        "ENVIRONMENT": "production",
+        "FRONTEND_ORIGIN": "https://collab-docs-4tb.pages.dev",
+        "AUTH_MODE": "oidc",
+        "APP_VERSION": "0.1.0"
+      },
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "DOC_ROOMS",
+            "class_name": "DocumentRoom"
+          },
+          {
+            "name": "RATE_LIMITERS",
+            "class_name": "RateLimiter"
+          }
+        ]
+      },
+      "migrations": [
+        {
+          "tag": "v1",
+          "new_sqlite_classes": [
+            "DocumentRoom"
+          ]
+        },
+        {
+          "tag": "v2",
+          "new_sqlite_classes": [
+            "RateLimiter"
+          ]
+        }
+      ],
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "collab-docs-db",
+          "database_id": "c734b3ed-c5d3-41d2-81b8-50f845ffc315",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "SESSIONS",
+          "id": "07b59a5b8e7544ed89d87f853ce489f8"
+        }
+      ],
+      "queues": {
+        "producers": [
+          {
+            "binding": "DOCUMENT_EVENTS",
+            "queue": "document-events"
+          }
+        ],
+        "consumers": [
+          {
+            "queue": "document-events",
+            "max_batch_size": 25,
+            "max_batch_timeout": 5,
+            "max_retries": 3,
+            "dead_letter_queue": "document-events-dlq"
+          }
+        ]
+      }
+    }
   }
 }
