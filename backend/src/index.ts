@@ -370,7 +370,7 @@ const worker = {
       }
     }
   }
-} satisfies ExportedHandler<Env>;
+} satisfies ExportedHandler<Env, DocumentEvent>;
 
 export default Sentry.withSentry((env: Env) => ({
   dsn: env.SENTRY_DSN,
