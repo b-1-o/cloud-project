@@ -30,8 +30,8 @@ Local demo identity is allowed only while ENVIRONMENT is not production. Product
 ## Deployment checklist
 
 - D1, KV, and Queue IDs are provisioned in `backend/wrangler.jsonc`.
-- The remote D1 database still needs its schema migration before the API can be used. Applying remote migrations changes Cloudflare state and should be done deliberately.
-- Configure AUTH_JWKS_URL, AUTH_ISSUER, AUTH_AUDIENCE and all platform credentials as secrets/vars; do not commit tokens.
+- The remote D1 schema has been verified: `d1_migrations` records `0001_init.sql`, and the seven application tables, role seed rows, and three indexes are present.
+- Store `AUTH_JWKS_URL`, `AUTH_ISSUER`, `AUTH_AUDIENCE`, and Cloudflare deployment credentials as GitHub Actions secrets. The deployment workflow uploads the OIDC values to production Worker secrets only after validation; never commit secrets.
 - GitHub Actions runs type checks, unit tests, Playwright smoke tests, and the frontend build. Deployment requires the opt-in variable `CLOUDFLARE_DEPLOY_ENABLED=true`, the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets, plus the API URL and OIDC build variables described in docs/DEPLOYMENT.md.
 - The Pages workflow expects `frontend/out`. Set the repository variable NEXT_PUBLIC_API_URL to the deployed Worker URL.
 

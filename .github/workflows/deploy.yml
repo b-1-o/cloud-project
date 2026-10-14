@@ -22,14 +22,41 @@ jobs:
         with:
           node-version: 22
       - run: pnpm install --no-frozen-lockfile
-      - run: pnpm --filter backend exec wrangler d1 migrations apply collab-docs-db --remote --env production --config wrangler.jsonc
+      - name: Validate Cloudflare and OIDC settings before changing the database
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      - run: pnpm --filter backend deploy
+          AUTH_JWKS_URL: ${{ secrets.AUTH_JWKS_URL }}
+          AUTH_ISSUER: ${{ secrets.AUTH_ISSUER }}
+          AUTH_AUDIENCE: ${{ secrets.AUTH_AUDIENCE }}
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "::error::Missing repository secret CLOUDFLARE_API_TOKEN"; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "::error::Missing repository secret CLOUDFLARE_ACCOUNT_ID"; exit 1; }
+          test -n "$AUTH_JWKS_URL" || { echo "::error::Missing repository secret AUTH_JWKS_URL"; exit 1; }
+          test -n "$AUTH_ISSUER" || { echo "::error::Missing repository secret AUTH_ISSUER"; exit 1; }
+          test "$AUTH_AUDIENCE" = "https://collab-docs-api" || { echo "::error::AUTH_AUDIENCE must equal https://collab-docs-api"; exit 1; }
+      - name: Apply pending remote D1 migrations
+        run: pnpm --filter backend exec wrangler d1 migrations apply collab-docs-db --remote --env production --config wrangler.jsonc
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Deploy production Worker
+        run: pnpm --filter backend deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Store OIDC validation settings as Worker secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          AUTH_JWKS_URL: ${{ secrets.AUTH_JWKS_URL }}
+          AUTH_ISSUER: ${{ secrets.AUTH_ISSUER }}
+          AUTH_AUDIENCE: ${{ secrets.AUTH_AUDIENCE }}
+        run: |
+          set +x
+          printf '%s' "$AUTH_JWKS_URL" | pnpm --filter backend exec wrangler secret put AUTH_JWKS_URL --env production --config wrangler.jsonc
+          printf '%s' "$AUTH_ISSUER" | pnpm --filter backend exec wrangler secret put AUTH_ISSUER --env production --config wrangler.jsonc
+          printf '%s' "$AUTH_AUDIENCE" | pnpm --filter backend exec wrangler secret put AUTH_AUDIENCE --env production --config wrangler.jsonc
   deploy-pages:
     if: ${{ vars.CLOUDFLARE_DEPLOY_ENABLED == 'true' }}
     needs: [deploy-worker]
@@ -47,13 +74,15 @@ jobs:
           NEXT_PUBLIC_OIDC_AUTHORIZATION_URL: ${{ vars.NEXT_PUBLIC_OIDC_AUTHORIZATION_URL }}
           NEXT_PUBLIC_OIDC_TOKEN_URL: ${{ vars.NEXT_PUBLIC_OIDC_TOKEN_URL }}
           NEXT_PUBLIC_OIDC_CLIENT_ID: ${{ vars.NEXT_PUBLIC_OIDC_CLIENT_ID }}
+          NEXT_PUBLIC_OIDC_REDIRECT_URI: ${{ vars.NEXT_PUBLIC_OIDC_REDIRECT_URI }}
           NEXT_PUBLIC_OIDC_AUDIENCE: ${{ vars.NEXT_PUBLIC_OIDC_AUDIENCE }}
         run: |
-          test -n "$NEXT_PUBLIC_API_URL" || { echo "Missing NEXT_PUBLIC_API_URL"; exit 1; }
-          test -n "$NEXT_PUBLIC_OIDC_AUTHORIZATION_URL" || { echo "Missing NEXT_PUBLIC_OIDC_AUTHORIZATION_URL"; exit 1; }
-          test -n "$NEXT_PUBLIC_OIDC_TOKEN_URL" || { echo "Missing NEXT_PUBLIC_OIDC_TOKEN_URL"; exit 1; }
-          test -n "$NEXT_PUBLIC_OIDC_CLIENT_ID" || { echo "Missing NEXT_PUBLIC_OIDC_CLIENT_ID"; exit 1; }
-          test -n "$NEXT_PUBLIC_OIDC_AUDIENCE" || { echo "Missing NEXT_PUBLIC_OIDC_AUDIENCE"; exit 1; }
+          test -n "$NEXT_PUBLIC_API_URL" || { echo "::error::Missing repository variable NEXT_PUBLIC_API_URL"; exit 1; }
+          test -n "$NEXT_PUBLIC_OIDC_AUTHORIZATION_URL" || { echo "::error::Missing repository variable NEXT_PUBLIC_OIDC_AUTHORIZATION_URL"; exit 1; }
+          test -n "$NEXT_PUBLIC_OIDC_TOKEN_URL" || { echo "::error::Missing repository variable NEXT_PUBLIC_OIDC_TOKEN_URL"; exit 1; }
+          test -n "$NEXT_PUBLIC_OIDC_CLIENT_ID" || { echo "::error::Missing repository variable NEXT_PUBLIC_OIDC_CLIENT_ID"; exit 1; }
+          test "$NEXT_PUBLIC_OIDC_REDIRECT_URI" = "https://collab-docs-4tb.pages.dev/" || { echo "::error::NEXT_PUBLIC_OIDC_REDIRECT_URI must equal https://collab-docs-4tb.pages.dev/"; exit 1; }
+          test "$NEXT_PUBLIC_OIDC_AUDIENCE" = "https://collab-docs-api" || { echo "::error::NEXT_PUBLIC_OIDC_AUDIENCE must equal https://collab-docs-api"; exit 1; }
       - run: pnpm --filter frontend build
         env:
           NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
@@ -67,7 +96,8 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
-      - run: pnpm --filter backend exec wrangler pages deploy ../frontend/out --project-name collab-docs
+      - name: Deploy static frontend to Pages
+        run: pnpm --filter backend exec wrangler pages deploy ../frontend/out --project-name collab-docs
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
