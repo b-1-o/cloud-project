@@ -53,10 +53,11 @@ jobs:
           NEXT_PUBLIC_OIDC_CLIENT_ID: ${{ vars.NEXT_PUBLIC_OIDC_CLIENT_ID }}
           NEXT_PUBLIC_OIDC_AUDIENCE: ${{ vars.NEXT_PUBLIC_OIDC_AUDIENCE }}
         run: |
-          for name in NEXT_PUBLIC_API_URL NEXT_PUBLIC_OIDC_AUTHORIZATION_URL NEXT_PUBLIC_OIDC_TOKEN_URL NEXT_PUBLIC_OIDC_CLIENT_ID NEXT_PUBLIC_OIDC_AUDIENCE; do
-            eval value=\"\\$name\"
-            if [ -z \"$value\" ]; then echo \"Missing required GitHub Actions variable: $name\"; exit 1; fi
-          done
+          test -n "$NEXT_PUBLIC_API_URL" || { echo "Missing NEXT_PUBLIC_API_URL"; exit 1; }
+          test -n "$NEXT_PUBLIC_OIDC_AUTHORIZATION_URL" || { echo "Missing NEXT_PUBLIC_OIDC_AUTHORIZATION_URL"; exit 1; }
+          test -n "$NEXT_PUBLIC_OIDC_TOKEN_URL" || { echo "Missing NEXT_PUBLIC_OIDC_TOKEN_URL"; exit 1; }
+          test -n "$NEXT_PUBLIC_OIDC_CLIENT_ID" || { echo "Missing NEXT_PUBLIC_OIDC_CLIENT_ID"; exit 1; }
+          test -n "$NEXT_PUBLIC_OIDC_AUDIENCE" || { echo "Missing NEXT_PUBLIC_OIDC_AUDIENCE"; exit 1; }
       - run: pnpm --filter frontend build
         env:
           NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
