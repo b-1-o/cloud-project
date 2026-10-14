@@ -1,0 +1,14 @@
+flowchart LR
+  Browser[Browser editor] --> Pages[Cloudflare Pages static Next.js]
+  Browser <-->|WebSocket / IndexedDB| API[Cloudflare Worker API]
+  API --> D1[(D1 metadata / RBAC / audit)]
+  API --> KV[(KV tickets / flags)]
+  API --> DO[DocumentRoom Durable Object]
+  DO --> SQLite[(DO SQLite: Yjs updates)]
+  DO -. snapshots when R2 enabled .-> R2[(R2 snapshot bucket)]
+  DO --> Q[Cloudflare Queue]
+  Q --> Consumer[Queue consumer / same Worker]
+  Consumer --> D1
+  Consumer -. optional binding .-> Neon[(Neon analytics via Hyperdrive)]
+  API -. structured logs .-> Obs[Workers Observability]
+  API -. optional DSN .-> Sentry[Sentry]
