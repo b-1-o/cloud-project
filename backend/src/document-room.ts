@@ -69,6 +69,19 @@ export class DocumentRoom {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const docId = url.searchParams.get("documentId") || "";
+
+    if (url.pathname === "/__snapshot" && request.method === "GET") {
+      const document = await this.loadDocument();
+      try {
+        const state = toBase64(Y.encodeStateAsUpdate(document));
+        return new Response(JSON.stringify({ state }), {
+          headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }
+        });
+      } finally {
+        document.destroy();
+      }
+    }
+
     if (url.pathname === "/__issue_ticket" && request.method === "POST") {
       const ticketId = request.headers.get("x-ticket-id");
       const userId = request.headers.get("x-user-id");
