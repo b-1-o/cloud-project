@@ -65,8 +65,11 @@ export default function HomePage() {
   const [publicBusy, setPublicBusy] = useState(false);
   const contextRef = useRef<HTMLDivElement>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const pendingDocId = useRef<string | null>(null);
 
   useEffect(() => {
+    const fromUrl = new URLSearchParams(window.location.search).get("doc");
+    if (fromUrl) pendingDocId.current = fromUrl;
     try {
       const fav = JSON.parse(localStorage.getItem("collab-favorites") || "[]");
       if (Array.isArray(fav)) setFavorites(fav.filter((x) => typeof x === "string"));
@@ -118,8 +121,16 @@ export default function HomePage() {
     try {
       const result = await request<{ documents: DocumentItem[] }>("/api/documents");
       setDocuments(result.documents);
-      const sharedId = new URLSearchParams(window.location.search).get("doc");
-      if (sharedId) setActive(result.documents.find((d) => d.id === sharedId) || null);
+      const targetId =
+        pendingDocId.current ||
+        new URLSearchParams(window.location.search).get("doc");
+      if (targetId) {
+        const found = result.documents.find((d) => d.id === targetId);
+        if (found) {
+          pendingDocId.current = targetId;
+          setActive(found);
+        }
+      }
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load documents");
@@ -143,7 +154,9 @@ export default function HomePage() {
           await refresh();
           return;
         }
-        setSignedIn(Boolean(await getAccessToken()));
+        const hasToken = Boolean(await getAccessToken());
+        setSignedIn(hasToken);
+        await refresh();
       } catch (err) {
         setSignedIn(false);
         setError(err instanceof Error ? err.message : "Sign-in failed");
@@ -194,11 +207,26 @@ export default function HomePage() {
     return list;
   }, [documents, search, sortBy]);
 
+  useEffect(() => {
+    const targetId =
+      pendingDocId.current ||
+      (typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("doc")
+        : null);
+    if (!targetId || documents.length === 0) return;
+    const found = documents.find((d) => d.id === targetId);
+    if (found && active?.id !== found.id) {
+      pendingDocId.current = targetId;
+      setActive(found);
+    }
+  }, [documents, active?.id]);
+
   async function signIn() {
     try { await startOidcLogin(); } catch (err) { setError(err instanceof Error ? err.message : "Could not start sign-in"); }
   }
 
   async function signOut() {
+    pendingDocId.current = null;
     setSignedIn(false); setActive(null); setDocuments([]); setError("");
     window.history.replaceState({}, "", window.location.pathname);
     await clearAccessToken();
@@ -223,8 +251,10 @@ export default function HomePage() {
   async function copyDocumentLink() {
     if (!active) return;
     try {
-      await navigator.clipboard.writeText(window.location.origin + "/?doc=" + encodeURIComponent(active.id));
-      setShareMessage("App link copied. Recipient must sign in and have access.");
+      const link = new URL("/", window.location.origin);
+      link.searchParams.set("doc", active.id);
+      await navigator.clipboard.writeText(link.toString());
+      setShareMessage("App link copied. Open it while signed in to jump straight to this document.");
       toast.success("Link copied");
     } catch { setShareMessage("Copy failed."); }
   }
@@ -236,6 +266,7 @@ export default function HomePage() {
         method: "POST", headers: { "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ title: "Untitled document" }),
       });
       setDocuments((current) => [result.document, ...current]);
+      pendingDocId.current = result.document.id;
       setActive(result.document); setError(""); setSidebarOpen(false);
       toast.success("Document created");
     } catch (err) {
@@ -249,7 +280,11 @@ export default function HomePage() {
     try {
       await request("/api/documents/" + encodeURIComponent(doc.id), { method: "DELETE", headers: { "Idempotency-Key": crypto.randomUUID() } });
       setDocuments((list) => list.filter((d) => d.id !== doc.id));
-      if (active?.id === doc.id) { setActive(null); window.history.replaceState({}, "", window.location.pathname); }
+      if (active?.id === doc.id) {
+        pendingDocId.current = null;
+        setActive(null);
+        window.history.replaceState({}, "", window.location.pathname);
+      }
       setDeleteTarget(null); setDeleteConfirm("");
       toast.success("Document deleted");
     } catch (err) {
@@ -288,7 +323,9 @@ export default function HomePage() {
       <Toaster position="bottom-right" richColors closeButton />
       {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} aria-hidden />}
       <aside className={"sidebar" + (sidebarOpen ? " sidebar-open" : "")}>
-        <a className="brand" href="/" aria-label="Collab Docs home"><span className="brand-mark">C</span><span>collab<span className="brand-light">docs</span></span></a>
+        <a className="brand" href="/" aria-label="Collab Docs home" onClick={() => { pendingDocId.current = null; setActive(null); }}>
+          <span className="brand-mark">C</span><span>collab<span className="brand-light">docs</span></span>
+        </a>
         <div className="sidebar-label">WORKSPACE</div>
         <div className="workspace-pill"><span className="workspace-dot" /> Personal workspace</div>
         <div className="search-wrap"><input className="search-input" type="search" placeholder="Search documents…" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search documents" /></div>
@@ -305,7 +342,7 @@ export default function HomePage() {
               {renamingId === doc.id ? (
                 <input ref={renameInputRef} className="inline-rename" value={renameValue} maxLength={120} onChange={(e) => setRenameValue(e.target.value)} onBlur={() => void renameDocument(doc, renameValue)} onKeyDown={(e) => { if (e.key === "Enter") void renameDocument(doc, renameValue); if (e.key === "Escape") setRenamingId(null); }} aria-label="Rename document" />
               ) : (
-                <button type="button" className="document-link" onClick={() => { setActive(doc); setSidebarOpen(false); }} onDoubleClick={() => startRename(doc)} onContextMenu={(e) => openContextMenu(e, doc)}>
+                <button type="button" className="document-link" onClick={() => { pendingDocId.current = doc.id; setActive(doc); setSidebarOpen(false); }} onDoubleClick={() => startRename(doc)} onContextMenu={(e) => openContextMenu(e, doc)}>
                   <span className="doc-symbol" aria-hidden>▤</span>
                   <span className="doc-meta"><span className="doc-title">{doc.title}</span><span className="doc-date">{relativeTime(doc.updated_at)}</span></span>
                   {doc.role === "viewer" && <span className="role-badge">View</span>}
@@ -360,7 +397,7 @@ export default function HomePage() {
               <h2>Recent</h2>
               <div className="dash-grid">
                 {filtered.slice(0, 8).map((doc) => (
-                  <button key={doc.id} type="button" className="dash-card" onClick={() => setActive(doc)}>
+                  <button key={doc.id} type="button" className="dash-card" onClick={() => { pendingDocId.current = doc.id; setActive(doc); }}>
                     <span className="t">{doc.title}</span>
                     <span className="m">{relativeTime(doc.updated_at)} · {doc.role || "member"}</span>
                   </button>
@@ -372,7 +409,7 @@ export default function HomePage() {
                 <h2>Favorites</h2>
                 <div className="dash-grid">
                   {documents.filter((d) => favorites.includes(d.id)).map((doc) => (
-                    <button key={doc.id} type="button" className="dash-card" onClick={() => setActive(doc)}>
+                    <button key={doc.id} type="button" className="dash-card" onClick={() => { pendingDocId.current = doc.id; setActive(doc); }}>
                       <span className="t">★ {doc.title}</span>
                       <span className="m">{relativeTime(doc.updated_at)}</span>
                     </button>
@@ -387,7 +424,7 @@ export default function HomePage() {
                   <div className="list-placeholder">Nothing shared with you yet.</div>
                 ) : (
                   documents.filter((d) => d.role && d.role !== "owner").map((doc) => (
-                    <button key={doc.id} type="button" className="dash-card" onClick={() => setActive(doc)}>
+                    <button key={doc.id} type="button" className="dash-card" onClick={() => { pendingDocId.current = doc.id; setActive(doc); }}>
                       <span className="t">{doc.title}</span>
                       <span className="m">{doc.role} · {relativeTime(doc.updated_at)}</span>
                     </button>
@@ -435,7 +472,7 @@ export default function HomePage() {
         )}
         {contextMenu && (
           <div ref={contextRef} className="context-menu" style={{ top: contextMenu.y, left: contextMenu.x }} role="menu">
-            <button type="button" role="menuitem" onClick={() => { setActive(contextMenu.doc); setContextMenu(null); setSidebarOpen(false); }}>Open</button>
+            <button type="button" role="menuitem" onClick={() => { pendingDocId.current = contextMenu.doc.id; setActive(contextMenu.doc); setContextMenu(null); setSidebarOpen(false); }}>Open</button>
             <button type="button" role="menuitem" onClick={() => startRename(contextMenu.doc)}>Rename</button>
             <button type="button" role="menuitem" onClick={() => { setActive(contextMenu.doc); setShareOpen(true); setContextMenu(null); }} disabled={contextMenu.doc.role !== "owner"}>Share…</button>
             <div className="context-divider" />
