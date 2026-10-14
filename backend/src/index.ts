@@ -74,7 +74,6 @@ async function ensureIdentity(env: Env, identity: Identity): Promise<void> {
     "INSERT OR IGNORE INTO users (id, email, display_name) VALUES (?, ?, ?)"
   ).bind(identity.id, identity.email, identity.name.slice(0, 120)).run();
 
-  // Deterministic key + INSERT OR IGNORE makes concurrent first requests safe.
   const workspaceId = "personal:" + identity.id;
   await env.DB.prepare(
     "INSERT OR IGNORE INTO workspaces (id, name, created_by) VALUES (?, ?, ?)"
@@ -299,14 +298,16 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (parts.length === 3 && parts[2] && request.method === "DELETE") {
     const documentId = parts[2];
     const role = await roleForDocument(env, documentId, identity.id);
-    if (!role || role !== "owner") throw new HttpError(403, "Only document owners can delete documents");
+    if (!role) {
+      return response(request, env, { ok: true });
+    }
+    if (role !== "owner") throw new HttpError(403, "Only document owners can delete documents");
     const operationKey = request.headers.get("Idempotency-Key") || crypto.randomUUID();
     if (operationKey.length > 200) throw new HttpError(400, "Idempotency-Key is too long");
-    await env.DB.prepare("DELETE FROM document_members WHERE document_id = ?").bind(documentId).run();
-    await env.DB.prepare("DELETE FROM documents WHERE id = ?").bind(documentId).run();
     await env.DB.prepare(
       "INSERT OR IGNORE INTO audit_log (event_id, user_id, document_id, action, payload_json) VALUES (?, ?, ?, ?, ?)"
     ).bind("document.deleted:" + documentId + ":" + operationKey, identity.id, documentId, "document.deleted", JSON.stringify({})).run();
+    await env.DB.prepare("DELETE FROM documents WHERE id = ?").bind(documentId).run();
     return response(request, env, { ok: true });
   }
 
@@ -371,7 +372,6 @@ const worker = {
           event.userId,
           event.documentId,
           event.type,
-          event.occurredAt,
           JSON.stringify({ updateNumber: event.updateNumber })
         ).run();
 
