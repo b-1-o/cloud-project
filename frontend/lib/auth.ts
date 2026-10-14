@@ -126,12 +126,23 @@ export async function completeOidcLogin(url: URL): Promise<boolean> {
 
   try {
     const client = await getAuthClient();
-    await client.handleRedirectCallback(url.toString());
+    const result = await client.handleRedirectCallback(url.toString());
+    const state = result.appState as { returnTo?: unknown } | undefined;
+    const returnTo = typeof state?.returnTo === "string" &&
+      state.returnTo.startsWith("/") &&
+      !state.returnTo.startsWith("//")
+      ? new URL(state.returnTo, window.location.origin)
+      : null;
+
+    if (returnTo && returnTo.origin === window.location.origin) {
+      window.history.replaceState({}, "", returnTo.pathname + returnTo.search + returnTo.hash);
+    } else {
+      cleanCallbackUrl(url);
+    }
     return true;
   } catch {
-    throw new Error("Sign-in failed. Check the Auth0 callback settings and try again.");
-  } finally {
     cleanCallbackUrl(url);
+    throw new Error("Sign-in failed. Check the Auth0 callback settings and try again.");
   }
 }
 
