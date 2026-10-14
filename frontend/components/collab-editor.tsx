@@ -8,7 +8,7 @@ import * as Y from "yjs";
 import { getAccessToken } from "@/lib/auth";
 import { IndexeddbPersistence } from "y-indexeddb";
 
-type Props = { documentId: string; initialTitle: string; apiBase: string; onTitleChange: (title: string) => void };
+type Props = { documentId: string; initialTitle: string; apiBase: string; readOnly?: boolean; onTitleChange: (title: string) => void };
 type TicketResponse = { ticket: string; expiresIn: number };
 
 const MAX_ENCODED_UPDATE = 2_800_000;
@@ -28,7 +28,7 @@ function decode(value: string) {
   return bytes;
 }
 
-export function CollabEditor({ documentId, initialTitle, apiBase, onTitleChange }: Props) {
+export function CollabEditor({ documentId, initialTitle, apiBase, readOnly = false, onTitleChange }: Props) {
   const [title, setTitle] = useState(initialTitle);
   const [connection, setConnection] = useState<"connecting" | "live" | "offline">("connecting");
   const [wordCount, setWordCount] = useState(0);
@@ -36,13 +36,14 @@ export function CollabEditor({ documentId, initialTitle, apiBase, onTitleChange 
   const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const editor = useEditor({
     immediatelyRender: false,
+    editable: !readOnly,
     extensions: [StarterKit.configure({ history: false }), Collaboration.configure({ document: doc })],
     editorProps: { attributes: { class: "tiptap-editor", "aria-label": "Document editor" } },
     onUpdate: ({ editor: instance }) => {
       const text = instance.getText().trim();
       setWordCount(text ? text.split(/\s+/).length : 0);
     },
-  }, [doc]);
+  }, [doc, readOnly]);
 
   useEffect(() => {
     let socket: WebSocket | null = null;
@@ -174,6 +175,7 @@ export function CollabEditor({ documentId, initialTitle, apiBase, onTitleChange 
   }, [apiBase, documentId, doc]);
 
   function changeTitle(value: string) {
+    if (readOnly) return;
     const next = value.slice(0, 120);
     setTitle(next);
     onTitleChange(next);
@@ -194,17 +196,17 @@ export function CollabEditor({ documentId, initialTitle, apiBase, onTitleChange 
 
   return (
     <div className="editor-layout">
-      <div className="editor-meta"><div className="doc-badge">DOC</div><div><div className="editor-subtitle">DOCUMENT</div><input className="title-input" aria-label="Document title" value={title} maxLength={120} onChange={(event) => changeTitle(event.target.value)} /></div></div>
+      <div className="editor-meta"><div className="doc-badge">DOC</div><div><div className="editor-subtitle">DOCUMENT</div><input className="title-input" aria-label="Document title" value={title} maxLength={120} readOnly={readOnly} onChange={(event) => changeTitle(event.target.value)} /></div></div>
       <div className="editor-toolbar">
         <div className="toolbar-left">
-          <button className={editor?.isActive("bold") ? "tool active-tool" : "tool"} onClick={() => editor?.chain().focus().toggleBold().run()} aria-label="Bold"><strong>B</strong></button>
-          <button className={editor?.isActive("italic") ? "tool active-tool" : "tool"} onClick={() => editor?.chain().focus().toggleItalic().run()} aria-label="Italic"><em>I</em></button>
+          <button className={editor?.isActive("bold") ? "tool active-tool" : "tool"} onClick={() => editor?.chain().focus().toggleBold().run()} disabled={readOnly} aria-label="Bold"><strong>B</strong></button>
+          <button className={editor?.isActive("italic") ? "tool active-tool" : "tool"} onClick={() => editor?.chain().focus().toggleItalic().run()} disabled={readOnly} aria-label="Italic"><em>I</em></button>
           <span className="tool-divider" />
-          <button className={editor?.isActive("heading", { level: 1 }) ? "tool active-tool" : "tool"} onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()} aria-label="Heading 1">H1</button>
-          <button className={editor?.isActive("heading", { level: 2 }) ? "tool active-tool" : "tool"} onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()} aria-label="Heading 2">H2</button>
+          <button className={editor?.isActive("heading", { level: 1 }) ? "tool active-tool" : "tool"} onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()} disabled={readOnly} aria-label="Heading 1">H1</button>
+          <button className={editor?.isActive("heading", { level: 2 }) ? "tool active-tool" : "tool"} onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()} disabled={readOnly} aria-label="Heading 2">H2</button>
           <span className="tool-divider" />
-          <button className="tool" onClick={() => editor?.chain().focus().toggleBulletList().run()} aria-label="Bullet list">☷</button>
-          <button className="tool" onClick={() => editor?.chain().focus().toggleBlockquote().run()} aria-label="Quote">❞</button>
+          <button className="tool" onClick={() => editor?.chain().focus().toggleBulletList().run()} disabled={readOnly} aria-label="Bullet list">☷</button>
+          <button className="tool" onClick={() => editor?.chain().focus().toggleBlockquote().run()} disabled={readOnly} aria-label="Quote">❞</button>
         </div>
         <div className="connection-status"><span className={"status-dot " + connection} />{connection === "live" ? "Live sync" : connection === "offline" ? "Offline · saved locally" : "Connecting…"}</div>
       </div>
