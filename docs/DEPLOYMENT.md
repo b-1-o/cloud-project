@@ -9,7 +9,7 @@ This section records the last read-only inspection; it is not a claim that the a
 - Queues `document-events` and `document-events-dlq` exist.
 - Pages project `collab-docs` exists at `https://collab-docs-4tb.pages.dev`, but it has no deployment yet.
 - No production Worker script was deployed at the time of inspection.
-- The account did not yet have a `workers.dev` subdomain, so the public Worker URL must be resolved before setting `NEXT_PUBLIC_API_URL`.
+- The account's `workers.dev` subdomain is `collab-docs-b1o`. The intended production Worker URL is `https://collab-docs-api-production.collab-docs-b1o.workers.dev`; it will serve requests after the gated deployment creates the Worker.
 - The Neon project `collab-docs-analytics` exists. A Hyperdrive configuration has not been created; analytics remains optional.
 
 The D1, KV, Queue and Durable Object bindings are recorded in `backend/wrangler.jsonc`. Local defaults use demo auth, while `--env production` uses OIDC. Production requests fail closed until the identity provider settings are configured. The deployment workflow remains gated by `CLOUDFLARE_DEPLOY_ENABLED=true`.
@@ -22,12 +22,12 @@ Each `DocumentRoom` Durable Object stores Yjs updates in its SQLite storage. Aft
 
 Auth0 Free is the selected provider for the existing generic OIDC/PKCE client. Create a Single Page Application (public client) and an API whose identifier is exactly `https://collab-docs-api`. Register `https://collab-docs-4tb.pages.dev/` as the allowed callback and logout URL, and allow the exact Pages origin for browser token exchange. Enable Refresh Token Rotation on the SPA and Allow Offline Access on the API. The frontend uses Auth0's SPA SDK with PKCE and the offline_access scope; do not create or use a browser client secret.
 
-The tenant-specific URLs are not known until the tenant is created. For a standard Auth0 tenant they follow these forms, with the tenant domain replacing `YOUR_TENANT_DOMAIN`:
+The configured Auth0 tenant URLs are:
 
-- Authorization URL: `https://YOUR_TENANT_DOMAIN/authorize`
-- Token URL: `https://YOUR_TENANT_DOMAIN/oauth/token`
-- Issuer: `https://YOUR_TENANT_DOMAIN/`
-- JWKS URL: `https://YOUR_TENANT_DOMAIN/.well-known/jwks.json`
+- Authorization URL: `https://dev-iy8rk4v6x2psslz4.us.auth0.com/authorize`
+- Token URL: `https://dev-iy8rk4v6x2psslz4.us.auth0.com/oauth/token`
+- Issuer: `https://dev-iy8rk4v6x2psslz4.us.auth0.com/`
+- JWKS URL: `https://dev-iy8rk4v6x2psslz4.us.auth0.com/.well-known/jwks.json`
 - Audience: `https://collab-docs-api`
 
 Before deployment, validate that the API's access token has that audience and the tenant's exact issuer. Never put a client secret in frontend variables or source control.
