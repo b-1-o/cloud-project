@@ -5,6 +5,7 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Collaboration from "@tiptap/extension-collaboration";
 import * as Y from "yjs";
+import { getAccessToken } from "@/lib/auth";
 import { IndexeddbPersistence } from "y-indexeddb";
 
 type Props = { documentId: string; initialTitle: string; apiBase: string; onTitleChange: (title: string) => void };
@@ -46,7 +47,7 @@ export function CollabEditor({ documentId, initialTitle, apiBase, onTitleChange 
       await persistence.whenSynced;
       if (disposed) return;
       try {
-        const response = await fetch(apiBase + "/api/documents/" + encodeURIComponent(documentId) + "/ticket", { method: "POST" });
+        const response = await fetch(apiBase + "/api/documents/" + encodeURIComponent(documentId) + "/ticket", { method: "POST", headers: getAccessToken() ? { Authorization: "Bearer " + getAccessToken() } : {} });
         if (!response.ok) throw new Error("Ticket request failed");
         const { ticket } = await response.json() as TicketResponse;
         const url = new URL(apiBase || window.location.origin);
@@ -104,7 +105,7 @@ export function CollabEditor({ documentId, initialTitle, apiBase, onTitleChange 
     window.clearTimeout(Number(sessionStorage.getItem(timerKey) || 0));
     const timer = window.setTimeout(() => {
       void fetch(apiBase + "/api/documents/" + encodeURIComponent(documentId), {
-        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: next }),
+        method: "PATCH", headers: { "Content-Type": "application/json", ...(getAccessToken() ? { Authorization: "Bearer " + getAccessToken() } : {}) }, body: JSON.stringify({ title: next }),
       }).catch(() => undefined);
     }, 350);
     sessionStorage.setItem(timerKey, String(timer));
