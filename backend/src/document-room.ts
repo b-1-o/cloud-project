@@ -63,6 +63,9 @@ export class DocumentRoom {
     this.ctx.storage.sql.exec(
       "CREATE TABLE IF NOT EXISTS event_outbox (event_id TEXT PRIMARY KEY, payload_json TEXT NOT NULL, created_at INTEGER NOT NULL);"
     );
+    this.ctx.storage.sql.exec(
+      "CREATE TABLE IF NOT EXISTS snapshot_outbox (snapshot_key TEXT PRIMARY KEY, document_id TEXT NOT NULL, snapshot BLOB NOT NULL, version INTEGER NOT NULL, created_at INTEGER NOT NULL);"
+    );
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -133,7 +136,16 @@ export class DocumentRoom {
       return;
     }
 
+    if (message.type === "ping") {
+      try { socket.send(JSON.stringify({ type: "pong", at: Date.now() })); } catch { /* socket is closing */ }
+      return;
+    }
+
     if (message.type === "sync") {
+      if (message.state && message.state.length > 2_800_000) {
+        socket.send(JSON.stringify({ type: "error", error: "state_too_large" }));
+        return;
+      }
       if (message.state && canEdit(attachment.role)) {
         await this.applyAndPersist(socket, attachment, message.state);
       }
@@ -161,10 +173,10 @@ export class DocumentRoom {
   }
 
   async alarm(): Promise<void> {
+    let failed = false;
     const pending = this.ctx.storage.sql.exec(
       "SELECT event_id, payload_json FROM event_outbox ORDER BY created_at ASC LIMIT 100"
     ).toArray() as Array<{ event_id: string; payload_json: string }>;
-    let failed = false;
     for (const row of pending) {
       try {
         await this.env.DOCUMENT_EVENTS.send(JSON.parse(row.payload_json) as DocumentEvent, { contentType: "json" });
@@ -174,7 +186,28 @@ export class DocumentRoom {
         console.error(JSON.stringify({ event: "queue.outbox_retry_failed", eventId: row.event_id, message: String(error) }));
       }
     }
-    const remaining = this.ctx.storage.sql.exec("SELECT COUNT(*) AS count FROM event_outbox").toArray() as Array<{ count: number }>;
+
+    if (this.env.SNAPSHOTS) {
+      const snapshots = this.ctx.storage.sql.exec(
+        "SELECT snapshot_key, document_id, snapshot, version FROM snapshot_outbox ORDER BY created_at ASC LIMIT 10"
+      ).toArray() as Array<{ snapshot_key: string; document_id: string; snapshot: ArrayBuffer | ArrayBufferView; version: number }>;
+      for (const row of snapshots) {
+        try {
+          await this.env.SNAPSHOTS.put(row.snapshot_key, asBytes(row.snapshot), {
+            httpMetadata: { contentType: "application/octet-stream" },
+            customMetadata: { documentId: row.document_id, version: String(row.version) }
+          });
+          this.ctx.storage.sql.exec("DELETE FROM snapshot_outbox WHERE snapshot_key = ?", row.snapshot_key);
+        } catch (error) {
+          failed = true;
+          console.error(JSON.stringify({ event: "snapshot.outbox_retry_failed", snapshotKey: row.snapshot_key, message: String(error) }));
+        }
+      }
+    }
+
+    const remaining = this.ctx.storage.sql.exec(
+      "SELECT (SELECT COUNT(*) FROM event_outbox) + (SELECT COUNT(*) FROM snapshot_outbox) AS count"
+    ).toArray() as Array<{ count: number }>;
     if (failed || Number(remaining[0]?.count || 0) > 0) {
       await this.ctx.storage.setAlarm(Date.now() + 5_000);
     }
@@ -221,13 +254,19 @@ export class DocumentRoom {
         );
         this.ctx.storage.sql.exec("DELETE FROM doc_updates WHERE id <= ?", updateNumber);
         if (this.env.SNAPSHOTS) {
+          const snapshotKey = attachment.documentId + "/" + String(updateNumber) + ".bin";
           try {
-            await this.env.SNAPSHOTS.put(attachment.documentId + "/" + String(updateNumber) + ".bin", snapshot, {
+            await this.env.SNAPSHOTS.put(snapshotKey, snapshot, {
               httpMetadata: { contentType: "application/octet-stream" },
               customMetadata: { documentId: attachment.documentId, version: String(updateNumber) }
             });
           } catch (error) {
-            console.error(JSON.stringify({ event: "snapshot.write_failed", documentId: attachment.documentId, message: String(error) }));
+            this.ctx.storage.sql.exec(
+              "INSERT OR IGNORE INTO snapshot_outbox (snapshot_key, document_id, snapshot, version, created_at) VALUES (?, ?, ?, ?, ?)",
+              snapshotKey, attachment.documentId, snapshot, updateNumber, Date.now()
+            );
+            await this.ctx.storage.setAlarm(Date.now() + 5_000);
+            console.error(JSON.stringify({ event: "snapshot.write_deferred", documentId: attachment.documentId, updateNumber, message: String(error) }));
           }
         } else {
           console.warn(JSON.stringify({ event: "snapshot.r2_unavailable", documentId: attachment.documentId, updateNumber }));
