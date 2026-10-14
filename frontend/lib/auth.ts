@@ -87,8 +87,20 @@ async function getAuthClient(): Promise<AuthClient> {
 
 function errorCode(error: unknown): string {
   if (!error || typeof error !== "object") return "";
-  const details = error as { error?: unknown; code?: unknown };
-  return String(details.error || details.code || "");
+  const details = error as { error?: unknown; code?: unknown; name?: unknown; message?: unknown };
+  const explicit = details.error || details.code;
+  if (typeof explicit === "string" && explicit) return explicit;
+  const message = typeof details.message === "string" ? details.message.toLowerCase() : "";
+  if (message.includes("state")) return "invalid_state";
+  if (message.includes("code verifier")) return "missing_code_verifier";
+  if (message.includes("transaction")) return "missing_transaction";
+  if (message.includes("callback")) return "callback_error";
+  if (message.includes("network") || message.includes("fetch")) return "network_error";
+  return typeof details.name === "string" && details.name !== "Error" ? details.name : "auth0_error";
+}
+
+function safeCode(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_.-]/g, "").slice(0, 64) || "auth0_error";
 }
 
 function cleanCallbackUrl(url: URL): void {
@@ -140,9 +152,22 @@ export async function completeOidcLogin(url: URL): Promise<boolean> {
       cleanCallbackUrl(url);
     }
     return true;
-  } catch {
+  } catch (error) {
+    const code = safeCode(errorCode(error));
+    // Log only the sanitized error category. Never log callback URLs, codes,
+    // tokens, state values, or the provider's raw error payload.
+    console.warn("Auth0 callback processing failed", { code });
     cleanCallbackUrl(url);
-    throw new Error("Sign-in failed. Check the Auth0 callback settings and try again.");
+    if (code === "invalid_state" || code === "missing_transaction") {
+      throw new Error("Auth0 sign-in state expired or could not be verified (" + code + "). Start sign-in again from the Collab Docs homepage in the same tab.");
+    }
+    if (code === "invalid_grant" || code === "missing_code_verifier") {
+      throw new Error("Auth0 could not exchange the sign-in code (" + code + "). Check the allowed callback URL and retry sign-in.");
+    }
+    if (code === "access_denied" || code === "unauthorized_client" || code === "invalid_scope") {
+      throw new Error("Auth0 rejected the sign-in request (" + code + "). Check the SPA application settings, grant types, and offline-access settings.");
+    }
+    throw new Error("Auth0 sign-in callback failed (" + code + "). Check the browser console for the same error category; no tokens or sign-in codes are logged.");
   }
 }
 
