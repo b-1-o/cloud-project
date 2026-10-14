@@ -86,15 +86,13 @@ async function getAuthClient(): Promise<AuthClient> {
 }
 
 function errorCode(error: unknown, providerDescription = ""): string {
-  const details = error && typeof error === "object"
-    ? error as {
-        error?: unknown;
-        code?: unknown;
-        name?: unknown;
-        message?: unknown;
-        error_description?: unknown;
-      }
-    : {};
+  const details = (error && typeof error === "object" ? error : {}) as {
+    error?: unknown;
+    code?: unknown;
+    name?: unknown;
+    message?: unknown;
+    error_description?: unknown;
+  };
   const description = [
     providerDescription,
     typeof details.error_description === "string" ? details.error_description : "",
