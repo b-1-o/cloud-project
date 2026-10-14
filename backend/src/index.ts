@@ -329,11 +329,31 @@ const worker = {
     }
   },
 
-  async queue(batch: MessageBatch<DocumentEvent>, env: Env): Promise<void> {
+  async queue(batch: MessageBatch<unknown>, env: Env): Promise<void> {
     for (const message of batch.messages) {
-      const event = message.body;
+      const body: unknown = message.body;
+      if (
+        !body ||
+        typeof body !== "object" ||
+        !("eventId" in body) ||
+        typeof body.eventId !== "string" ||
+        !("type" in body) ||
+        body.type !== "document.updated" ||
+        !("documentId" in body) ||
+        typeof body.documentId !== "string" ||
+        !("userId" in body) ||
+        typeof body.userId !== "string" ||
+        !("updateNumber" in body) ||
+        typeof body.updateNumber !== "number" ||
+        !("occurredAt" in body) ||
+        typeof body.occurredAt !== "string"
+      ) {
+        console.error(JSON.stringify({ event: "queue.invalid_message" }));
+        message.retry();
+        continue;
+      }
+      const event = body as DocumentEvent;
       try {
-        if (event.type !== "document.updated") {
           message.ack();
           continue;
         }
@@ -370,7 +390,7 @@ const worker = {
       }
     }
   }
-} satisfies ExportedHandler<Env, DocumentEvent>;
+} satisfies ExportedHandler<Env>;
 
 export default Sentry.withSentry((env: Env) => ({
   dsn: env.SENTRY_DSN,
