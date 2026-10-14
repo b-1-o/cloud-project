@@ -13,7 +13,7 @@ export type DocumentEvent = {
 export interface Env {
   DB: D1Database;
   SESSIONS: KVNamespace;
-  SNAPSHOTS: R2Bucket;
+  SNAPSHOTS?: R2Bucket;
   DOCUMENT_EVENTS: Queue<DocumentEvent>;
   DOC_ROOMS: DurableObjectNamespace;
   ENVIRONMENT: string;
@@ -193,13 +193,17 @@ export class DocumentRoom {
           snapshot, updateNumber, Date.now()
         );
         this.ctx.storage.sql.exec("DELETE FROM doc_updates WHERE id <= ?", updateNumber);
-        try {
-          await this.env.SNAPSHOTS.put(attachment.documentId + "/" + String(updateNumber) + ".bin", snapshot, {
-            httpMetadata: { contentType: "application/octet-stream" },
-            customMetadata: { documentId: attachment.documentId, version: String(updateNumber) }
-          });
-        } catch (error) {
-          console.error(JSON.stringify({ event: "snapshot.write_failed", documentId: attachment.documentId, message: String(error) }));
+        if (this.env.SNAPSHOTS) {
+          try {
+            await this.env.SNAPSHOTS.put(attachment.documentId + "/" + String(updateNumber) + ".bin", snapshot, {
+              httpMetadata: { contentType: "application/octet-stream" },
+              customMetadata: { documentId: attachment.documentId, version: String(updateNumber) }
+            });
+          } catch (error) {
+            console.error(JSON.stringify({ event: "snapshot.write_failed", documentId: attachment.documentId, message: String(error) }));
+          }
+        } else {
+          console.warn(JSON.stringify({ event: "snapshot.r2_unavailable", documentId: attachment.documentId, updateNumber }));
         }
       }
 
