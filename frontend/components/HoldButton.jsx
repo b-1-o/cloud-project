@@ -9,6 +9,34 @@ const HIT_PAD = 10;
 const LINEAR = t => t;
 const EASE_OUT = t => 1 - Math.pow(1 - t, 3);
 
+/**
+ * @typedef {import("react").ReactNode} ReactNode
+ * @typedef {object} HoldButtonProps
+ * @property {ReactNode} [children]
+ * @property {ReactNode} [doneLabel]
+ * @property {ReactNode} [icon]
+ * @property {ReactNode} [doneIcon]
+ * @property {string} [backgroundColor]
+ * @property {string} [fillColor]
+ * @property {string} [textColor]
+ * @property {string} [fillTextColor]
+ * @property {"sm" | "md" | "lg"} [size]
+ * @property {number} [radius]
+ * @property {"right" | "up"} [fillDirection]
+ * @property {number} [holdTime]
+ * @property {number} [releaseTime]
+ * @property {number} [pressScale]
+ * @property {boolean} [wave]
+ * @property {number} [waveAmplitude]
+ * @property {boolean} [glow]
+ * @property {number} [resetAfter]
+ * @property {boolean} [disabled]
+ * @property {() => void} [onHold]
+ * @property {() => void} [onTap]
+ * @property {string} [className]
+ */
+
+/** @param {HoldButtonProps} props */
 export default function HoldButton({
   children = 'Hold to delete',
   doneLabel = 'Deleted',

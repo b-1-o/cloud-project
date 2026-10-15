@@ -401,7 +401,7 @@ export default function HomePage() {
         setActive(null);
         window.history.replaceState({}, "", window.location.pathname);
       }
-      setDeleteTarget(null); setDeleteConfirm("");
+      setDeleteTarget(null); setDeleteMode("trash");
       pendingRestore.current = { id: doc.id, title: doc.title };
       toast.success("Moved to trash", {
         description: "Undo within 8 seconds",
