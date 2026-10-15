@@ -4,12 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { flushSync } from "react-dom";
 import { clearAccessToken, completeOidcLogin, getAccessToken, startOidcLogin } from "@/lib/auth";
 import { CollabEditor } from "@/components/collab-editor";
+import { WorkspaceCalendar } from "@/components/workspace-calendar";
 import { formatDistanceToNow } from "date-fns";
 import { Toaster, toast } from "sonner";
 import { CommandPalette, type CommandItem } from "@/components/command-palette";
 import Folder from "@/components/react-bits/Folder";
 import HoldButton from "@/components/HoldButton";
-import { ArrowRight, ArrowUpRight, Check, Cloud, Code2, Command, FileText, LayoutTemplate, NotebookPen, Plus, Sparkles, Target, Users, Wifi, Clock3, Files, ShieldCheck, Star, Trash2, FolderOpen, Pencil, Inbox, MessageCircle, CalendarDays, ListChecks, BarChart3, Sun, Moon, Activity, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, Cloud, Code2, Command, FileText, LayoutTemplate, NotebookPen, Plus, Sparkles, Target, Users, Wifi, Clock3, Files, ShieldCheck, Star, Trash2, FolderOpen, Pencil, Inbox, MessageCircle, CalendarDays, ListChecks, BarChart3, Sun, Moon, Activity, Menu, Share2, X } from "lucide-react";
 
 type DashboardFolder = "all" | "mine" | "shared" | "favorites";
 
@@ -74,6 +75,7 @@ export default function HomePage() {
   const [renameValue, setRenameValue] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [themeReveal, setThemeReveal] = useState<{ x: number; y: number; tone: "light" | "dark" } | null>(null);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [publicLink, setPublicLink] = useState("");
   const [publicBusy, setPublicBusy] = useState(false);
@@ -82,11 +84,7 @@ export default function HomePage() {
   const [dashboardFolder, setDashboardFolder] = useState<DashboardFolder>("all");
   const [cmdOpen, setCmdOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
-  const [showWorkspaceStats, setShowWorkspaceStats] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [calendarMonth, setCalendarMonth] = useState<Date | null>(null);
-  const [calendarToday, setCalendarToday] = useState<Date | null>(null);
-  const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | null>(null);
   const [openCommentsForId, setOpenCommentsForId] = useState<string | null>(null);
   const [sheetTransitionId, setSheetTransitionId] = useState<string | null>(null);
   const contextRef = useRef<HTMLDivElement>(null);
@@ -136,7 +134,7 @@ export default function HomePage() {
     }
   }
 
-  function toggleTheme() {
+  function toggleTheme(event?: React.MouseEvent<HTMLButtonElement>) {
     const next = theme === "dark" ? "light" : "dark";
     const root = document.documentElement;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -145,15 +143,26 @@ export default function HomePage() {
       window.clearTimeout(themeTransitionTimerRef.current);
       themeTransitionTimerRef.current = null;
     }
-    if (!reduceMotion) root.classList.add("theme-color-transition");
+    if (!reduceMotion) {
+      const rect = event?.currentTarget.getBoundingClientRect();
+      setThemeReveal({
+        x: rect ? rect.left + rect.width / 2 : window.innerWidth - 40,
+        y: rect ? rect.top + rect.height / 2 : 36,
+        tone: next,
+      });
+      root.classList.add("theme-color-transition");
+    } else {
+      setThemeReveal(null);
+    }
     setTheme(next);
     localStorage.setItem("collab-theme", next);
     root.classList.toggle("dark", next === "dark");
 
     themeTransitionTimerRef.current = window.setTimeout(() => {
       root.classList.remove("theme-color-transition");
+      setThemeReveal(null);
       themeTransitionTimerRef.current = null;
-    }, reduceMotion ? 0 : 260);
+    }, reduceMotion ? 0 : 620);
   }
 
   const refresh = useCallback(async (mode?: "docs" | "trash") => {
@@ -517,28 +526,6 @@ export default function HomePage() {
     ];
   }, [documents, filtered, favorites, ownedDocumentCount, sharedDocumentCount, favoriteDocumentCount, folderColor]);
 
-  useEffect(() => {
-    const today = new Date();
-    setCalendarToday(today);
-    setCalendarMonth(new Date(today.getFullYear(), today.getMonth(), 1));
-    setSelectedCalendarDate(today);
-  }, []);
-
-  const calendarDays = useMemo(() => {
-    if (!calendarMonth) return [];
-    const year = calendarMonth.getFullYear();
-    const month = calendarMonth.getMonth();
-    const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7;
-    const dateKey = (date: Date) => date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
-    const todayKey = calendarToday ? dateKey(calendarToday) : "";
-    const selectedKey = selectedCalendarDate ? dateKey(selectedCalendarDate) : "";
-    return Array.from({ length: 42 }, (_, index) => {
-      const date = new Date(year, month, index - firstWeekday + 1);
-      const key = dateKey(date);
-      return { date, key, inMonth: date.getMonth() === month, isToday: key === todayKey, isSelected: key === selectedKey };
-    });
-  }, [calendarMonth, calendarToday, selectedCalendarDate]);
-
   function openCommentsHub() {
     const target = filtered[0] ?? documents[0];
     if (!target) {
@@ -587,6 +574,17 @@ export default function HomePage() {
     try {
       const transition = transitionDocument.startViewTransition(() => {
         flushSync(() => openDocument(selected, false, true));
+        const mainPanel = document.querySelector<HTMLElement>(".main-panel");
+        if (mainPanel) {
+          mainPanel.scrollTop = 0;
+          mainPanel.scrollLeft = 0;
+        }
+        const paperWrap = document.querySelector<HTMLElement>(".paper-wrap");
+        if (paperWrap) {
+          paperWrap.scrollTop = 0;
+          paperWrap.scrollLeft = 0;
+        }
+        window.scrollTo({ top: 0, left: 0, behavior: "auto" });
       });
       void transition.finished.then(() => {
         clearSourceName();
@@ -604,9 +602,10 @@ export default function HomePage() {
   return (
     <main className="shell">
       <Toaster position="bottom-right" richColors closeButton />
+      {themeReveal && <div className={"theme-reveal theme-reveal-" + themeReveal.tone} style={{ "--theme-x": themeReveal.x + "px", "--theme-y": themeReveal.y + "px" } as CSSProperties} aria-hidden="true" />}
       {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} aria-hidden />}
       <aside className={"sidebar" + (sidebarOpen ? " sidebar-open" : "")}>
-        <a className="brand" href="/" aria-label="Collab Docs home" onClick={() => { pendingDocId.current = null; setActive(null); }}>
+        <a className="brand" href="/" aria-label="Collab Docs home" onClick={() => { pendingDocId.current = null; setActive(null); window.scrollTo({ top: 0, behavior: "auto" }); }}>
           <span className="brand-mark">C</span><span>collab<span className="brand-light">docs</span></span>
         </a>
         <div className="sidebar-label">WORKSPACE</div>
@@ -642,7 +641,7 @@ export default function HomePage() {
                   {doc.role === "viewer" && <span className="role-badge">View</span>}
                 </button>
               )}
-              <button type="button" className="fav-star" aria-label="Toggle favorite" onClick={(e) => { e.stopPropagation(); toggleFavorite(doc.id); }}>{favorites.includes(doc.id) ? "★" : "☆"}</button>
+              <button type="button" className="fav-star" aria-label="Toggle favorite" onClick={(e) => { e.stopPropagation(); toggleFavorite(doc.id); }}>{favorites.includes(doc.id) ? <Star size={13} fill="currentColor" /> : <Star size={13} />}</button>
               <button type="button" className="doc-more" aria-label="Document actions" onClick={(e) => openContextMenu(e, doc)}>···</button>
             </div>
           ))}
@@ -658,18 +657,18 @@ export default function HomePage() {
       <section className="main-panel">
         <header className="topbar">
           <div className="topbar-left">
-            <button type="button" className="menu-toggle" aria-label="Toggle sidebar" onClick={() => setSidebarOpen((o) => !o)}>☰</button>
+            <button type="button" className="menu-toggle" aria-label="Toggle sidebar" onClick={() => setSidebarOpen((o) => !o)}><Menu size={17} strokeWidth={1.8} /></button>
             <div className="breadcrumbs"><span>Personal workspace</span><span className="slash">/</span><strong>{active?.title || (viewMode === "trash" ? "Trash" : "Home")}</strong></div>
           </div>
           <div className="top-actions">
             <button type="button" className="theme-toggle" data-theme={theme} onClick={toggleTheme} aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"} title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}><span className="theme-toggle-icon" aria-hidden="true">{theme === "dark" ? <Sun size={17} strokeWidth={1.8} /> : <Moon size={17} strokeWidth={1.8} />}</span></button>
             <span className="secure-label"><span className="green-dot" /> Autosave enabled</span>
-            <button className="share-button" onClick={() => { setShareMessage(""); setPublicLink(""); setShareOpen(true); }} disabled={!active || active.role !== "owner"}>↗ Share</button>
+            <button className="share-button" onClick={() => { setShareMessage(""); setPublicLink(""); setShareOpen(true); }} disabled={!active || active.role !== "owner"}><Share2 size={14} /> Share</button>
             {process.env.NEXT_PUBLIC_OIDC_AUTHORIZATION_URL && (signedIn ? <button className="auth-button" onClick={signOut}>Sign out</button> : <button className="auth-button" onClick={signIn}>Sign in</button>)}
             <span className="avatar small-avatar">B</span>
           </div>
         </header>
-        {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError("")} aria-label="Dismiss error">×</button></div>}
+        {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError("")} aria-label="Dismiss error"><X size={15} /></button></div>}
         {active ? (
           <CollabEditor key={active.id} documentId={active.id} initialTitle={active.title} apiBase={API} readOnly={active.role === "viewer"} openingFromSheet={sheetTransitionId === active.id} openCommentsOnMount={openCommentsForId === active.id} onTitleChange={(title) => setDocuments((list) => list.map((d) => (d.id === active.id ? { ...d, title } : d)))} onDeleteRequest={() => { setDeleteTarget(active); setDeleteMode("trash"); }} />
         ) : loading ? (
@@ -854,7 +853,9 @@ export default function HomePage() {
                 <div><div className="eyebrow">WORKSPACE / 01</div><h2 id="workspace-hub-title">Workspace hub</h2><p>Your next step, in one place.</p></div>
                 <span className="dashboard-live-label"><span /> Live workspace</span>
               </div>
-              <div className="workspace-hub-grid">
+              <div className="workspace-hub-layout">
+                <div className="workspace-hub-main">
+                  <div className="workspace-hub-grid">
                 <button type="button" className="workspace-hub-card hub-inbox" onClick={() => chooseDashboardFolder("shared")}>
                   <span className="hub-card-icon"><Inbox size={19} strokeWidth={1.7} /></span>
                   <span className="hub-card-copy"><span className="hub-card-kicker">INBOX</span><strong>Shared with you</strong><small>Open documents from collaborators.</small></span>
@@ -880,51 +881,30 @@ export default function HomePage() {
                   <span className="hub-card-copy"><span className="hub-card-kicker">RECENT EDITS</span><strong>{filtered[0]?.title || "No edits yet"}</strong><small>{filtered[0] ? "Updated " + relativeTime(filtered[0].updated_at) : "Your latest activity will appear here."}</small></span>
                   <span className="hub-card-trailing"><b>{String(filtered.length).padStart(2, "0")}</b><ArrowUpRight size={16} /></span>
                 </button>
-                <button type="button" className={"workspace-hub-card hub-statistics" + (showWorkspaceStats ? " is-expanded" : "")} aria-expanded={showWorkspaceStats} onClick={() => setShowWorkspaceStats((value) => !value)}>
-                  <span className="hub-card-icon"><BarChart3 size={19} strokeWidth={1.7} /></span>
-                  <span className="hub-card-copy"><span className="hub-card-kicker">STATISTICS</span><strong>Workspace pulse</strong><small>{showWorkspaceStats ? "Hide your live numbers." : "See how your library is taking shape."}</small></span>
-                  <span className="hub-card-trailing"><ArrowUpRight size={16} className="hub-stats-arrow" /></span>
-                </button>
+
               </div>
-              {showWorkspaceStats && (
-                <div className="workspace-stats-reveal" aria-live="polite">
-                  <div className="workspace-mini-stat"><span>Documents</span><strong>{String(documents.length).padStart(2, "0")}</strong></div>
-                  <div className="workspace-mini-stat"><span>Owned by you</span><strong>{String(ownedDocumentCount).padStart(2, "0")}</strong></div>
-                  <div className="workspace-mini-stat"><span>Shared with you</span><strong>{String(sharedDocumentCount).padStart(2, "0")}</strong></div>
-                  <div className="workspace-mini-stat"><span>Favorites</span><strong>{String(favoriteDocumentCount).padStart(2, "0")}</strong></div>
+              <div id="workspace-calendar-panel" className={"calendar-accordion" + (calendarOpen ? " is-open" : "")} aria-hidden={!calendarOpen}>
+                <div className="calendar-accordion-inner">
+                  <WorkspaceCalendar open={calendarOpen} apiBase={API} documents={documents} />
                 </div>
-              )}
-              {calendarOpen && (
-                <div className="workspace-calendar-panel" id="workspace-calendar-panel" aria-label="Workspace calendar">
-                  <div className="workspace-calendar-header">
-                    <div>
-                      <div className="eyebrow">YOUR SCHEDULE</div>
-                      <h3>{calendarMonth ? calendarMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" }) : "Loading calendar…"}</h3>
-                      <p>{selectedCalendarDate ? selectedCalendarDate.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }) : "Choose a date to focus on."}</p>
-                    </div>
-                    <div className="workspace-calendar-controls">
-                      <button type="button" aria-label="Previous month" onClick={() => calendarMonth && setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}><ChevronLeft size={17} /></button>
-                      <button type="button" aria-label="Next month" onClick={() => calendarMonth && setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}><ChevronRight size={17} /></button>
-                      <button type="button" className="calendar-today-button" onClick={() => { if (calendarToday) { setCalendarMonth(new Date(calendarToday.getFullYear(), calendarToday.getMonth(), 1)); setSelectedCalendarDate(calendarToday); } }}>Today</button>
-                    </div>
-                  </div>
-                  <div className="workspace-calendar-grid" role="grid" aria-label={calendarMonth ? calendarMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" }) : "Calendar dates"}>
-                    {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => <span key={day} className="workspace-calendar-weekday" role="columnheader">{day}</span>)}
-                    {calendarDays.map((day) => (
-                      <button
-                        key={day.key}
-                        type="button"
-                        role="gridcell"
-                        className={"workspace-calendar-day" + (day.inMonth ? "" : " is-outside") + (day.isToday ? " is-today" : "") + (day.isSelected ? " is-selected" : "")}
-                        aria-label={day.date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
-                        aria-pressed={day.isSelected}
-                        onClick={() => { setSelectedCalendarDate(day.date); if (calendarMonth && day.date.getMonth() !== calendarMonth.getMonth()) setCalendarMonth(new Date(day.date.getFullYear(), day.date.getMonth(), 1)); }}
-                      >{day.date.getDate()}</button>
-                    ))}
-                  </div>
-                  <div className="workspace-calendar-footer"><span className="calendar-date-marker" /> Selected date <strong>{selectedCalendarDate?.toLocaleDateString(undefined, { month: "short", day: "numeric" }) || "—"}</strong><span className="calendar-no-events">No events connected yet</span></div>
+              </div>
                 </div>
-              )}
+                <aside className="workspace-stats-sidebar" aria-labelledby="workspace-stats-title">
+                  <div className="workspace-stats-heading">
+                    <span className="workspace-stats-icon"><BarChart3 size={17} strokeWidth={1.8} /></span>
+                    <div><span className="workspace-stats-kicker">LIVE / OVERVIEW</span><h3 id="workspace-stats-title">Workspace pulse</h3></div>
+                    <span className="workspace-stats-live" aria-label="Live stats" />
+                  </div>
+                  <p className="workspace-stats-description">Your library, at a glance.</p>
+                  <div className="workspace-stats-list">
+                    <div className="workspace-stat-row"><span><FileText size={14} /> Documents</span><strong>{String(documents.length).padStart(2, "0")}</strong></div>
+                    <div className="workspace-stat-row"><span><Pencil size={14} /> Owned by you</span><strong>{String(ownedDocumentCount).padStart(2, "0")}</strong></div>
+                    <div className="workspace-stat-row"><span><Users size={14} /> Shared with you</span><strong>{String(sharedDocumentCount).padStart(2, "0")}</strong></div>
+                    <div className="workspace-stat-row"><span><Star size={14} /> Favorites</span><strong>{String(favoriteDocumentCount).padStart(2, "0")}</strong></div>
+                  </div>
+                  <button type="button" className="workspace-stats-library-link" onClick={() => chooseDashboardFolder("all")}>View document library <ArrowUpRight size={14} /></button>
+                </aside>
+              </div>
             </section>
 
             <section className="dashboard-collections" aria-labelledby="collections-title">
@@ -1017,7 +997,7 @@ export default function HomePage() {
         {shareOpen && active && (
           <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShareOpen(false); }}>
             <section className="share-modal" role="dialog" aria-modal="true" aria-labelledby="share-title">
-              <div className="modal-heading"><div><div className="eyebrow">COLLABORATION</div><h2 id="share-title">Share document</h2></div><button className="modal-close" onClick={() => setShareOpen(false)} aria-label="Close">×</button></div>
+              <div className="modal-heading"><div><div className="eyebrow">COLLABORATION</div><h2 id="share-title">Share document</h2></div><button className="modal-close" onClick={() => setShareOpen(false)} aria-label="Close"><X size={15} /></button></div>
               <p className="modal-copy">Invite a teammate, or create a public view link without an account.</p>
               {publicLink && <p className="share-feedback">Public: {publicLink}</p>}
               <form className="share-form" onSubmit={(e) => { e.preventDefault(); void shareDocument(); }}>
@@ -1044,7 +1024,7 @@ export default function HomePage() {
                   <div className="eyebrow danger-eyebrow">{deleteMode === "permanent" ? "PERMANENT REMOVAL" : "DESTRUCTIVE ACTION"}</div>
                   <h2 id="delete-dialog-title">{deleteMode === "permanent" ? "Delete forever?" : "Move document to trash?"}</h2>
                 </div>
-                <button className="modal-close" onClick={() => { if (!deleting) { setDeleteTarget(null); setDeleteMode("trash"); } }} aria-label="Close" disabled={deleting}>×</button>
+                <button className="modal-close" onClick={() => { if (!deleting) { setDeleteTarget(null); setDeleteMode("trash"); } }} aria-label="Close" disabled={deleting}><X size={15} /></button>
               </div>
               <p className="modal-copy" id="delete-dialog-description">
                 <strong>{deleteTarget.title}</strong>{deleteMode === "permanent" ? " will be permanently deleted. This cannot be undone." : " will be moved to Trash, where you can restore it later."}
@@ -1136,7 +1116,7 @@ export default function HomePage() {
           <section className="share-modal" role="dialog" aria-modal="true">
             <div className="modal-heading">
               <div><div className="eyebrow">TEMPLATES</div><h2>Start from a template</h2></div>
-              <button className="modal-close" onClick={() => setTemplateOpen(false)} aria-label="Close">×</button>
+              <button className="modal-close" onClick={() => setTemplateOpen(false)} aria-label="Close"><X size={15} /></button>
             </div>
             <div className="template-grid">
               {TEMPLATES.map((tpl) => (
