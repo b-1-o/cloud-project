@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./globals-extra.css";
 
 export const metadata: Metadata = {
   title: "Collab Docs",
