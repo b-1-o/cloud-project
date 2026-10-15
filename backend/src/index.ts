@@ -93,6 +93,72 @@ async function ensureIdentity(env: Env, identity: Identity): Promise<void> {
   await env.DB.prepare("INSERT OR IGNORE INTO workspace_members (workspace_id, user_id, role_id) VALUES (?, ?, 'role-owner')").bind(workspaceId, identity.id).run();
 }
 
+type CalendarEventInput = {
+  title: string;
+  description: string;
+  start_at: string;
+  end_at: string;
+  all_day: boolean;
+  link_url: string | null;
+  email_to: string | null;
+  reminder_minutes: number | null;
+  document_id: string | null;
+};
+
+function parseCalendarEventInput(value: unknown): CalendarEventInput {
+  if (!value || typeof value !== "object") throw new HttpError(400, "Event details are required");
+  const body = value as Record<string, unknown>;
+  const title = typeof body.title === "string" ? body.title.trim() : "";
+  const description = typeof body.description === "string" ? body.description.trim() : "";
+  if (!title || title.length > 160) throw new HttpError(400, "Title must be between 1 and 160 characters");
+  if (description.length > 4000) throw new HttpError(400, "Description is too long");
+
+  const parseDate = (field: string): string => {
+    const value = body[field];
+    if (typeof value !== "string" || !Number.isFinite(Date.parse(value))) {
+      throw new HttpError(400, field + " must be a valid date and time");
+    }
+    return new Date(value).toISOString();
+  };
+  const start_at = parseDate("start_at");
+  const end_at = parseDate("end_at");
+  if (Date.parse(end_at) <= Date.parse(start_at)) throw new HttpError(400, "End time must be after start time");
+
+  const all_day = body.all_day === true || body.all_day === 1;
+  let link_url: string | null = null;
+  if (typeof body.link_url === "string" && body.link_url.trim()) {
+    try {
+      const parsed = new URL(body.link_url.trim());
+      if (parsed.protocol !== "https:" && parsed.protocol !== "http:") throw new Error("Unsupported protocol");
+      link_url = parsed.toString();
+    } catch {
+      throw new HttpError(400, "Event links must use a valid http or https URL");
+    }
+  }
+
+  let email_to: string | null = null;
+  if (typeof body.email_to === "string" && body.email_to.trim()) {
+    email_to = body.email_to.trim().toLowerCase();
+    if (email_to.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email_to)) {
+      throw new HttpError(400, "Enter a valid email address");
+    }
+  }
+
+  let reminder_minutes: number | null = null;
+  if (body.reminder_minutes !== null && body.reminder_minutes !== undefined && body.reminder_minutes !== "") {
+    const reminder = Number(body.reminder_minutes);
+    if (![0, 5, 10, 15, 30, 60, 1440].includes(reminder)) {
+      throw new HttpError(400, "Unsupported reminder interval");
+    }
+    reminder_minutes = reminder;
+  }
+
+  const document_id = typeof body.document_id === "string" && body.document_id.trim()
+    ? body.document_id.trim()
+    : null;
+  return { title, description, start_at, end_at, all_day, link_url, email_to, reminder_minutes, document_id };
+}
+
 async function roleForDocument(env: Env, documentId: string, userId: string): Promise<string | null> {
   const result = await env.DB.prepare(
     "SELECT COALESCE(document_role.name, workspace_role.name) AS role FROM documents d " +
@@ -153,6 +219,77 @@ async function route(request: Request, env: Env): Promise<Response> {
 
   const identity = await authenticate(request, env);
   await ensureIdentity(env, identity);
+
+  if (parts.length === 3 && parts[1] === "calendar" && parts[2] === "events" && request.method === "GET") {
+    const fromRaw = url.searchParams.get("from");
+    const toRaw = url.searchParams.get("to");
+    const fromValue = fromRaw && Number.isFinite(Date.parse(fromRaw))
+      ? new Date(fromRaw).toISOString()
+      : new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+    const toValue = toRaw && Number.isFinite(Date.parse(toRaw))
+      ? new Date(toRaw).toISOString()
+      : new Date(Date.now() + 366 * 24 * 60 * 60 * 1000).toISOString();
+    if (Date.parse(toValue) <= Date.parse(fromValue)) throw new HttpError(400, "Calendar range is invalid");
+    const result = await env.DB.prepare(
+      "SELECT id, title, description, start_at, end_at, all_day, link_url, email_to, reminder_minutes, document_id, created_at, updated_at " +
+      "FROM calendar_events WHERE user_id = ? AND start_at < ? AND end_at >= ? ORDER BY start_at ASC LIMIT 250"
+    ).bind(identity.id, toValue, fromValue).all();
+    return response(request, env, { events: result.results });
+  }
+
+  if (parts.length === 3 && parts[1] === "calendar" && parts[2] === "events" && request.method === "POST") {
+    const body = await request.json().catch(() => null);
+    const input = parseCalendarEventInput(body);
+    if (input.document_id) {
+      const role = await roleForDocument(env, input.document_id, identity.id);
+      if (!role || !canRead(role)) throw new HttpError(403, "You do not have access to the attached document");
+    }
+    const id = crypto.randomUUID();
+    await env.DB.prepare(
+      "INSERT INTO calendar_events (id, user_id, title, description, start_at, end_at, all_day, link_url, email_to, reminder_minutes, document_id) " +
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    ).bind(
+      id, identity.id, input.title, input.description, input.start_at, input.end_at,
+      input.all_day ? 1 : 0, input.link_url, input.email_to, input.reminder_minutes, input.document_id
+    ).run();
+    const created = await env.DB.prepare(
+      "SELECT id, title, description, start_at, end_at, all_day, link_url, email_to, reminder_minutes, document_id, created_at, updated_at " +
+      "FROM calendar_events WHERE id = ? AND user_id = ?"
+    ).bind(id, identity.id).first();
+    return response(request, env, { event: created }, 201);
+  }
+
+  if (parts.length === 4 && parts[1] === "calendar" && parts[2] === "events" && parts[3]) {
+    const eventId = parts[3];
+    if (request.method === "PATCH") {
+      const existing = await env.DB.prepare("SELECT id FROM calendar_events WHERE id = ? AND user_id = ?")
+        .bind(eventId, identity.id).first<{ id: string }>();
+      if (!existing) throw new HttpError(404, "Calendar event not found");
+      const body = await request.json().catch(() => null);
+      const input = parseCalendarEventInput(body);
+      if (input.document_id) {
+        const role = await roleForDocument(env, input.document_id, identity.id);
+        if (!role || !canRead(role)) throw new HttpError(403, "You do not have access to the attached document");
+      }
+      await env.DB.prepare(
+        "UPDATE calendar_events SET title = ?, description = ?, start_at = ?, end_at = ?, all_day = ?, link_url = ?, email_to = ?, reminder_minutes = ?, document_id = ?, updated_at = CURRENT_TIMESTAMP " +
+        "WHERE id = ? AND user_id = ?"
+      ).bind(
+        input.title, input.description, input.start_at, input.end_at, input.all_day ? 1 : 0,
+        input.link_url, input.email_to, input.reminder_minutes, input.document_id, eventId, identity.id
+      ).run();
+      const updated = await env.DB.prepare(
+        "SELECT id, title, description, start_at, end_at, all_day, link_url, email_to, reminder_minutes, document_id, created_at, updated_at " +
+        "FROM calendar_events WHERE id = ? AND user_id = ?"
+      ).bind(eventId, identity.id).first();
+      return response(request, env, { event: updated });
+    }
+    if (request.method === "DELETE") {
+      const result = await env.DB.prepare("DELETE FROM calendar_events WHERE id = ? AND user_id = ?").bind(eventId, identity.id).run();
+      if (!result.meta.changes) throw new HttpError(404, "Calendar event not found");
+      return response(request, env, { ok: true });
+    }
+  }
 
   if (parts.length === 2 && parts[1] === "documents" && request.method === "GET") {
     const search = url.searchParams.get("search") || undefined;
