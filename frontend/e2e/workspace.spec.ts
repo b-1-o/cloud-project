@@ -38,7 +38,7 @@ test("creates a document and exposes the editor toolbar", async ({ page }) => {
 
 
 test("shows live workspace statistics and working smart folders", async ({ page }) => {
-  await page.route("**/api/documents", async (route) => {
+  await page.route(/\/api\/documents\?.*$/, async (route) => {
     if (route.request().method() === "POST") {
       await route.fulfill({
         status: 201,
@@ -86,7 +86,7 @@ test("shows live workspace statistics and working smart folders", async ({ page 
 
 test("requires a continuous hold before moving a document to trash", async ({ page }) => {
   let deleteRequested = false;
-  await page.route("**/api/documents", async (route) => {
+  await page.route(/\/api\/documents\?.*$/, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -113,8 +113,9 @@ test("requires a continuous hold before moving a document to trash", async ({ pa
   });
 
   await page.goto("/");
-  await expect(page.getByRole("button", { name: /hold test document/i })).toHaveCount(1).catch(() => undefined);
-  await page.locator(".document-item").filter({ hasText: "Hold test document" }).click({ button: "right" });
+  const documentRow = page.locator(".document-item").filter({ hasText: "Hold test document" });
+  await expect(documentRow).toBeVisible();
+  await documentRow.getByRole("button", { name: "Document actions" }).click();
   await page.getByRole("menuitem", { name: /move to trash/i }).click();
   const holdButton = page.getByRole("button", { name: /hold to move to trash/i });
   await expect(holdButton).toBeVisible();
