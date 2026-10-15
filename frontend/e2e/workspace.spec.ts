@@ -162,7 +162,7 @@ test("calendar opens a real navigable month grid", async ({ page }) => {
   });
 
   await page.goto("/");
-  await page.getByRole("button", { name: /calendar/i }).click();
+  await page.locator(".workspace-hub-card.hub-calendar").click();
   await expect(page.locator(".workspace-calendar-grid")).toBeVisible();
   await expect(page.locator(".workspace-calendar-day")).toHaveCount(42);
   const monthBefore = await page.locator(".workspace-calendar-header h3").innerText();
