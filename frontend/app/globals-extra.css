@@ -1,4 +1,4 @@
-/* Command palette, slash, find, public — Forest chrome (thin glass) */
+/* Floating surfaces — glass-3 (cmd, slash, find, public) */
 
 .cmd-backdrop {
   position: fixed;
@@ -6,36 +6,36 @@
   z-index: 80;
   display: grid;
   place-items: start center;
-  padding-top: max(12vh, 56px);
-  background: rgba(12, 14, 20, 0.28);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  padding-top: max(12vh, 60px);
+  background: rgba(12, 14, 22, 0.32);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   animation: fadeIn 0.15s ease;
 }
 
 html.dark .cmd-backdrop {
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.52);
 }
 
 .cmd-dialog {
-  width: min(520px, calc(100vw - 24px));
-  max-height: min(68vh, 480px);
+  width: min(540px, calc(100vw - 24px));
+  max-height: min(70vh, 500px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: 14px;
-  background: var(--glass-strong, rgba(255, 255, 255, 0.62));
-  backdrop-filter: blur(28px) saturate(150%);
-  -webkit-backdrop-filter: blur(28px) saturate(150%);
-  border: 1px solid var(--border, rgba(28, 32, 48, 0.1));
-  box-shadow: var(--shadow-menu, 0 12px 40px rgba(20, 24, 40, 0.12));
+  border-radius: var(--radius-xl, 18px);
+  background: var(--glass-3, rgba(255, 255, 255, 0.7));
+  backdrop-filter: var(--blur-3, blur(28px) saturate(170%));
+  -webkit-backdrop-filter: var(--blur-3, blur(28px) saturate(170%));
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.55));
+  box-shadow: var(--shadow-float, 0 8px 32px rgba(20, 24, 40, 0.12));
   animation: fadeIn 0.18s ease;
 }
 
 .cmd-input {
   width: 100%;
   border: 0;
-  border-bottom: 1px solid var(--border, rgba(28, 32, 48, 0.1));
+  border-bottom: 1px solid var(--glass-border-soft, rgba(30, 34, 50, 0.1));
   background: transparent;
   color: var(--text);
   padding: 16px 18px;
@@ -44,9 +44,9 @@ html.dark .cmd-backdrop {
 }
 
 .cmd-list {
-  max-height: 300px;
+  max-height: 310px;
   overflow: auto;
-  padding: 6px;
+  padding: 8px;
 }
 
 .cmd-item {
@@ -55,9 +55,9 @@ html.dark .cmd-backdrop {
   gap: 12px;
   width: 100%;
   border: 0;
-  border-radius: 8px;
+  border-radius: 9px;
   background: transparent;
-  padding: 9px 11px;
+  padding: 10px 12px;
   text-align: left;
   color: var(--text);
   font-size: 13px;
@@ -77,15 +77,15 @@ html.dark .cmd-backdrop {
   font-weight: 560;
 }
 .cmd-empty {
-  padding: 14px;
+  padding: 16px;
   color: var(--text-muted);
   font-size: 13px;
 }
 .cmd-footer {
   display: flex;
   gap: 14px;
-  padding: 9px 12px;
-  border-top: 1px solid var(--border, rgba(28, 32, 48, 0.1));
+  padding: 10px 14px;
+  border-top: 1px solid var(--glass-border-soft, rgba(30, 34, 50, 0.1));
   color: var(--text-muted);
   font-size: 11px;
   font-weight: 560;
@@ -94,29 +94,29 @@ html.dark .cmd-backdrop {
 .slash-menu {
   position: absolute;
   z-index: 50;
-  min-width: 248px;
-  max-width: 300px;
-  max-height: min(340px, 48vh);
+  min-width: 260px;
+  max-width: 310px;
+  max-height: min(360px, 50vh);
   overflow: auto;
-  border-radius: 12px;
-  background: var(--glass-strong, rgba(255, 255, 255, 0.62));
-  backdrop-filter: blur(24px) saturate(150%);
-  -webkit-backdrop-filter: blur(24px) saturate(150%);
-  border: 1px solid var(--border, rgba(28, 32, 48, 0.1));
-  box-shadow: var(--shadow-menu, 0 12px 40px rgba(20, 24, 40, 0.12));
-  padding: 4px;
+  border-radius: var(--radius-lg, 16px);
+  background: var(--glass-3, rgba(255, 255, 255, 0.7));
+  backdrop-filter: var(--blur-3, blur(28px) saturate(170%));
+  -webkit-backdrop-filter: var(--blur-3, blur(28px) saturate(170%));
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.55));
+  box-shadow: var(--shadow-float, 0 8px 32px rgba(20, 24, 40, 0.12));
+  padding: 6px;
   animation: fadeIn 0.12s ease;
 }
 
 .slash-item {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   width: 100%;
   border: 0;
-  border-radius: 7px;
+  border-radius: 8px;
   background: transparent;
-  padding: 8px 10px;
+  padding: 9px 11px;
   text-align: left;
   color: var(--text);
   transition: background 0.12s ease;
@@ -129,7 +129,7 @@ html.dark .cmd-backdrop {
 
 .slash-label {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 620;
 }
 .slash-hint {
   font-size: 11px;
@@ -137,38 +137,38 @@ html.dark .cmd-backdrop {
   font-weight: 500;
 }
 .slash-empty {
-  padding: 10px;
+  padding: 12px;
   color: var(--text-muted);
   font-size: 12px;
 }
 
 .find-bar {
   position: fixed;
-  top: max(60px, env(safe-area-inset-top, 0px) + 48px);
-  right: max(14px, env(safe-area-inset-right, 0px) + 6px);
+  top: max(68px, env(safe-area-inset-top, 0px) + 52px);
+  right: max(16px, env(safe-area-inset-right, 0px) + 8px);
   z-index: 45;
   display: flex;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
-  padding: 8px;
-  border-radius: 12px;
-  max-width: calc(100vw - 28px);
-  background: var(--glass-strong, rgba(255, 255, 255, 0.62));
-  backdrop-filter: blur(24px) saturate(150%);
-  -webkit-backdrop-filter: blur(24px) saturate(150%);
-  border: 1px solid var(--border, rgba(28, 32, 48, 0.1));
-  box-shadow: var(--shadow-menu, 0 12px 40px rgba(20, 24, 40, 0.12));
+  padding: 10px;
+  border-radius: var(--radius-lg, 16px);
+  max-width: calc(100vw - 32px);
+  background: var(--glass-3, rgba(255, 255, 255, 0.7));
+  backdrop-filter: var(--blur-3, blur(28px) saturate(170%));
+  -webkit-backdrop-filter: var(--blur-3, blur(28px) saturate(170%));
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.55));
+  box-shadow: var(--shadow-float, 0 8px 32px rgba(20, 24, 40, 0.12));
   animation: fadeIn 0.15s ease;
 }
 
 .find-bar input {
-  border: 1px solid var(--border, rgba(28, 32, 48, 0.1));
-  border-radius: 8px;
-  background: transparent;
+  border: 1px solid var(--glass-border-soft, rgba(30, 34, 50, 0.1));
+  border-radius: var(--radius-sm, 9px);
+  background: var(--glass-1, rgba(255, 255, 255, 0.32));
   color: var(--text);
-  padding: 7px 9px;
+  padding: 8px 10px;
   outline: none;
-  min-width: 180px;
+  min-width: 200px;
 }
 
 .find-bar input:focus {
@@ -182,19 +182,19 @@ html.dark .cmd-backdrop {
 
 .focus-exit {
   position: fixed;
-  top: max(12px, env(safe-area-inset-top, 0px) + 6px);
-  right: max(12px, env(safe-area-inset-right, 0px) + 6px);
+  top: max(14px, env(safe-area-inset-top, 0px) + 8px);
+  right: max(14px, env(safe-area-inset-right, 0px) + 8px);
   z-index: 40;
-  border: 1px solid var(--border, rgba(28, 32, 48, 0.1));
-  border-radius: 10px;
-  background: var(--glass-strong, rgba(255, 255, 255, 0.62));
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.55));
+  border-radius: var(--radius, 12px);
+  background: var(--glass-3, rgba(255, 255, 255, 0.7));
+  backdrop-filter: var(--blur-2, blur(20px) saturate(155%));
+  -webkit-backdrop-filter: var(--blur-2, blur(20px) saturate(155%));
   color: var(--text);
-  padding: 8px 12px;
+  padding: 9px 13px;
   font-size: 12px;
   font-weight: 600;
-  box-shadow: var(--shadow, 0 8px 24px rgba(20, 24, 40, 0.05));
+  box-shadow: var(--shadow-float, 0 8px 32px rgba(20, 24, 40, 0.12));
 }
 
 .editor-link {
@@ -218,20 +218,23 @@ html.dark .cmd-backdrop {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--border, rgba(28, 32, 48, 0.1));
-  background: var(--glass, rgba(255, 255, 255, 0.42));
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  margin: 12px 14px 0;
+  padding: 12px 16px;
+  border-radius: var(--radius-lg, 16px);
+  background: var(--glass-2, rgba(255, 255, 255, 0.48));
+  backdrop-filter: var(--blur-2, blur(20px) saturate(155%));
+  -webkit-backdrop-filter: var(--blur-2, blur(20px) saturate(155%));
+  border: 1px solid var(--glass-border-soft, rgba(30, 34, 50, 0.1));
+  box-shadow: var(--shadow, 0 6px 20px rgba(20, 24, 40, 0.05));
 }
 
 .public-badge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
+  padding: 5px 11px;
   border-radius: 999px;
-  background: transparent;
-  border: 1px solid var(--border, rgba(28, 32, 48, 0.1));
+  background: var(--glass-1, rgba(255, 255, 255, 0.32));
+  border: 1px solid var(--glass-border-soft, rgba(30, 34, 50, 0.1));
   font-size: 11px;
   font-weight: 650;
   color: var(--text-muted);
@@ -245,18 +248,22 @@ html.dark .cmd-backdrop {
 }
 
 .public-editor {
-  min-height: calc(100vh - 56px);
+  min-height: calc(100vh - 72px);
 }
 
 @media (max-width: 560px) {
   .find-bar {
-    left: 10px;
-    right: 10px;
+    left: 12px;
+    right: 12px;
     top: auto;
-    bottom: max(10px, env(safe-area-inset-bottom, 0px) + 6px);
+    bottom: max(12px, env(safe-area-inset-bottom, 0px) + 8px);
   }
   .find-bar input {
     min-width: 0;
     flex: 1;
+  }
+  .public-bar {
+    margin: 10px;
+    border-radius: var(--radius, 12px);
   }
 }
