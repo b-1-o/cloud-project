@@ -2025,10 +2025,8 @@ html.dark .cmd-backdrop {
 .workspace-action-shortcut { display: flex; flex: 0 0 auto; gap: 4px; }
 .workspace-action-shortcut kbd { padding: 3px 5px; border: 1px solid var(--glass-border-soft); border-radius: 5px; background: var(--glass-1); color: var(--text-muted); font-size: 8px; white-space: nowrap; }
 
-/* A circular transition starts at the theme button; unsupported browsers get a color fade. */
+/* Short, targeted theme transitions. Avoid full-page snapshots and clip-path masks. */
 html.theme-color-transition,
-html.theme-color-transition body,
-html.theme-color-transition body::before,
 html.theme-color-transition .sidebar,
 html.theme-color-transition .main-panel,
 html.theme-color-transition .topbar,
@@ -2036,18 +2034,27 @@ html.theme-color-transition .workspace-hub-card,
 html.theme-color-transition .smart-folder-card,
 html.theme-color-transition .workspace-action-card,
 html.theme-color-transition .dash-card,
-html.theme-color-transition .theme-toggle {
-  transition-property: color, background-color, border-color, box-shadow, backdrop-filter;
-  transition-duration: 420ms;
+html.theme-color-transition .theme-toggle,
+html.theme-color-transition .stat-card,
+html.theme-color-transition .editor-toolbar,
+html.theme-color-transition .comments-panel {
+  transition-property: color, background-color, border-color;
+  transition-duration: 240ms;
   transition-timing-function: cubic-bezier(.2,.75,.25,1);
 }
-::view-transition-old(root) { animation: themeOldSnapshot .5s ease both; }
-::view-transition-new(root) { position: absolute; inset: 0; animation: themeReveal .62s cubic-bezier(.2,.75,.25,1) both; }
-@keyframes themeOldSnapshot { to { opacity: .76; } }
-@keyframes themeReveal {
-  from { clip-path: circle(0 at var(--theme-origin-x, calc(100% - 32px)) var(--theme-origin-y, 28px)); }
-  to { clip-path: circle(160vmax at var(--theme-origin-x, calc(100% - 32px)) var(--theme-origin-y, 28px)); }
+
+/* The selected paper becomes the full document canvas through a single shared element. */
+.paper-shared-transition { view-transition-name: collab-document-sheet; }
+::view-transition-group(collab-document-sheet) {
+  animation-duration: 460ms;
+  animation-timing-function: cubic-bezier(.22,1,.36,1);
 }
+::view-transition-old(collab-document-sheet) { animation: documentSheetOut .18s ease-out both; }
+::view-transition-new(collab-document-sheet) { animation: documentSheetIn .3s cubic-bezier(.22,1,.36,1) both; }
+@keyframes documentSheetOut { to { opacity: .35; } }
+@keyframes documentSheetIn { from { opacity: .72; } to { opacity: 1; } }
+::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+
 @media (max-width: 980px) {
   .workspace-action-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
   .workspace-action-card:last-child { grid-column: 1 / -1; }
@@ -2061,11 +2068,19 @@ html.theme-color-transition .theme-toggle {
 }
 @media (prefers-reduced-motion: reduce) {
   .sidebar .sidebar-empty-note, .main-panel > .empty-state.compact-empty, .workspace-quick-actions, .workspace-action-card { animation: none !important; }
-  html.theme-color-transition, html.theme-color-transition body, html.theme-color-transition body::before,
-  html.theme-color-transition .sidebar, html.theme-color-transition .main-panel, html.theme-color-transition .topbar,
-  html.theme-color-transition .workspace-hub-card, html.theme-color-transition .smart-folder-card,
-  html.theme-color-transition .workspace-action-card, html.theme-color-transition .dash-card,
-  html.theme-color-transition .theme-toggle { transition-duration: 0ms !important; }
-  ::view-transition-old(root), ::view-transition-new(root) { animation: none !important; }
+  html.theme-color-transition,
+  html.theme-color-transition .sidebar,
+  html.theme-color-transition .main-panel,
+  html.theme-color-transition .topbar,
+  html.theme-color-transition .workspace-hub-card,
+  html.theme-color-transition .smart-folder-card,
+  html.theme-color-transition .workspace-action-card,
+  html.theme-color-transition .dash-card,
+  html.theme-color-transition .theme-toggle,
+  html.theme-color-transition .stat-card,
+  html.theme-color-transition .editor-toolbar,
+  html.theme-color-transition .comments-panel { transition-duration: 0ms !important; }
+  ::view-transition-old(root), ::view-transition-new(root),
+  ::view-transition-old(collab-document-sheet), ::view-transition-new(collab-document-sheet) { animation: none !important; }
   .workspace-action-card:hover, .workspace-action-card:active { transform: none; }
 }

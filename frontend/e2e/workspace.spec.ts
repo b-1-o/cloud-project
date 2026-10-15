@@ -239,3 +239,43 @@ test("theme switches smoothly between light and dark", async ({ page }) => {
   await page.getByRole("button", { name: /switch to (light|dark) theme/i }).click();
   await expect.poll(() => page.locator("html").evaluate((element) => element.classList.contains("dark"))).toBe(!before);
 });
+
+
+test("read-only document viewers can still post comments", async ({ page }) => {
+  let postReceived = false;
+  await page.route(/\/api\/documents\?.*$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ documents: [{
+        id: "e2e-viewer-doc",
+        title: "Shared read-only notes",
+        updated_at: new Date().toISOString(),
+        role: "viewer",
+      }] }),
+    });
+  });
+  await page.route("**/api/documents/*/ticket", async (route) => {
+    await route.fulfill({ status: 503, contentType: "application/json", body: '{"error":"test offline"}' });
+  });
+  await page.route("**/api/documents/e2e-viewer-doc/comments", async (route) => {
+    if (route.request().method() === "POST") {
+      postReceived = JSON.parse(route.request().postData() || "{}").body === "A useful note";
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({ comment: { id: "comment-1", body: "A useful note" } }),
+      });
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ comments: [] }) });
+  });
+
+  await page.goto("/");
+  await page.getByTestId("workspace-hub-comments").click();
+  await expect(page.getByRole("complementary", { name: "Comments" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Comment text" })).toBeVisible();
+  await page.getByRole("textbox", { name: "Comment text" }).fill("A useful note");
+  await page.getByRole("button", { name: "Post comment" }).click();
+  await expect.poll(() => postReceived).toBe(true);
+});

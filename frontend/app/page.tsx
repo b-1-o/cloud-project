@@ -88,8 +88,9 @@ export default function HomePage() {
   const [calendarToday, setCalendarToday] = useState<Date | null>(null);
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | null>(null);
   const [openCommentsForId, setOpenCommentsForId] = useState<string | null>(null);
+  const [sheetTransitionId, setSheetTransitionId] = useState<string | null>(null);
   const contextRef = useRef<HTMLDivElement>(null);
-  const themeToggleRef = useRef<HTMLButtonElement>(null);
+  const themeTransitionTimerRef = useRef<number | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const pendingDocId = useRef<string | null>(null);
   const pendingRestore = useRef<{ id: string; title: string } | null>(null);
@@ -138,40 +139,21 @@ export default function HomePage() {
   function toggleTheme() {
     const next = theme === "dark" ? "light" : "dark";
     const root = document.documentElement;
-    const rect = themeToggleRef.current?.getBoundingClientRect();
-    const x = rect ? rect.left + rect.width / 2 : window.innerWidth - 28;
-    const y = rect ? rect.top + rect.height / 2 : 28;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    root.style.setProperty("--theme-origin-x", x + "px");
-    root.style.setProperty("--theme-origin-y", y + "px");
-
-    const applyTheme = () => flushSync(() => {
-      setTheme(next);
-      localStorage.setItem("collab-theme", next);
-      root.classList.toggle("dark", next === "dark");
-    });
-    const transitionDocument = document as Document & {
-      startViewTransition?: (update: () => void) => { finished: Promise<void> };
-    };
-
-    if (!reduceMotion && transitionDocument.startViewTransition) {
-      const transition = transitionDocument.startViewTransition(applyTheme);
-      const cleanup = () => {
-        root.style.removeProperty("--theme-origin-x");
-        root.style.removeProperty("--theme-origin-y");
-      };
-      void transition.finished.then(cleanup, cleanup);
-      return;
+    if (themeTransitionTimerRef.current !== null) {
+      window.clearTimeout(themeTransitionTimerRef.current);
+      themeTransitionTimerRef.current = null;
     }
+    if (!reduceMotion) root.classList.add("theme-color-transition");
+    setTheme(next);
+    localStorage.setItem("collab-theme", next);
+    root.classList.toggle("dark", next === "dark");
 
-    root.classList.add("theme-color-transition");
-    applyTheme();
-    window.setTimeout(() => {
+    themeTransitionTimerRef.current = window.setTimeout(() => {
       root.classList.remove("theme-color-transition");
-      root.style.removeProperty("--theme-origin-x");
-      root.style.removeProperty("--theme-origin-y");
-    }, reduceMotion ? 0 : 480);
+      themeTransitionTimerRef.current = null;
+    }, reduceMotion ? 0 : 260);
   }
 
   const refresh = useCallback(async (mode?: "docs" | "trash") => {
@@ -572,8 +554,9 @@ export default function HomePage() {
     setSidebarOpen(false);
   }
 
-  const openDocument = useCallback((doc: DocumentItem, comments = false) => {
+  const openDocument = useCallback((doc: DocumentItem, comments = false, viaSheet = false) => {
     setOpenCommentsForId(comments ? doc.id : null);
+    setSheetTransitionId(viaSheet ? doc.id : null);
     pendingDocId.current = doc.id;
     setActive(doc);
     setViewMode("docs");
@@ -586,7 +569,36 @@ export default function HomePage() {
     const itemId = (item as { id?: string } | null)?.id;
     if (!itemId) return;
     const selected = documents.find((doc) => doc.id === itemId);
-    if (selected) openDocument(selected);
+    if (!selected) return;
+
+    const source = Array.from(document.querySelectorAll<HTMLElement>("[data-folder-document-id]"))
+      .find((element) => element.dataset.folderDocumentId === selected.id);
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const transitionDocument = document as Document & {
+      startViewTransition?: (update: () => void) => { finished: Promise<void> };
+    };
+    if (!source || reduceMotion || !transitionDocument.startViewTransition) {
+      openDocument(selected);
+      return;
+    }
+
+    source.style.setProperty("view-transition-name", "collab-document-sheet");
+    const clearSourceName = () => source.style.removeProperty("view-transition-name");
+    try {
+      const transition = transitionDocument.startViewTransition(() => {
+        flushSync(() => openDocument(selected, false, true));
+      });
+      void transition.finished.then(() => {
+        clearSourceName();
+        setSheetTransitionId((id) => id === selected.id ? null : id);
+      }, () => {
+        clearSourceName();
+        setSheetTransitionId((id) => id === selected.id ? null : id);
+      });
+    } catch {
+      clearSourceName();
+      openDocument(selected);
+    }
   }, [documents, openDocument]);
 
   return (
@@ -650,7 +662,7 @@ export default function HomePage() {
             <div className="breadcrumbs"><span>Personal workspace</span><span className="slash">/</span><strong>{active?.title || (viewMode === "trash" ? "Trash" : "Home")}</strong></div>
           </div>
           <div className="top-actions">
-            <button ref={themeToggleRef} type="button" className="theme-toggle" data-theme={theme} onClick={toggleTheme} aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"} title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}><span className="theme-toggle-icon" aria-hidden="true">{theme === "dark" ? <Sun size={17} strokeWidth={1.8} /> : <Moon size={17} strokeWidth={1.8} />}</span></button>
+            <button type="button" className="theme-toggle" data-theme={theme} onClick={toggleTheme} aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"} title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}><span className="theme-toggle-icon" aria-hidden="true">{theme === "dark" ? <Sun size={17} strokeWidth={1.8} /> : <Moon size={17} strokeWidth={1.8} />}</span></button>
             <span className="secure-label"><span className="green-dot" /> Autosave enabled</span>
             <button className="share-button" onClick={() => { setShareMessage(""); setPublicLink(""); setShareOpen(true); }} disabled={!active || active.role !== "owner"}>↗ Share</button>
             {process.env.NEXT_PUBLIC_OIDC_AUTHORIZATION_URL && (signedIn ? <button className="auth-button" onClick={signOut}>Sign out</button> : <button className="auth-button" onClick={signIn}>Sign in</button>)}
@@ -659,7 +671,7 @@ export default function HomePage() {
         </header>
         {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError("")} aria-label="Dismiss error">×</button></div>}
         {active ? (
-          <CollabEditor key={active.id} documentId={active.id} initialTitle={active.title} apiBase={API} readOnly={active.role === "viewer"} openCommentsOnMount={openCommentsForId === active.id} onTitleChange={(title) => setDocuments((list) => list.map((d) => (d.id === active.id ? { ...d, title } : d)))} onDeleteRequest={() => { setDeleteTarget(active); setDeleteMode("trash"); }} />
+          <CollabEditor key={active.id} documentId={active.id} initialTitle={active.title} apiBase={API} readOnly={active.role === "viewer"} openingFromSheet={sheetTransitionId === active.id} openCommentsOnMount={openCommentsForId === active.id} onTitleChange={(title) => setDocuments((list) => list.map((d) => (d.id === active.id ? { ...d, title } : d)))} onDeleteRequest={() => { setDeleteTarget(active); setDeleteMode("trash"); }} />
         ) : loading ? (
           <div className="dashboard"><div className="skeleton-row" style={{ maxWidth: 320, margin: "48px auto" }} /><div className="skeleton-row" style={{ maxWidth: 480, margin: "12px auto" }} /></div>
         ) : viewMode === "trash" ? (
@@ -941,14 +953,15 @@ export default function HomePage() {
                     <div className="smart-folder-visual">
                       <Folder
                         mode="flap"
-                        variant="glass"
+                        variant="solid"
                         layout="stack"
                         label={folder.label}
                         color={folder.color}
                         paperColor="#f4f5f8"
                         size={0.78}
                         theme={theme}
-                        frost={0.48}
+                        frost={0}
+                        intro={false}
                         tilt={0.28}
                         speed={0.95}
                         bounce={0.34}

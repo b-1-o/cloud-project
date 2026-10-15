@@ -22,6 +22,7 @@ type Props = {
   apiBase: string;
   readOnly?: boolean;
   openCommentsOnMount?: boolean;
+  openingFromSheet?: boolean;
   onTitleChange: (title: string) => void;
   onDeleteRequest?: () => void;
 };
@@ -52,6 +53,7 @@ export function CollabEditor({
   apiBase,
   readOnly = false,
   openCommentsOnMount = false,
+  openingFromSheet = false,
   onTitleChange,
   onDeleteRequest,
 }: Props) {
@@ -65,6 +67,7 @@ export function CollabEditor({
   const [comments, setComments] = useState<Array<{ id: string; body: string; author_name?: string; resolved?: number }>>([]);
   const [commentDraft, setCommentDraft] = useState("");
   const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentPosting, setCommentPosting] = useState(false);
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashQuery, setSlashQuery] = useState("");
   const [slashPos, setSlashPos] = useState<{ top: number; left: number } | null>(null);
@@ -385,11 +388,11 @@ export function CollabEditor({
       const res = await fetch(apiBase + "/api/documents/" + encodeURIComponent(documentId) + "/comments", {
         headers: token ? { Authorization: "Bearer " + token } : {},
       });
-      if (!res.ok) throw new Error("Could not load comments");
+      if (!res.ok) throw new Error("Could not load comments (" + res.status + ")");
       const data = (await res.json()) as { comments: Array<{ id: string; body: string; author_name?: string; resolved?: number }> };
       setComments(data.comments || []);
-    } catch {
-      toast.error("Could not load comments");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not load comments");
     } finally {
       setCommentsLoading(false);
     }
@@ -405,7 +408,8 @@ export function CollabEditor({
 
   async function submitComment() {
     const body = commentDraft.trim();
-    if (!body) return;
+    if (!body || commentPosting) return;
+    setCommentPosting(true);
     try {
       const token = await getAccessToken();
       const res = await fetch(apiBase + "/api/documents/" + encodeURIComponent(documentId) + "/comments", {
@@ -416,12 +420,14 @@ export function CollabEditor({
         },
         body: JSON.stringify({ body }),
       });
-      if (!res.ok) throw new Error("Could not post comment");
+      if (!res.ok) throw new Error("Could not post comment (" + res.status + ")");
       setCommentDraft("");
       toast.success("Comment added");
       await loadComments();
-    } catch {
-      toast.error("Could not post comment");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not post comment");
+    } finally {
+      setCommentPosting(false);
     }
   }
 
@@ -561,7 +567,7 @@ export function CollabEditor({
         <button type="button" className="focus-exit" onClick={() => setFocusMode(false)}>Exit focus mode</button>
       )}
       <div className="paper-wrap">
-        <div className="paper paper-a4">
+        <div className={"paper paper-a4" + (openingFromSheet ? " paper-shared-transition" : "")}>
           {editor && (
             <BubbleMenu editor={editor} tippyOptions={{ duration: 150 }} className="bubble-menu">
               <button type="button" className={toolClass(editor.isActive("bold"))} onClick={() => editor.chain().focus().toggleBold().run()} aria-label="Bold"><strong>B</strong></button>
@@ -599,12 +605,12 @@ export function CollabEditor({
               </div>
             ))}
           </div>
-          {!readOnly && (
-            <div className="comment-compose">
-              <textarea value={commentDraft} onChange={(e) => setCommentDraft(e.target.value)} placeholder="Write a comment…" rows={3} aria-label="Comment text" />
-              <button type="button" className="primary-button" onClick={() => void submitComment()} disabled={!commentDraft.trim()}>Post</button>
-            </div>
-          )}
+          <div className="comment-compose">
+            <textarea value={commentDraft} onChange={(e) => setCommentDraft(e.target.value)} placeholder="Write a comment…" rows={3} aria-label="Comment text" />
+            <button type="button" className="primary-button" onClick={() => void submitComment()} disabled={!commentDraft.trim() || commentPosting}>
+              {commentPosting ? "Posting…" : "Post comment"}
+            </button>
+          </div>
         </aside>
       )}
       {versionsOpen && (

@@ -1787,7 +1787,11 @@ const Folder = ({
 
   useEffect(() => {
     engineRef.current?.wake();
-  });
+  }, [isOpen]);
+
+  useEffect(() => {
+    engineRef.current?.invalidate();
+  }, [color, paperColor, label, scale, theme, layout, mode, entries, tilt, bounce, speed, frost, peek, intro, zoomOnClick, openOn]);
 
   const toggle = () => {
     if (engineRef.current?.blur()) return;
@@ -1890,6 +1894,7 @@ const Folder = ({
               }}
               className="folder-layer folder-item"
               data-folder-item={index}
+              data-folder-document-id={item && typeof item === 'object' && !isValidElement(item) && typeof item.id === 'string' ? item.id : undefined}
               role={interactive ? 'button' : undefined}
               tabIndex={interactive ? 0 : -1}
               onClick={event => onItemActivate(event, index)}
