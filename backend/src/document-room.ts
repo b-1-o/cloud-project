@@ -107,16 +107,14 @@ export class DocumentRoom {
     const ticketId = request.headers.get("x-ticket-id") || url.searchParams.get("ticket");
     if (!ticketId || ticketId.length > 128 || !docId) return new Response("Unauthorized", { status: 401 });
 
-    let authorized: { userId: string; role: string } | null = null;
-    this.ctx.storage.transactionSync(() => {
+    const authorized = this.ctx.storage.transactionSync(() => {
       const rows = this.ctx.storage.sql.exec(
         "SELECT ticket_id, user_id, role FROM issued_tickets WHERE ticket_id = ? AND document_id = ? AND consumed = 0 AND expires_at > ?",
         ticketId, docId, Date.now()
       ).toArray() as Array<{ ticket_id: string; user_id: string; role: string }>;
-      if (rows.length === 1) {
-        this.ctx.storage.sql.exec("UPDATE issued_tickets SET consumed = 1 WHERE ticket_id = ?", ticketId);
-        authorized = { userId: rows[0].user_id, role: rows[0].role };
-      }
+      if (rows.length !== 1) return null;
+      this.ctx.storage.sql.exec("UPDATE issued_tickets SET consumed = 1 WHERE ticket_id = ?", ticketId);
+      return { userId: rows[0].user_id, role: rows[0].role };
     });
     if (!authorized) return new Response("Expired or already used ticket", { status: 401 });
 
