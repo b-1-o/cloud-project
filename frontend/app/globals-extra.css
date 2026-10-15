@@ -1,4 +1,4 @@
-/* Command palette, slash menu, find — liquid glass chrome */
+/* Command palette, slash menu, find, public viewer — liquid glass chrome */
 
 .cmd-backdrop {
   position: fixed;
@@ -233,6 +233,50 @@ html.dark .cmd-backdrop {
   padding: 0 2px;
 }
 
+/* Public share viewer */
+.public-shell {
+  flex-direction: column;
+}
+
+.public-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 14px 0;
+  padding: 12px 16px;
+  border-radius: 18px;
+  background: var(--glass-2, rgba(255, 255, 255, 0.42));
+  backdrop-filter: saturate(180%) blur(24px);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  border: 1px solid var(--rim-soft, rgba(255, 255, 255, 0.28));
+  box-shadow: var(--elev-2, 0 12px 40px rgba(20, 24, 50, 0.1));
+}
+
+.public-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--glass-1, rgba(255, 255, 255, 0.28));
+  border: 1px solid var(--rim-soft, rgba(255, 255, 255, 0.28));
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.2px;
+}
+
+.public-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 720;
+  letter-spacing: -0.4px;
+}
+
+.public-editor {
+  min-height: calc(100vh - 80px);
+}
+
 @media (max-width: 560px) {
   .find-bar {
     left: 12px;
@@ -243,5 +287,9 @@ html.dark .cmd-backdrop {
   .find-bar input {
     min-width: 0;
     flex: 1;
+  }
+  .public-bar {
+    margin: 10px;
+    border-radius: 16px;
   }
 }
