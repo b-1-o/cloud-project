@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { flushSync } from "react-dom";
 import { clearAccessToken, completeOidcLogin, getAccessToken, startOidcLogin } from "@/lib/auth";
 import { CollabEditor } from "@/components/collab-editor";
 import { formatDistanceToNow } from "date-fns";
@@ -88,6 +89,7 @@ export default function HomePage() {
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | null>(null);
   const [openCommentsForId, setOpenCommentsForId] = useState<string | null>(null);
   const contextRef = useRef<HTMLDivElement>(null);
+  const themeToggleRef = useRef<HTMLButtonElement>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const pendingDocId = useRef<string | null>(null);
   const pendingRestore = useRef<{ id: string; title: string } | null>(null);
@@ -135,9 +137,41 @@ export default function HomePage() {
 
   function toggleTheme() {
     const next = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    localStorage.setItem("collab-theme", next);
-    document.documentElement.classList.toggle("dark", next === "dark");
+    const root = document.documentElement;
+    const rect = themeToggleRef.current?.getBoundingClientRect();
+    const x = rect ? rect.left + rect.width / 2 : window.innerWidth - 28;
+    const y = rect ? rect.top + rect.height / 2 : 28;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    root.style.setProperty("--theme-origin-x", x + "px");
+    root.style.setProperty("--theme-origin-y", y + "px");
+
+    const applyTheme = () => flushSync(() => {
+      setTheme(next);
+      localStorage.setItem("collab-theme", next);
+      root.classList.toggle("dark", next === "dark");
+    });
+    const transitionDocument = document as Document & {
+      startViewTransition?: (update: () => void) => { finished: Promise<void> };
+    };
+
+    if (!reduceMotion && transitionDocument.startViewTransition) {
+      const transition = transitionDocument.startViewTransition(applyTheme);
+      const cleanup = () => {
+        root.style.removeProperty("--theme-origin-x");
+        root.style.removeProperty("--theme-origin-y");
+      };
+      void transition.finished.then(cleanup, cleanup);
+      return;
+    }
+
+    root.classList.add("theme-color-transition");
+    applyTheme();
+    window.setTimeout(() => {
+      root.classList.remove("theme-color-transition");
+      root.style.removeProperty("--theme-origin-x");
+      root.style.removeProperty("--theme-origin-y");
+    }, reduceMotion ? 0 : 480);
   }
 
   const refresh = useCallback(async (mode?: "docs" | "trash") => {
@@ -210,7 +244,7 @@ export default function HomePage() {
       if (contextRef.current && !contextRef.current.contains(e.target as Node)) setContextMenu(null);
     }
     function onKey(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      if ((e.metaKey || e.ctrlKey) && e.code === "KeyK" && !e.isComposing) {
         e.preventDefault();
         setCmdOpen((o) => !o);
         return;
@@ -256,13 +290,6 @@ export default function HomePage() {
 
   const sidebarDocuments = viewMode === "trash" ? filtered : navigatedDocuments;
 
-
-  const dashboardDocuments = useMemo(() => {
-    if (dashboardFolder === "mine") return filtered.filter((doc) => doc.role === "owner");
-    if (dashboardFolder === "shared") return filtered.filter((doc) => Boolean(doc.role) && doc.role !== "owner");
-    if (dashboardFolder === "favorites") return filtered.filter((doc) => favorites.includes(doc.id));
-    return filtered;
-  }, [filtered, dashboardFolder, favorites]);
 
   function chooseDashboardFolder(folder: DashboardFolder) {
     setDashboardFolder(folder);
@@ -545,7 +572,7 @@ export default function HomePage() {
     setSidebarOpen(false);
   }
 
-  function openDocument(doc: DocumentItem, comments = false) {
+  const openDocument = useCallback((doc: DocumentItem, comments = false) => {
     setOpenCommentsForId(comments ? doc.id : null);
     pendingDocId.current = doc.id;
     setActive(doc);
@@ -553,7 +580,14 @@ export default function HomePage() {
     setFilter("all");
     setDashboardFolder("all");
     setSidebarOpen(false);
-  }
+  }, []);
+
+  const handleSmartFolderItemClick = useCallback((item: { id?: string } | null) => {
+    const itemId = item?.id;
+    if (!itemId) return;
+    const selected = documents.find((doc) => doc.id === itemId);
+    if (selected) openDocument(selected);
+  }, [documents, openDocument]);
 
   return (
     <main className="shell">
@@ -616,7 +650,7 @@ export default function HomePage() {
             <div className="breadcrumbs"><span>Personal workspace</span><span className="slash">/</span><strong>{active?.title || (viewMode === "trash" ? "Trash" : "Home")}</strong></div>
           </div>
           <div className="top-actions">
-            <button type="button" className="theme-toggle" data-theme={theme} onClick={toggleTheme} aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"} title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}><span className="theme-toggle-icon" aria-hidden="true">{theme === "dark" ? <Sun size={17} strokeWidth={1.8} /> : <Moon size={17} strokeWidth={1.8} />}</span></button>
+            <button ref={themeToggleRef} type="button" className="theme-toggle" data-theme={theme} onClick={toggleTheme} aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"} title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}><span className="theme-toggle-icon" aria-hidden="true">{theme === "dark" ? <Sun size={17} strokeWidth={1.8} /> : <Moon size={17} strokeWidth={1.8} />}</span></button>
             <span className="secure-label"><span className="green-dot" /> Autosave enabled</span>
             <button className="share-button" onClick={() => { setShareMessage(""); setPublicLink(""); setShareOpen(true); }} disabled={!active || active.role !== "owner"}>↗ Share</button>
             {process.env.NEXT_PUBLIC_OIDC_AUTHORIZATION_URL && (signedIn ? <button className="auth-button" onClick={signOut}>Sign out</button> : <button className="auth-button" onClick={signIn}>Sign in</button>)}
@@ -921,17 +955,7 @@ export default function HomePage() {
                         items={folder.items}
                         draggable={false}
                         zoomOnClick={false}
-                        onOpenChange={(isOpen) => { if (isOpen) chooseDashboardFolder(folder.id); }}
-                        onItemClick={(item) => {
-                          const itemId = (item as { id?: string } | null)?.id;
-                          if (!itemId) return;
-                          const selected = documents.find((doc) => doc.id === itemId);
-                          if (!selected) return;
-                          pendingDocId.current = selected.id;
-                          setActive(selected);
-                          setViewMode("docs");
-                          setSidebarOpen(false);
-                        }}
+                        onItemClick={handleSmartFolderItemClick}
                       />
                     </div>
                     <div className="smart-folder-footer">
@@ -943,50 +967,36 @@ export default function HomePage() {
               </div>
             </section>
 
-            <section className="dash-section dashboard-recent" aria-labelledby="recent-documents-title">
-              <div className="dashboard-section-heading dashboard-recent-heading">
+            <section className="workspace-quick-actions" aria-labelledby="quick-actions-title">
+              <div className="dashboard-section-heading workspace-quick-actions-heading">
                 <div>
-                  <div className="eyebrow">KEEP THE MOMENTUM / 03</div>
-                  <h2 id="recent-documents-title">{activeFolderLabel}</h2>
-                  <p>{dashboardFolder === "favorites" ? "Documents you’ve saved for later." : "Your latest work, ready when you are."}</p>
-                </div>
-                <div className="dashboard-sort-controls" aria-label="Sort documents">
-                  <button type="button" className={sortBy === "updated" ? "dashboard-sort-button is-active" : "dashboard-sort-button"} aria-pressed={sortBy === "updated"} onClick={() => setSortBy("updated")}>Recent</button>
-                  <button type="button" className={sortBy === "name" ? "dashboard-sort-button is-active" : "dashboard-sort-button"} aria-pressed={sortBy === "name"} onClick={() => setSortBy("name")}>A–Z</button>
+                  <div className="eyebrow">WORKFLOW / 03</div>
+                  <h2 id="quick-actions-title">Quick actions</h2>
+                  <p>Start something new or jump straight to a command.</p>
                 </div>
               </div>
-
-              {dashboardDocuments.length > 0 ? (
-                <div className="dash-grid dashboard-document-grid">
-                  {dashboardDocuments.slice(0, 8).map((doc) => (
-                    <button key={doc.id} type="button" className="dash-card dashboard-document-card" onClick={() => openDocument(doc)}>
-                      <span className="document-card-icon"><FileText size={19} strokeWidth={1.65} /></span>
-                      <span className="dashboard-document-copy">
-                        <span className="dashboard-document-title-row">
-                          <span className="t" title={doc.title}>{doc.title}</span>
-                          {favorites.includes(doc.id) && <Star className="document-favorite-mark" size={13} fill="currentColor" strokeWidth={1.5} aria-label="Favorite" />}
-                        </span>
-                        <span className="m"><Clock3 size={12} strokeWidth={1.8} /> {relativeTime(doc.updated_at)} <span className="document-role-chip">{doc.role || "member"}</span></span>
-                      </span>
-                      <span className="dashboard-document-open"><ArrowUpRight size={16} strokeWidth={1.8} /></span>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="dashboard-folder-empty">
-                  <span className="dashboard-folder-empty-icon">{dashboardFolder === "favorites" ? <Star size={18} /> : <Files size={18} />}</span>
-                  <div>
-                    <strong>{dashboardFolder === "favorites" ? "Nothing saved yet" : "No documents here"}</strong>
-                    <p>{dashboardFolder === "favorites" ? "Use the star in a document to keep it close at hand." : "Try another folder or clear your search."}</p>
-                  </div>
-                  <button type="button" className="secondary-button" onClick={() => chooseDashboardFolder("all")}>View all documents</button>
-                </div>
-              )}
-            </section>
+              <div className="workspace-action-grid">
+                <button type="button" className="workspace-action-card" onClick={() => void createDocument()} disabled={creating}>
+                  <span className="workspace-action-icon"><Plus size={18} strokeWidth={1.8} /></span>
+                  <span className="workspace-action-copy"><strong>New document</strong><small>Start with a clean page.</small></span>
+                  <ArrowUpRight size={16} className="workspace-action-arrow" />
+                </button>
+                <button type="button" className="workspace-action-card" onClick={() => setTemplateOpen(true)}>
+                  <span className="workspace-action-icon"><LayoutTemplate size={18} strokeWidth={1.7} /></span>
+                  <span className="workspace-action-copy"><strong>Templates</strong><small>Start from a proven structure.</small></span>
+                  <ArrowUpRight size={16} className="workspace-action-arrow" />
+                </button>
+                <button type="button" className="workspace-action-card" onClick={() => setCmdOpen(true)}>
+                  <span className="workspace-action-icon"><Command size={18} strokeWidth={1.7} /></span>
+                  <span className="workspace-action-copy"><strong>Command palette</strong><small>Search documents and run actions.</small></span>
+                  <span className="workspace-action-shortcut"><kbd>Ctrl K</kbd><kbd>⌘ K</kbd></span>
+                </button>
+              </div>
+            </section>  </section>
 
             <footer className="dashboard-footer">
-              <span><Cloud size={14} strokeWidth={1.7} /> Your work stays available offline</span>
-              <span><Command size={13} strokeWidth={1.8} /> Quick actions with <kbd>⌘ K</kbd></span>
+              <span><FolderOpen size={14} strokeWidth={1.7} /> Open a folder, then select a document sheet</span>
+              <span><Command size={13} strokeWidth={1.8} /> Command palette <kbd>Ctrl / ⌘ K</kbd></span>
             </footer>
           </div>
 

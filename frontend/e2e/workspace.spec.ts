@@ -81,8 +81,9 @@ test("shows live workspace statistics and working smart folders", async ({ page 
   await expect(page.locator(".dashboard-document-card").filter({ hasText: "Product notes" })).toBeVisible();
 
   await page.getByRole("button", { name: /favorites folder/i }).click();
-  await expect(page.getByRole("heading", { name: "Your favorites." })).toBeVisible();
-  await expect(page.getByText("Nothing saved yet")).toBeVisible();
+  await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /quick actions/i })).toBeVisible();
+  await expect(page.locator(".smart-folder-card .folder-root[data-open]")).toHaveCount(1);
 
   await page.getByRole("button", { name: /templates/i }).click();
   await expect(page.getByRole("dialog")).toContainText("Start from a template");
@@ -189,3 +190,52 @@ test("workspace comments shortcut opens a real document comments panel", async (
   await expect(page.getByText("No comments yet.")).toBeVisible();
 });
 
+
+
+test("clicking a sheet opens its document without navigating on folder open", async ({ page }) => {
+  await page.route(/\/api\/documents\?.*$/, async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ documents: [{
+      id: "e2e-folder-doc", title: "Design brief", updated_at: new Date().toISOString(), role: "owner",
+    }] }) });
+  });
+  await page.route("**/api/documents/*/ticket", async (route) => {
+    await route.fulfill({ status: 503, contentType: "application/json", body: '{"error":"test offline"}' });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "All documents folder" }).click();
+  await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
+  await expect(page.locator(".smart-folder-card .folder-root[data-open]")).toHaveCount(1);
+  await expect(page.getByRole("textbox", { name: "Document title" })).toHaveCount(0);
+  await page.locator(".smart-folder-card .folder-root[data-open] .folder-item").first().click();
+  await expect(page.getByRole("textbox", { name: "Document title" })).toHaveValue("Design brief");
+});
+
+test("Ctrl/Command+K follows the physical key across keyboard layouts", async ({ page }) => {
+  await page.route(/\/api\/documents\?.*$/, async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ documents: [] }) });
+  });
+  await page.route("**/api/documents/*/ticket", async (route) => {
+    await route.fulfill({ status: 503, contentType: "application/json", body: '{"error":"test offline"}' });
+  });
+  await page.goto("/");
+  await page.evaluate(() => {
+    document.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "л", code: "KeyK", ctrlKey: true, bubbles: true, cancelable: true,
+    }));
+  });
+  await expect(page.getByRole("dialog", { name: "Command palette" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Command search" })).toBeVisible();
+});
+
+test("theme switches smoothly between light and dark", async ({ page }) => {
+  await page.route(/\/api\/documents\?.*$/, async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ documents: [] }) });
+  });
+  await page.route("**/api/documents/*/ticket", async (route) => {
+    await route.fulfill({ status: 503, contentType: "application/json", body: '{"error":"test offline"}' });
+  });
+  await page.goto("/");
+  const before = await page.locator("html").evaluate((element) => element.classList.contains("dark"));
+  await page.getByRole("button", { name: /switch to (light|dark) theme/i }).click();
+  await expect.poll(() => page.locator("html").evaluate((element) => element.classList.contains("dark"))).toBe(!before);
+});

@@ -4,7 +4,7 @@
  */
 'use client';
 
-import { Children, isValidElement, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Children, isValidElement, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import './Folder.css';
 
 const TAU = Math.PI * 2;
@@ -662,18 +662,20 @@ const paintBack = (g, top, bottom, dpr) => {
   return canvas;
 };
 
-const DocumentCard = ({ title, description }) => (
-  <div className="folder-doc">
-    {title ? <span className="folder-doc-title">{title}</span> : <span className="folder-doc-heading" />}
-    {description && <span className="folder-doc-text">{description}</span>}
-    <span className="folder-doc-line" style={{ width: '92%' }} />
-    <span className="folder-doc-line" style={{ width: '84%' }} />
-    <span className="folder-doc-line" style={{ width: '88%' }} />
-    <span className="folder-doc-block" />
-    <span className="folder-doc-line" style={{ width: '80%' }} />
-    <span className="folder-doc-line" style={{ width: '62%' }} />
-  </div>
-);
+const DocumentCard = ({ title, description }) => {
+  const documentTitle = description || title || 'Untitled document';
+  return (
+    <div className="folder-doc">
+      <span className="folder-doc-text" title={documentTitle}>{documentTitle}</span>
+      <span className="folder-doc-line" style={{ width: '92%' }} />
+      <span className="folder-doc-line" style={{ width: '84%' }} />
+      <span className="folder-doc-line" style={{ width: '88%' }} />
+      <span className="folder-doc-block" />
+      <span className="folder-doc-line" style={{ width: '80%' }} />
+      <span className="folder-doc-line" style={{ width: '62%' }} />
+    </div>
+  );
+};
 
 const renderItem = item => {
   if (isValidElement(item)) return item;
@@ -1933,4 +1935,5 @@ const Folder = ({
   );
 };
 
-export default Folder;
+Folder.displayName = 'ReactBitsFolder';
+export default memo(Folder);

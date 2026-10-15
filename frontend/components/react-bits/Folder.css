@@ -34,7 +34,7 @@
   top: 0;
   left: 0;
   transform-origin: 0 0;
-  will-change: transform;
+  will-change: auto;
 }
 
 .folder-ground {
@@ -304,11 +304,21 @@
 }
 
 .folder-doc-text {
-  margin-top: calc(-6px * var(--folder-scale));
-  margin-bottom: calc(4px * var(--folder-scale));
-  color: var(--folder-paper-ink-strong);
-  font-size: calc(9px * var(--folder-scale));
-  line-height: 1.3;
+  display: -webkit-box;
+  width: 100%;
+  max-height: calc(2.5em * var(--folder-scale));
+  margin-top: calc(1px * var(--folder-scale));
+  margin-bottom: calc(5px * var(--folder-scale));
+  overflow: hidden;
+  color: var(--folder-paper-text);
+  font-size: calc(10px * var(--folder-scale));
+  font-weight: 720;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .folder-doc-heading {
@@ -350,4 +360,12 @@
   object-fit: cover;
   pointer-events: none;
   -webkit-user-drag: none;
+}
+
+
+/* Promote transform layers only while the animated folder is open or being dragged. */
+.folder-root[data-open] .folder-layer,
+.folder-root[data-dragging] .folder-layer { will-change: transform; }
+@media (prefers-reduced-motion: reduce) {
+  .folder-root .folder-layer { will-change: auto; }
 }
