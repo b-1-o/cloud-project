@@ -1,0 +1,23 @@
+/* Loaded via globals.css @import if needed — styles also inlined below for build */
+.cmd-backdrop{position:fixed;inset:0;z-index:80;background:rgba(15,16,24,.45);display:grid;place-items:start center;padding-top:12vh;animation:fadeIn .15s ease-out}
+.cmd-dialog{width:min(560px,calc(100vw - 24px));border-radius:14px;border:1px solid var(--border);background:var(--bg-elevated);box-shadow:var(--shadow);overflow:hidden;animation:fadeIn .18s ease-out}
+.cmd-input{width:100%;border:0;border-bottom:1px solid var(--border);background:transparent;color:var(--text);padding:16px 18px;font-size:15px;outline:none}
+.cmd-list{max-height:320px;overflow:auto;padding:8px}
+.cmd-item{display:flex;justify-content:space-between;gap:12px;width:100%;border:0;border-radius:8px;background:transparent;padding:10px 12px;text-align:left;color:var(--text);font-size:13px;font-weight:600}
+.cmd-item:hover,.cmd-item.active{background:var(--accent-soft)}
+.cmd-label{flex:1}.cmd-hint{color:var(--text-muted);font-size:11px;font-weight:600}
+.cmd-empty{padding:16px;color:var(--text-muted);font-size:13px}
+.cmd-footer{display:flex;gap:14px;padding:10px 14px;border-top:1px solid var(--border);color:var(--text-muted);font-size:11px;font-weight:600}
+.slash-menu{position:absolute;z-index:50;min-width:260px;max-width:320px;border:1px solid var(--border);border-radius:12px;background:var(--bg-elevated);box-shadow:var(--shadow);padding:6px;animation:fadeIn .12s ease-out}
+.slash-item{display:flex;flex-direction:column;gap:2px;width:100%;border:0;border-radius:8px;background:transparent;padding:9px 11px;text-align:left;color:var(--text)}
+.slash-item:hover,.slash-item.active{background:var(--accent-soft)}
+.slash-label{font-size:13px;font-weight:650}.slash-hint{font-size:11px;color:var(--text-muted);font-weight:600}
+.slash-empty{padding:12px;color:var(--text-muted);font-size:12px}
+.find-bar{position:fixed;top:64px;right:24px;z-index:45;display:flex;gap:8px;align-items:center;padding:10px;border-radius:12px;border:1px solid var(--border);background:var(--bg-elevated);box-shadow:var(--shadow);animation:fadeIn .15s ease-out}
+.find-bar input{border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);padding:8px 10px;outline:none;min-width:200px}
+.find-bar input:focus{border-color:var(--accent)}
+.focus-mode .editor-meta,.focus-mode .editor-toolbar{display:none}
+.focus-exit{position:fixed;top:16px;right:16px;z-index:40;border:1px solid var(--border);border-radius:10px;background:var(--bg-elevated);color:var(--text);padding:8px 12px;font-size:12px;font-weight:650;box-shadow:var(--shadow)}
+.editor-link{color:#4c45c8;text-decoration:underline}
+.tiptap-editor mark{background:#fff3a3;border-radius:2px;padding:0 2px}
+.template-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
