@@ -224,7 +224,7 @@ test("calendar creates events with reminders, links, email, and a document attac
   await expect(page.locator(".calendar-event-card")).toContainText("15 min before");
   await expect(page.getByRole("link", { name: "Email teammate@example.com" })).toHaveAttribute("href", /mailto:/);
   await expect(page.getByRole("link", { name: "Open event link" })).toHaveAttribute("href", "https://example.com/meeting");
-  await expect(page.getByRole("link", { name: "Open attached document Calendar test document" })).toHaveAttribute("href", /\\?doc=e2e-calendar-doc/);
+  await expect(page.getByRole("link", { name: "Open attached document Calendar test document" })).toHaveAttribute("href", "/?doc=e2e-calendar-doc");
   expect(storedEvents).toHaveLength(1);
 });
 
