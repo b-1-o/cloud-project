@@ -6,6 +6,7 @@ import { CollabEditor } from "@/components/collab-editor";
 import { formatDistanceToNow } from "date-fns";
 import { Toaster, toast } from "sonner";
 import { CommandPalette, type CommandItem } from "@/components/command-palette";
+import { ArrowRight, ArrowUpRight, Check, Cloud, Code2, Command, FileText, LayoutTemplate, NotebookPen, Plus, Sparkles, Target, Users, Wifi } from "lucide-react";
 
 type DocumentItem = {
   id: string;
@@ -508,54 +509,113 @@ export default function HomePage() {
           <div className="empty-state compact-empty"><div className="eyebrow">TRASH</div><h1>{filtered.length} in trash</h1><p>Open a document from the sidebar, or use ··· to restore or delete forever.</p></div>
         ) : isFirstRunEmpty ? (
           <div className="workspace-home">
-            <div className="workspace-hero">
-              <div className="workspace-intro">
-                <div className="eyebrow">Your workspace</div>
-                <h1 className="workspace-title">Good ideas are better <em>together.</em></h1>
-                <p className="workspace-lead">Create a document and invite others in. Changes sync live, and your work stays available offline.</p>
-                <div className="workspace-actions">
-                  <button className="primary-button workspace-cta" onClick={createDocument} disabled={creating}>{creating ? "Creating…" : "Create document →"}</button>
-                  <button type="button" className="secondary-button" onClick={() => setTemplateOpen(true)} disabled={creating}>Browse templates</button>
-                </div>
-                <div className="feature-row">
-                  <span className="feature-item">Real-time collaboration</span>
-                  <span className="feature-item">Offline-ready</span>
-                  <span className="feature-item">Built to keep up</span>
-                </div>
-              </div>
-              <div className="editor-preview" aria-hidden="true">
-                <div className="preview-chrome">
-                  <div className="preview-dots"><span /><span /><span /></div>
-                  <div className="preview-toolbar"><span /><span /><span className="wide" /><span /><span /></div>
-                </div>
-                <div className="preview-paper">
-                  <div className="preview-title-line" />
-                  <div className="preview-line long" />
-                  <div className="preview-line" />
-                  <div className="preview-line mid" />
-                  <div className="preview-line" />
-                  <div className="preview-line short" />
-                  <div className="preview-line mid" />
-                </div>
-              </div>
+            <div className="home-overline">
+              <span className="home-overline-mark"><Sparkles size={13} strokeWidth={1.8} /></span>
+              <span>A QUIETER SPACE FOR BIG IDEAS</span>
+              <span className="home-overline-rule" />
             </div>
-            <section className="quick-start">
-              <div className="quick-start-header">
-                <h2>Start writing</h2>
-                <p>Pick a blank page or a structured template.</p>
-              </div>
-              <div className="template-grid quick-start-grid">
-                {TEMPLATES.map((tpl) => (
-                  <button key={tpl.id} type="button" className="template-card" onClick={() => void createFromTemplate(tpl.title)} disabled={creating}>
-                    <span className="template-icon" aria-hidden>{tpl.id === "blank" ? "◇" : tpl.id === "meeting" ? "☰" : tpl.id === "brief" ? "▣" : "⚙"}</span>
-                    <span className="template-body">
-                      <span className="template-title">{tpl.title}</span>
-                      <span className="template-desc">{tpl.id === "blank" ? "Start with a clean page" : tpl.id === "meeting" ? "Agenda, notes, and actions" : tpl.id === "brief" ? "Goals, scope, and milestones" : "Requirements and decisions"}</span>
-                    </span>
+
+            <section className="workspace-hero">
+              <div className="workspace-intro">
+                <h1 className="workspace-title">Make room for<br /><em>good ideas.</em></h1>
+                <p className="workspace-lead">
+                  A calm place to think, write, and work things out together. Start with a blank page or give your idea a little structure.
+                </p>
+                <div className="workspace-actions">
+                  <button className="primary-button workspace-cta" onClick={createDocument} disabled={creating}>
+                    <Plus size={16} strokeWidth={2.1} />
+                    <span>{creating ? "Creating…" : "Create document"}</span>
+                    <ArrowRight size={15} strokeWidth={1.9} />
                   </button>
-                ))}
+                  <button type="button" className="secondary-button workspace-template-cta" onClick={() => setTemplateOpen(true)} disabled={creating}>
+                    <LayoutTemplate size={15} strokeWidth={1.8} />
+                    <span>Browse templates</span>
+                  </button>
+                </div>
+                <div className="feature-row workspace-feature-row">
+                  <span className="feature-item"><Users size={14} strokeWidth={1.8} /> Built for collaboration</span>
+                  <span className="feature-item"><Wifi size={14} strokeWidth={1.8} /> Works offline</span>
+                </div>
+              </div>
+
+              <div className="preview-stage" aria-hidden="true">
+                <div className="preview-stage-glow" />
+                <div className="editor-preview">
+                  <div className="preview-chrome">
+                    <div className="preview-document-label">
+                      <span className="preview-document-icon"><FileText size={15} strokeWidth={1.8} /></span>
+                      <span className="preview-document-copy">
+                        <strong>Untitled document</strong>
+                        <small>PERSONAL WORKSPACE</small>
+                      </span>
+                    </div>
+                    <div className="preview-window-actions"><span /><span /><span /></div>
+                  </div>
+                  <div className="preview-toolbar">
+                    <span className="preview-format">Aa</span>
+                    <span className="preview-tool preview-tool-heading" />
+                    <span className="preview-toolbar-divider" />
+                    <span className="preview-tool" />
+                    <span className="preview-tool preview-tool-short" />
+                    <span className="preview-tool" />
+                    <span className="preview-toolbar-spacer" />
+                    <span className="preview-toolbar-dot" />
+                  </div>
+                  <div className="preview-paper">
+                    <div className="preview-paper-meta">
+                      <span>NEW DOCUMENT</span>
+                      <span>START ANYWHERE</span>
+                    </div>
+                    <h3>Start with a thought.<br /><em>See where it goes.</em></h3>
+                    <p>A quiet place to collect ideas, shape plans, and build something together.</p>
+                    <div className="preview-writing-lines">
+                      <span className="line-long" />
+                      <span />
+                      <span className="line-medium" />
+                    </div>
+                    <div className="preview-paper-footer">
+                      <span><i /> Ready when you are</span>
+                      <span>01 / 01</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="preview-float-note">
+                  <span className="preview-float-icon"><Check size={14} strokeWidth={2.1} /></span>
+                  <span><strong>Room to focus</strong><small>Everything starts somewhere</small></span>
+                </div>
               </div>
             </section>
+
+            <section className="quick-start">
+              <div className="quick-start-header">
+                <div>
+                  <div className="eyebrow">A GOOD PLACE TO BEGIN</div>
+                  <h2>Choose your starting point.</h2>
+                </div>
+                <p>Keep it simple, or start with a little structure.</p>
+              </div>
+              <div className="template-grid quick-start-grid">
+                {TEMPLATES.map((tpl) => {
+                  const TemplateIcon = tpl.id === "blank" ? FileText : tpl.id === "meeting" ? NotebookPen : tpl.id === "brief" ? Target : Code2;
+                  const description = tpl.id === "blank" ? "A clean page for whatever is on your mind" : tpl.id === "meeting" ? "Agenda, notes, decisions, and next steps" : tpl.id === "brief" ? "Goals, scope, and milestones in one place" : "Organize technical details and decisions";
+                  return (
+                    <button key={tpl.id} type="button" className="template-card" onClick={() => void createFromTemplate(tpl.title)} disabled={creating}>
+                      <span className="template-icon"><TemplateIcon size={18} strokeWidth={1.7} /></span>
+                      <span className="template-body">
+                        <span className="template-title">{tpl.title}</span>
+                        <span className="template-desc">{description}</span>
+                      </span>
+                      <span className="template-arrow"><ArrowUpRight size={15} strokeWidth={1.8} /></span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            <footer className="home-footnote">
+              <span><Cloud size={14} strokeWidth={1.7} /> Your work stays available offline</span>
+              <span><Command size={13} strokeWidth={1.8} /> Press <kbd>⌘ K</kbd> for quick actions</span>
+            </footer>
           </div>
         ) : documents.length === 0 || filtered.length === 0 ? (
           <div className="empty-state compact-empty">
