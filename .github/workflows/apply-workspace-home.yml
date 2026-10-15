@@ -1,6 +1,8 @@
 name: Apply workspace-home composition
+
 on:
   workflow_dispatch:
+
 jobs:
   patch:
     runs-on: ubuntu-latest
@@ -8,88 +10,10 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Patch first-run empty state into workspace-home layout
-        run: |
-          python3 << 'PY'
-          from pathlib import Path
-          src = Path("frontend/app/page.tsx").read_text()
-          old = """        ) : isFirstRunEmpty ? (
-          <div className=\"empty-state\">
-            <div className=\"empty-art\"><div className=\"art-sheet\"><span /><span /><span /><span /></div><div className=\"art-bubble bubble-one\">A</div><div className=\"art-bubble bubble-two\">B</div><div className=\"art-cursor\">✦</div></div>
-            <div className=\"eyebrow\">A LITTLE MORE IN SYNC</div>
-            <h1>Good ideas are better <em>together.</em></h1>
-            <p>Create a document and invite your thoughts in. Changes sync live, and your work stays available offline.</p>
-            <button className=\"primary-button\" onClick={createDocument} disabled={creating}>{creating ? \"Creating…\" : \"Create your first document\"} <span>→</span></button>
-            <div className=\"feature-row\"><span>✳ Real-time collaboration</span><span>◉ Offline-ready</span><span>⌁ Built to keep up</span></div>
-          </div>
-        )"""
-          new = """        ) : isFirstRunEmpty ? (
-          <div className=\"workspace-home\">
-            <div className=\"workspace-hero\">
-              <div className=\"workspace-intro\">
-                <div className=\"eyebrow\">Your workspace</div>
-                <h1 className=\"workspace-title\">Good ideas are better <em>together.</em></h1>
-                <p className=\"workspace-lead\">Create a document and invite others in. Changes sync live, and your work stays available offline.</p>
-                <div className=\"workspace-actions\">
-                  <button className=\"primary-button workspace-cta\" onClick={createDocument} disabled={creating}>{creating ? \"Creating…\" : \"Create document →\"}</button>
-                  <button type=\"button\" className=\"secondary-button\" onClick={() => setTemplateOpen(true)} disabled={creating}>Browse templates</button>
-                </div>
-                <div className=\"feature-row\">
-                  <span className=\"feature-item\">Real-time collaboration</span>
-                  <span className=\"feature-item\">Offline-ready</span>
-                  <span className=\"feature-item\">Built to keep up</span>
-                </div>
-              </div>
-              <div className=\"editor-preview\" aria-hidden=\"true\">
-                <div className=\"preview-chrome\">
-                  <div className=\"preview-dots\"><span /><span /><span /></div>
-                  <div className=\"preview-toolbar\"><span /><span /><span className=\"wide\" /><span /><span /></div>
-                </div>
-                <div className=\"preview-paper\">
-                  <div className=\"preview-title-line\" />
-                  <div className=\"preview-line long\" />
-                  <div className=\"preview-line\" />
-                  <div className=\"preview-line mid\" />
-                  <div className=\"preview-line\" />
-                  <div className=\"preview-line short\" />
-                  <div className=\"preview-line mid\" />
-                </div>
-              </div>
-            </div>
-            <section className=\"quick-start\">
-              <div className=\"quick-start-header\">
-                <h2>Start writing</h2>
-                <p>Pick a blank page or a structured template.</p>
-              </div>
-              <div className=\"template-grid quick-start-grid\">
-                {TEMPLATES.map((tpl) => (
-                  <button key={tpl.id} type=\"button\" className=\"template-card\" onClick={() => void createFromTemplate(tpl.title)} disabled={creating}>
-                    <span className=\"template-icon\" aria-hidden>{tpl.id === \"blank\" ? \"◇\" : tpl.id === \"meeting\" ? \"☰\" : tpl.id === \"brief\" ? \"▣\" : \"⚙\"}</span>
-                    <span className=\"template-body\">
-                      <span className=\"template-title\">{tpl.title}</span>
-                      <span className=\"template-desc\">{tpl.id === \"blank\" ? \"Start with a clean page\" : tpl.id === \"meeting\" ? \"Agenda, notes, and actions\" : tpl.id === \"brief\" ? \"Goals, scope, and milestones\" : \"Requirements and decisions\"}</span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </section>
-          </div>
-        )"""
-          if old not in src:
-              raise SystemExit("empty-state block not found — already patched?")
-          src = src.replace(old, new, 1)
-          old_dash = """          <div className=\"dashboard\">
-            <h1>Welcome back</h1>
-            <p className=\"dashboard-sub\">Your workspace at a glance. Press ⌘K for commands.</p>"""
-          new_dash = """          <div className=\"dashboard\">
-            <div className=\"eyebrow\">Workspace</div>
-            <h1 className=\"dashboard-title\">Welcome back</h1>
-            <p className=\"dashboard-sub\">Your documents at a glance. Press ⌘K for commands.</p>"""
-          if old_dash in src:
-              src = src.replace(old_dash, new_dash, 1)
-          Path("frontend/app/page.tsx").write_text(src)
-          print("patched", len(src))
-          PY
+
+      - name: Apply composition patch
+        run: python3 scripts/patch-workspace-home.py
+
       - name: Commit and push
         run: |
           git config user.name "b1o"
