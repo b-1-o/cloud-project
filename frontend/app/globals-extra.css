@@ -1,23 +1,682 @@
-/* Loaded via globals.css @import if needed — styles also inlined below for build */
-.cmd-backdrop{position:fixed;inset:0;z-index:80;background:rgba(15,16,24,.45);display:grid;place-items:start center;padding-top:12vh;animation:fadeIn .15s ease-out}
-.cmd-dialog{width:min(560px,calc(100vw - 24px));border-radius:14px;border:1px solid var(--border);background:var(--bg-elevated);box-shadow:var(--shadow);overflow:hidden;animation:fadeIn .18s ease-out}
-.cmd-input{width:100%;border:0;border-bottom:1px solid var(--border);background:transparent;color:var(--text);padding:16px 18px;font-size:15px;outline:none}
-.cmd-list{max-height:320px;overflow:auto;padding:8px}
-.cmd-item{display:flex;justify-content:space-between;gap:12px;width:100%;border:0;border-radius:8px;background:transparent;padding:10px 12px;text-align:left;color:var(--text);font-size:13px;font-weight:600}
-.cmd-item:hover,.cmd-item.active{background:var(--accent-soft)}
-.cmd-label{flex:1}.cmd-hint{color:var(--text-muted);font-size:11px;font-weight:600}
-.cmd-empty{padding:16px;color:var(--text-muted);font-size:13px}
-.cmd-footer{display:flex;gap:14px;padding:10px 14px;border-top:1px solid var(--border);color:var(--text-muted);font-size:11px;font-weight:600}
-.slash-menu{position:absolute;z-index:50;min-width:260px;max-width:320px;border:1px solid var(--border);border-radius:12px;background:var(--bg-elevated);box-shadow:var(--shadow);padding:6px;animation:fadeIn .12s ease-out}
-.slash-item{display:flex;flex-direction:column;gap:2px;width:100%;border:0;border-radius:8px;background:transparent;padding:9px 11px;text-align:left;color:var(--text)}
-.slash-item:hover,.slash-item.active{background:var(--accent-soft)}
-.slash-label{font-size:13px;font-weight:650}.slash-hint{font-size:11px;color:var(--text-muted);font-weight:600}
-.slash-empty{padding:12px;color:var(--text-muted);font-size:12px}
-.find-bar{position:fixed;top:64px;right:24px;z-index:45;display:flex;gap:8px;align-items:center;padding:10px;border-radius:12px;border:1px solid var(--border);background:var(--bg-elevated);box-shadow:var(--shadow);animation:fadeIn .15s ease-out}
-.find-bar input{border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);padding:8px 10px;outline:none;min-width:200px}
-.find-bar input:focus{border-color:var(--accent)}
-.focus-mode .editor-meta,.focus-mode .editor-toolbar{display:none}
-.focus-exit{position:fixed;top:16px;right:16px;z-index:40;border:1px solid var(--border);border-radius:10px;background:var(--bg-elevated);color:var(--text);padding:8px 12px;font-size:12px;font-weight:650;box-shadow:var(--shadow)}
-.editor-link{color:#4c45c8;text-decoration:underline}
-.tiptap-editor mark{background:#fff3a3;border-radius:2px;padding:0 2px}
-.template-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+/* ==========================================================================
+   Collab Docs — Liquid Glass design system (web approximation of Apple HIG)
+   Inspired by iOS/macOS Liquid Glass: translucent materials, soft specular
+   edges, continuous corners, spring motion. Paper surface stays opaque white.
+   ========================================================================== */
+
+:root {
+  --glass-bg: rgba(255, 255, 255, 0.62);
+  --glass-bg-strong: rgba(255, 255, 255, 0.78);
+  --glass-bg-soft: rgba(255, 255, 255, 0.42);
+  --glass-border: rgba(255, 255, 255, 0.55);
+  --glass-border-subtle: rgba(255, 255, 255, 0.28);
+  --glass-highlight: rgba(255, 255, 255, 0.72);
+  --glass-shadow: 0 8px 32px rgba(15, 18, 40, 0.08), 0 1px 0 rgba(255, 255, 255, 0.5) inset;
+  --glass-shadow-lg: 0 24px 80px rgba(15, 18, 40, 0.14), 0 1px 0 rgba(255, 255, 255, 0.55) inset;
+  --glass-blur: saturate(180%) blur(22px);
+  --glass-blur-strong: saturate(200%) blur(32px);
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --spring-soft: cubic-bezier(0.32, 0.72, 0, 1);
+  --duration: 280ms;
+  --duration-fast: 160ms;
+  --duration-slow: 420ms;
+  --bg: #eef0f7;
+  --bg-elevated: var(--glass-bg-strong);
+  --text: #1a1d29;
+  --text-muted: #6b7185;
+  --border: rgba(30, 34, 50, 0.08);
+  --accent: #5b53e6;
+  --accent-soft: rgba(91, 83, 230, 0.1);
+  --danger: #e5484d;
+  --success: #30a46c;
+  --shadow: var(--glass-shadow);
+}
+
+html.dark {
+  --glass-bg: rgba(22, 24, 34, 0.72);
+  --glass-bg-strong: rgba(28, 30, 42, 0.82);
+  --glass-bg-soft: rgba(18, 20, 30, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-border-subtle: rgba(255, 255, 255, 0.06);
+  --glass-highlight: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  --glass-shadow-lg: 0 28px 90px rgba(0, 0, 0, 0.55), 0 1px 0 rgba(255, 255, 255, 0.08) inset;
+  --bg: #0a0b10;
+  --bg-elevated: var(--glass-bg-strong);
+  --text: #f2f3f8;
+  --text-muted: #9aa0b5;
+  --border: rgba(255, 255, 255, 0.08);
+  --accent: #8b85f7;
+  --accent-soft: rgba(139, 133, 247, 0.16);
+  --danger: #f07178;
+  --success: #3dcf95;
+  --shadow: var(--glass-shadow);
+}
+
+/* Ambient mesh background — depth behind glass */
+body {
+  background:
+    radial-gradient(1200px 600px at 12% -10%, rgba(120, 130, 255, 0.18), transparent 55%),
+    radial-gradient(900px 500px at 88% 8%, rgba(180, 140, 255, 0.12), transparent 50%),
+    radial-gradient(800px 500px at 50% 100%, rgba(100, 200, 220, 0.1), transparent 55%),
+    var(--bg);
+  background-attachment: fixed;
+  transition: background-color var(--duration-slow) var(--spring), color var(--duration) var(--spring);
+}
+
+html.dark body {
+  background:
+    radial-gradient(1000px 500px at 15% -5%, rgba(90, 100, 220, 0.22), transparent 50%),
+    radial-gradient(800px 400px at 90% 10%, rgba(140, 90, 220, 0.14), transparent 48%),
+    radial-gradient(700px 400px at 40% 100%, rgba(40, 120, 140, 0.12), transparent 50%),
+    var(--bg);
+}
+
+/* Shared glass material */
+.glass,
+.sidebar,
+.topbar,
+.editor-toolbar,
+.share-modal,
+.cmd-dialog,
+.slash-menu,
+.context-menu,
+.editor-dropdown,
+.find-bar,
+.comments-panel,
+.focus-exit {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+/* --------------------------------------------------------------------------
+   Shell layout — premium window proportions
+   -------------------------------------------------------------------------- */
+.shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.sidebar {
+  width: min(300px, 32vw);
+  min-width: 260px;
+  max-width: 340px;
+  border-right: 1px solid var(--glass-border-subtle);
+  border-radius: 0;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  transition:
+    transform var(--duration) var(--spring),
+    background-color var(--duration) var(--spring),
+    box-shadow var(--duration) var(--spring);
+}
+
+.main-panel {
+  background: transparent;
+  min-width: 0;
+}
+
+.topbar {
+  margin: 10px 12px 0;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
+  padding: 10px 14px;
+  transition: background-color var(--duration) var(--spring), box-shadow var(--duration) var(--spring);
+}
+
+/* --------------------------------------------------------------------------
+   Buttons — glass / glass-prominent
+   -------------------------------------------------------------------------- */
+.theme-toggle,
+.auth-button,
+.secondary-button,
+.menu-toggle,
+.editor-more-btn,
+.sort-btn,
+.tool,
+.fav-star,
+.doc-more {
+  border-radius: var(--radius-sm);
+  transition:
+    background-color var(--duration-fast) var(--spring),
+    transform var(--duration-fast) var(--spring),
+    box-shadow var(--duration-fast) var(--spring),
+    color var(--duration-fast) var(--spring),
+    border-color var(--duration-fast) var(--spring);
+}
+
+.theme-toggle:hover,
+.auth-button:hover,
+.secondary-button:hover,
+.menu-toggle:hover,
+.editor-more-btn:hover,
+.tool:hover,
+.sort-btn:hover {
+  background: var(--glass-bg-strong);
+  transform: translateY(-0.5px);
+}
+
+.theme-toggle:active,
+.auth-button:active,
+.secondary-button:active,
+.primary-button:active,
+.share-button:active,
+.danger-button:active,
+.tool:active {
+  transform: scale(0.97);
+}
+
+.primary-button,
+.share-button {
+  border-radius: var(--radius-md);
+  box-shadow:
+    0 4px 16px rgba(91, 83, 230, 0.28),
+    0 1px 0 rgba(255, 255, 255, 0.25) inset;
+  transition:
+    filter var(--duration-fast) var(--spring),
+    transform var(--duration-fast) var(--spring),
+    box-shadow var(--duration) var(--spring);
+}
+
+.primary-button:hover,
+.share-button:hover {
+  filter: brightness(1.06);
+  box-shadow:
+    0 6px 22px rgba(91, 83, 230, 0.36),
+    0 1px 0 rgba(255, 255, 255, 0.3) inset;
+}
+
+.danger-button {
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px rgba(229, 72, 77, 0.25);
+}
+
+/* --------------------------------------------------------------------------
+   Document list & cards
+   -------------------------------------------------------------------------- */
+.document-item {
+  border-radius: var(--radius-md);
+  transition:
+    background-color var(--duration-fast) var(--spring),
+    transform var(--duration-fast) var(--spring);
+}
+
+.document-item:hover {
+  background: var(--glass-bg-soft);
+}
+
+.document-item.selected {
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 1px rgba(91, 83, 230, 0.18);
+}
+
+.stat-card,
+.dash-card {
+  background: var(--glass-bg);
+  backdrop-filter: saturate(160%) blur(16px);
+  -webkit-backdrop-filter: saturate(160%) blur(16px);
+  border: 1px solid var(--glass-border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-shadow);
+  transition:
+    transform var(--duration) var(--spring),
+    box-shadow var(--duration) var(--spring),
+    border-color var(--duration) var(--spring);
+}
+
+.stat-card:hover,
+.dash-card:hover {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: var(--glass-shadow-lg);
+  border-color: var(--glass-border);
+}
+
+.new-doc {
+  border-radius: var(--radius-md);
+  border: 1px dashed rgba(91, 83, 230, 0.35);
+  background: var(--glass-bg-soft);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition:
+    border-color var(--duration-fast) var(--spring),
+    background var(--duration-fast) var(--spring),
+    transform var(--duration-fast) var(--spring);
+}
+
+.new-doc:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  transform: translateY(-1px);
+}
+
+.search-input,
+.inline-rename,
+.share-form input,
+.share-form select,
+.delete-confirm-input,
+.comment-compose textarea,
+.find-bar input,
+.cmd-input {
+  border-radius: var(--radius-md);
+  background: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border-subtle);
+  transition:
+    border-color var(--duration-fast) var(--spring),
+    box-shadow var(--duration-fast) var(--spring),
+    background var(--duration-fast) var(--spring);
+}
+
+.search-input:focus,
+.inline-rename:focus,
+.share-form input:focus,
+.delete-confirm-input:focus,
+.comment-compose textarea:focus,
+.find-bar input:focus,
+.cmd-input:focus {
+  border-color: rgba(91, 83, 230, 0.45);
+  box-shadow: 0 0 0 3px rgba(91, 83, 230, 0.15);
+  background: var(--glass-bg-strong);
+  outline: none;
+}
+
+/* --------------------------------------------------------------------------
+   Editor chrome
+   -------------------------------------------------------------------------- */
+.editor-toolbar {
+  margin: 0 auto 14px;
+  width: min(820px, calc(100% - 44px));
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.tool {
+  border-radius: 9px;
+}
+
+.active-tool {
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(91, 83, 230, 0.12);
+}
+
+.bubble-menu {
+  border-radius: var(--radius-md);
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur-strong);
+  -webkit-backdrop-filter: var(--glass-blur-strong);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow-lg);
+  padding: 5px;
+}
+
+/* A4 paper stays solid white — never glass */
+.paper,
+.paper-a4 {
+  background: #ffffff !important;
+  color: #1a1a1a !important;
+  border-radius: 4px;
+  box-shadow:
+    0 2px 8px rgba(20, 24, 40, 0.04),
+    0 16px 48px rgba(20, 24, 40, 0.08);
+  transition: box-shadow var(--duration) var(--spring);
+}
+
+/* --------------------------------------------------------------------------
+   Modals & overlays — floating glass windows
+   -------------------------------------------------------------------------- */
+.modal-backdrop,
+.cmd-backdrop,
+.sidebar-overlay {
+  background: rgba(12, 14, 24, 0.28);
+  backdrop-filter: blur(8px) saturate(140%);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  animation: glassIn var(--duration-fast) var(--spring);
+}
+
+html.dark .modal-backdrop,
+html.dark .cmd-backdrop {
+  background: rgba(0, 0, 0, 0.48);
+}
+
+.share-modal {
+  width: min(480px, calc(100vw - 32px));
+  max-height: min(86vh, 720px);
+  overflow: auto;
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur-strong);
+  -webkit-backdrop-filter: var(--glass-blur-strong);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow-lg);
+  animation: glassRise var(--duration) var(--spring);
+}
+
+.cmd-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: start center;
+  padding-top: max(12vh, 64px);
+}
+
+.cmd-dialog {
+  width: min(560px, calc(100vw - 24px));
+  max-height: min(70vh, 520px);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur-strong);
+  -webkit-backdrop-filter: var(--glass-blur-strong);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow-lg);
+  overflow: hidden;
+  animation: glassRise var(--duration) var(--spring);
+}
+
+.cmd-input {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--glass-border-subtle);
+  background: transparent;
+  color: var(--text);
+  padding: 18px 20px;
+  font-size: 16px;
+  outline: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.cmd-input:focus {
+  box-shadow: none;
+  background: transparent;
+}
+
+.cmd-list {
+  max-height: 320px;
+  overflow: auto;
+  padding: 8px;
+}
+
+.cmd-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  padding: 11px 12px;
+  text-align: left;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  transition: background var(--duration-fast) var(--spring), transform var(--duration-fast) var(--spring);
+}
+
+.cmd-item:hover,
+.cmd-item.active {
+  background: var(--accent-soft);
+}
+
+.cmd-label { flex: 1; }
+.cmd-hint { color: var(--text-muted); font-size: 11px; font-weight: 600; }
+.cmd-empty { padding: 16px; color: var(--text-muted); font-size: 13px; }
+.cmd-footer {
+  display: flex;
+  gap: 14px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--glass-border-subtle);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.slash-menu {
+  position: absolute;
+  z-index: 50;
+  min-width: 268px;
+  max-width: 320px;
+  max-height: min(360px, 50vh);
+  overflow: auto;
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur-strong);
+  -webkit-backdrop-filter: var(--glass-blur-strong);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow-lg);
+  padding: 6px;
+  animation: glassRise var(--duration-fast) var(--spring);
+}
+
+.slash-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  padding: 10px 12px;
+  text-align: left;
+  color: var(--text);
+  transition: background var(--duration-fast) var(--spring);
+}
+
+.slash-item:hover,
+.slash-item.active { background: var(--accent-soft); }
+.slash-label { font-size: 13px; font-weight: 650; }
+.slash-hint { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+.slash-empty { padding: 12px; color: var(--text-muted); font-size: 12px; }
+
+.context-menu,
+.editor-dropdown {
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur-strong);
+  -webkit-backdrop-filter: var(--glass-blur-strong);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow-lg);
+  min-width: 188px;
+  max-width: min(280px, 90vw);
+  animation: glassRise var(--duration-fast) var(--spring);
+}
+
+.find-bar {
+  position: fixed;
+  top: max(72px, env(safe-area-inset-top, 0px) + 56px);
+  right: max(16px, env(safe-area-inset-right, 0px) + 8px);
+  z-index: 45;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  border-radius: var(--radius-lg);
+  max-width: calc(100vw - 32px);
+  animation: glassRise var(--duration-fast) var(--spring);
+}
+
+.comments-panel {
+  width: min(340px, 100%);
+  max-width: 100%;
+  border-left: 1px solid var(--glass-border-subtle);
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  animation: glassSlide var(--duration) var(--spring);
+}
+
+.focus-exit {
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top, 0px) + 8px);
+  right: max(16px, env(safe-area-inset-right, 0px) + 8px);
+  z-index: 40;
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.editor-link { color: #4c45c8; text-decoration: underline; text-underline-offset: 2px; }
+.tiptap-editor mark { background: #fff3a3; border-radius: 3px; padding: 0 2px; }
+.template-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+/* Empty / dashboard */
+.empty-state,
+.dashboard {
+  animation: glassRise var(--duration-slow) var(--spring);
+}
+
+.brand-mark {
+  box-shadow: 0 4px 12px rgba(91, 83, 230, 0.35);
+}
+
+/* --------------------------------------------------------------------------
+   Motion
+   -------------------------------------------------------------------------- */
+@keyframes glassIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes glassRise {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes glassSlide {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* --------------------------------------------------------------------------
+   Responsive window sizes
+   -------------------------------------------------------------------------- */
+@media (max-width: 900px) {
+  .sidebar {
+    width: min(300px, 88vw);
+    min-width: 0;
+    max-width: 88vw;
+    border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
+    box-shadow: var(--glass-shadow-lg);
+  }
+
+  .topbar {
+    margin: 8px;
+    border-radius: var(--radius-md);
+  }
+
+  .editor-toolbar {
+    width: calc(100% - 24px);
+    border-radius: var(--radius-md);
+  }
+
+  .share-modal,
+  .cmd-dialog {
+    width: min(100%, calc(100vw - 24px));
+    border-radius: var(--radius-lg);
+  }
+
+  .template-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .find-bar {
+    left: 12px;
+    right: 12px;
+    top: auto;
+    bottom: max(12px, env(safe-area-inset-bottom, 0px) + 8px);
+  }
+
+  .find-bar input {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .stat-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Touch targets ≥ 44px where interactive chrome is dense */
+@media (pointer: coarse) {
+  .tool,
+  .sort-btn,
+  .fav-star,
+  .doc-more,
+  .theme-toggle,
+  .menu-toggle {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .document-link {
+    min-height: 44px;
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .sidebar,
+  .topbar,
+  .editor-toolbar,
+  .share-modal,
+  .cmd-dialog,
+  .slash-menu,
+  .context-menu,
+  .comments-panel {
+    background: var(--bg-elevated);
+  }
+}
