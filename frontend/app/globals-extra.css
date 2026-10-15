@@ -1,4 +1,4 @@
-/* Command palette, slash menu, find, public viewer — liquid glass chrome */
+/* Command palette, slash, find, public — Forest chrome (thin glass) */
 
 .cmd-backdrop {
   position: fixed;
@@ -6,70 +6,47 @@
   z-index: 80;
   display: grid;
   place-items: start center;
-  padding-top: max(12vh, 64px);
-  background: rgba(12, 14, 28, 0.36);
-  backdrop-filter: blur(14px) saturate(150%);
-  -webkit-backdrop-filter: blur(14px) saturate(150%);
-  animation: glassIn 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  padding-top: max(12vh, 56px);
+  background: rgba(12, 14, 20, 0.28);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: fadeIn 0.15s ease;
 }
 
 html.dark .cmd-backdrop {
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.5);
 }
 
 .cmd-dialog {
-  width: min(560px, calc(100vw - 24px));
-  max-height: min(70vh, 520px);
+  width: min(520px, calc(100vw - 24px));
+  max-height: min(68vh, 480px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: 24px;
+  border-radius: 14px;
   background: var(--glass-strong, rgba(255, 255, 255, 0.62));
-  backdrop-filter: saturate(220%) blur(48px);
-  -webkit-backdrop-filter: saturate(220%) blur(48px);
-  border: 1px solid var(--rim-soft, rgba(255, 255, 255, 0.28));
-  box-shadow: var(--elev-3, 0 28px 80px rgba(20, 24, 50, 0.16));
-  position: relative;
-  animation: glassRise 280ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.cmd-dialog::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: var(--specular, linear-gradient(180deg, rgba(255,255,255,0.45) 0%, transparent 60%));
-  pointer-events: none;
-  z-index: 0;
-}
-
-.cmd-dialog > * {
-  position: relative;
-  z-index: 1;
+  backdrop-filter: blur(28px) saturate(150%);
+  -webkit-backdrop-filter: blur(28px) saturate(150%);
+  border: 1px solid var(--border, rgba(28, 32, 48, 0.1));
+  box-shadow: var(--shadow-menu, 0 12px 40px rgba(20, 24, 40, 0.12));
+  animation: fadeIn 0.18s ease;
 }
 
 .cmd-input {
   width: 100%;
   border: 0;
-  border-bottom: 1px solid var(--rim-soft, rgba(255, 255, 255, 0.28));
+  border-bottom: 1px solid var(--border, rgba(28, 32, 48, 0.1));
   background: transparent;
   color: var(--text);
-  padding: 18px 20px;
-  font-size: 16px;
+  padding: 16px 18px;
+  font-size: 15px;
   outline: none;
-  border-radius: 0;
-  box-shadow: none;
-}
-
-.cmd-input:focus {
-  box-shadow: none;
-  background: transparent;
 }
 
 .cmd-list {
-  max-height: 320px;
+  max-height: 300px;
   overflow: auto;
-  padding: 8px;
+  padding: 6px;
 }
 
 .cmd-item {
@@ -78,14 +55,14 @@ html.dark .cmd-backdrop {
   gap: 12px;
   width: 100%;
   border: 0;
-  border-radius: 12px;
+  border-radius: 8px;
   background: transparent;
-  padding: 11px 12px;
+  padding: 9px 11px;
   text-align: left;
   color: var(--text);
   font-size: 13px;
-  font-weight: 600;
-  transition: background 140ms cubic-bezier(0.22, 1, 0.36, 1);
+  font-weight: 560;
+  transition: background 0.12s ease;
 }
 
 .cmd-item:hover,
@@ -97,52 +74,52 @@ html.dark .cmd-backdrop {
 .cmd-hint {
   color: var(--text-muted);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 560;
 }
 .cmd-empty {
-  padding: 16px;
+  padding: 14px;
   color: var(--text-muted);
   font-size: 13px;
 }
 .cmd-footer {
   display: flex;
   gap: 14px;
-  padding: 10px 14px;
-  border-top: 1px solid var(--rim-soft, rgba(255, 255, 255, 0.28));
+  padding: 9px 12px;
+  border-top: 1px solid var(--border, rgba(28, 32, 48, 0.1));
   color: var(--text-muted);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 560;
 }
 
 .slash-menu {
   position: absolute;
   z-index: 50;
-  min-width: 268px;
-  max-width: 320px;
-  max-height: min(360px, 50vh);
+  min-width: 248px;
+  max-width: 300px;
+  max-height: min(340px, 48vh);
   overflow: auto;
-  border-radius: 18px;
+  border-radius: 12px;
   background: var(--glass-strong, rgba(255, 255, 255, 0.62));
-  backdrop-filter: saturate(220%) blur(40px);
-  -webkit-backdrop-filter: saturate(220%) blur(40px);
-  border: 1px solid var(--rim-soft, rgba(255, 255, 255, 0.28));
-  box-shadow: var(--elev-3, 0 28px 80px rgba(20, 24, 50, 0.16));
-  padding: 6px;
-  animation: glassRise 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid var(--border, rgba(28, 32, 48, 0.1));
+  box-shadow: var(--shadow-menu, 0 12px 40px rgba(20, 24, 40, 0.12));
+  padding: 4px;
+  animation: fadeIn 0.12s ease;
 }
 
 .slash-item {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   width: 100%;
   border: 0;
-  border-radius: 12px;
+  border-radius: 7px;
   background: transparent;
-  padding: 10px 12px;
+  padding: 8px 10px;
   text-align: left;
   color: var(--text);
-  transition: background 140ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: background 0.12s ease;
 }
 
 .slash-item:hover,
@@ -152,51 +129,50 @@ html.dark .cmd-backdrop {
 
 .slash-label {
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
 }
 .slash-hint {
   font-size: 11px;
   color: var(--text-muted);
-  font-weight: 600;
+  font-weight: 500;
 }
 .slash-empty {
-  padding: 12px;
+  padding: 10px;
   color: var(--text-muted);
   font-size: 12px;
 }
 
 .find-bar {
   position: fixed;
-  top: max(72px, env(safe-area-inset-top, 0px) + 56px);
-  right: max(16px, env(safe-area-inset-right, 0px) + 8px);
+  top: max(60px, env(safe-area-inset-top, 0px) + 48px);
+  right: max(14px, env(safe-area-inset-right, 0px) + 6px);
   z-index: 45;
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
-  padding: 10px;
-  border-radius: 16px;
-  max-width: calc(100vw - 32px);
+  padding: 8px;
+  border-radius: 12px;
+  max-width: calc(100vw - 28px);
   background: var(--glass-strong, rgba(255, 255, 255, 0.62));
-  backdrop-filter: saturate(200%) blur(32px);
-  -webkit-backdrop-filter: saturate(200%) blur(32px);
-  border: 1px solid var(--rim-soft, rgba(255, 255, 255, 0.28));
-  box-shadow: var(--elev-3, 0 28px 80px rgba(20, 24, 50, 0.16));
-  animation: glassRise 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid var(--border, rgba(28, 32, 48, 0.1));
+  box-shadow: var(--shadow-menu, 0 12px 40px rgba(20, 24, 40, 0.12));
+  animation: fadeIn 0.15s ease;
 }
 
 .find-bar input {
-  border: 1px solid var(--rim-soft, rgba(255, 255, 255, 0.28));
-  border-radius: 12px;
-  background: var(--glass-1, rgba(255, 255, 255, 0.28));
+  border: 1px solid var(--border, rgba(28, 32, 48, 0.1));
+  border-radius: 8px;
+  background: transparent;
   color: var(--text);
-  padding: 8px 10px;
+  padding: 7px 9px;
   outline: none;
-  min-width: 200px;
+  min-width: 180px;
 }
 
 .find-bar input:focus {
-  border-color: rgba(91, 83, 230, 0.45);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  border-color: var(--accent);
 }
 
 .focus-mode .editor-meta,
@@ -206,19 +182,19 @@ html.dark .cmd-backdrop {
 
 .focus-exit {
   position: fixed;
-  top: max(16px, env(safe-area-inset-top, 0px) + 8px);
-  right: max(16px, env(safe-area-inset-right, 0px) + 8px);
+  top: max(12px, env(safe-area-inset-top, 0px) + 6px);
+  right: max(12px, env(safe-area-inset-right, 0px) + 6px);
   z-index: 40;
-  border: 1px solid var(--rim-soft, rgba(255, 255, 255, 0.28));
-  border-radius: 14px;
+  border: 1px solid var(--border, rgba(28, 32, 48, 0.1));
+  border-radius: 10px;
   background: var(--glass-strong, rgba(255, 255, 255, 0.62));
-  backdrop-filter: saturate(200%) blur(24px);
-  -webkit-backdrop-filter: saturate(200%) blur(24px);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   color: var(--text);
-  padding: 10px 14px;
+  padding: 8px 12px;
   font-size: 12px;
-  font-weight: 650;
-  box-shadow: var(--elev-2, 0 12px 40px rgba(20, 24, 50, 0.1));
+  font-weight: 600;
+  box-shadow: var(--shadow, 0 8px 24px rgba(20, 24, 40, 0.05));
 }
 
 .editor-link {
@@ -229,11 +205,10 @@ html.dark .cmd-backdrop {
 
 .tiptap-editor mark {
   background: #fff3a3;
-  border-radius: 3px;
+  border-radius: 2px;
   padding: 0 2px;
 }
 
-/* Public share viewer */
 .public-shell {
   flex-direction: column;
 }
@@ -243,53 +218,45 @@ html.dark .cmd-backdrop {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin: 12px 14px 0;
-  padding: 12px 16px;
-  border-radius: 18px;
-  background: var(--glass-2, rgba(255, 255, 255, 0.42));
-  backdrop-filter: saturate(180%) blur(24px);
-  -webkit-backdrop-filter: saturate(180%) blur(24px);
-  border: 1px solid var(--rim-soft, rgba(255, 255, 255, 0.28));
-  box-shadow: var(--elev-2, 0 12px 40px rgba(20, 24, 50, 0.1));
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border, rgba(28, 32, 48, 0.1));
+  background: var(--glass, rgba(255, 255, 255, 0.42));
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
 }
 
 .public-badge {
   display: inline-flex;
   align-items: center;
-  padding: 6px 12px;
+  padding: 4px 10px;
   border-radius: 999px;
-  background: var(--glass-1, rgba(255, 255, 255, 0.28));
-  border: 1px solid var(--rim-soft, rgba(255, 255, 255, 0.28));
+  background: transparent;
+  border: 1px solid var(--border, rgba(28, 32, 48, 0.1));
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 650;
   color: var(--text-muted);
-  letter-spacing: 0.2px;
 }
 
 .public-title {
   margin: 0;
   font-size: 22px;
-  font-weight: 720;
+  font-weight: 700;
   letter-spacing: -0.4px;
 }
 
 .public-editor {
-  min-height: calc(100vh - 80px);
+  min-height: calc(100vh - 56px);
 }
 
 @media (max-width: 560px) {
   .find-bar {
-    left: 12px;
-    right: 12px;
+    left: 10px;
+    right: 10px;
     top: auto;
-    bottom: max(12px, env(safe-area-inset-bottom, 0px) + 8px);
+    bottom: max(10px, env(safe-area-inset-bottom, 0px) + 6px);
   }
   .find-bar input {
     min-width: 0;
     flex: 1;
-  }
-  .public-bar {
-    margin: 10px;
-    border-radius: 16px;
   }
 }
