@@ -1,0 +1,24 @@
+name: Restore page.tsx
+on:
+  workflow_dispatch:
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restore page.tsx from known-good commit
+        run: |
+          git checkout 95f0c0d9f16047d0c38eceafa318c7a2c75e2e5f -- frontend/app/page.tsx
+          git config user.name "b1o"
+          git config user.email "erikghabuzyan6@gmail.com"
+          git add frontend/app/page.tsx
+          if git diff --cached --quiet; then
+            echo "page.tsx already matches known-good"
+            exit 0
+          fi
+          git commit -m "fix: restore page.tsx from 95f0c0d via workflow"
+          git push
