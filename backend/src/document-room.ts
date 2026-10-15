@@ -123,7 +123,7 @@ export class DocumentRoom {
     const server = pair[1];
     this.ctx.acceptWebSocket(server);
     server.serializeAttachment({ userId: authorized.userId, role: authorized.role, documentId: docId } satisfies RoomAttachment);
-    console.log(JSON.stringify({ event: "ws.connected", documentId: docId, role }));
+    console.log(JSON.stringify({ event: "ws.connected", documentId: docId, role: authorized.role }));
     return new Response(null, { status: 101, webSocket: client });
   }
 
