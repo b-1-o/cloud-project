@@ -178,7 +178,7 @@ test("calendar opens a real navigable month grid", async ({ page }) => {
 
 test("calendar creates events with reminders, links, email, and a document attachment", async ({ page }) => {
   let storedEvents: Array<Record<string, unknown>> = [];
-  await page.route(/\\/api\\/documents\\?.*$/, async (route) => {
+  await page.route("**/api/documents**", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
