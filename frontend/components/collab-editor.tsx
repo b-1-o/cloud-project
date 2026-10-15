@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Code2, Highlighter, List, ListOrdered, ListTodo, MessageCircle, Minus, Quote, Redo2, Undo2, X } from "lucide-react";
 import { BubbleMenu, EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Collaboration from "@tiptap/extension-collaboration";
@@ -134,6 +135,24 @@ export function CollabEditor({
     },
     [doc, readOnly]
   );
+
+  useEffect(() => {
+    if (!openingFromSheet) return;
+    const frame = window.requestAnimationFrame(() => {
+      const mainPanel = document.querySelector<HTMLElement>(".main-panel");
+      const paperWrap = document.querySelector<HTMLElement>(".paper-wrap");
+      if (mainPanel) {
+        mainPanel.scrollTop = 0;
+        mainPanel.scrollLeft = 0;
+      }
+      if (paperWrap) {
+        paperWrap.scrollTop = 0;
+        paperWrap.scrollLeft = 0;
+      }
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [documentId, openingFromSheet]);
 
   useEffect(() => {
     function onOutside(e: MouseEvent) {
@@ -533,28 +552,28 @@ export function CollabEditor({
       {!focusMode && (
         <div className="editor-toolbar" role="toolbar" aria-label="Formatting">
           <div className="toolbar-left">
-            <button type="button" className="tool" onClick={() => undoManager.undo()} disabled={readOnly} aria-label="Undo" title="Undo">↶</button>
-            <button type="button" className="tool" onClick={() => undoManager.redo()} disabled={readOnly} aria-label="Redo" title="Redo">↷</button>
+            <button type="button" className="tool" onClick={() => undoManager.undo()} disabled={readOnly} aria-label="Undo" title="Undo"><Undo2 size={15} strokeWidth={1.8} /></button>
+            <button type="button" className="tool" onClick={() => undoManager.redo()} disabled={readOnly} aria-label="Redo" title="Redo"><Redo2 size={15} strokeWidth={1.8} /></button>
             <span className="tool-divider" />
             <button type="button" className={toolClass(editor?.isActive("bold") ?? false)} onClick={() => editor?.chain().focus().toggleBold().run()} disabled={readOnly} aria-label="Bold"><strong>B</strong></button>
             <button type="button" className={toolClass(editor?.isActive("italic") ?? false)} onClick={() => editor?.chain().focus().toggleItalic().run()} disabled={readOnly} aria-label="Italic"><em>I</em></button>
             <button type="button" className={toolClass(editor?.isActive("underline") ?? false)} onClick={() => editor?.chain().focus().toggleUnderline().run()} disabled={readOnly} aria-label="Underline"><span style={{ textDecoration: "underline" }}>U</span></button>
             <button type="button" className={toolClass(editor?.isActive("strike") ?? false)} onClick={() => editor?.chain().focus().toggleStrike().run()} disabled={readOnly} aria-label="Strikethrough"><span style={{ textDecoration: "line-through" }}>S</span></button>
-            <button type="button" className={toolClass(editor?.isActive("highlight") ?? false)} onClick={() => editor?.chain().focus().toggleHighlight().run()} disabled={readOnly} aria-label="Highlight">▮</button>
-            <button type="button" className={toolClass(editor?.isActive("code") ?? false)} onClick={() => editor?.chain().focus().toggleCode().run()} disabled={readOnly} aria-label="Inline code">{"</>"}</button>
+            <button type="button" className={toolClass(editor?.isActive("highlight") ?? false)} onClick={() => editor?.chain().focus().toggleHighlight().run()} disabled={readOnly} aria-label="Highlight"><Highlighter size={15} strokeWidth={1.8} /></button>
+            <button type="button" className={toolClass(editor?.isActive("code") ?? false)} onClick={() => editor?.chain().focus().toggleCode().run()} disabled={readOnly} aria-label="Inline code"><Code2 size={15} strokeWidth={1.8} /></button>
             <button type="button" className={toolClass(editor?.isActive("link") ?? false)} onClick={setLink} disabled={readOnly} aria-label="Link">Link</button>
             <span className="tool-divider" />
             <button type="button" className={toolClass(editor?.isActive("heading", { level: 1 }) ?? false)} onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()} disabled={readOnly} aria-label="Heading 1">H1</button>
             <button type="button" className={toolClass(editor?.isActive("heading", { level: 2 }) ?? false)} onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()} disabled={readOnly} aria-label="Heading 2">H2</button>
             <button type="button" className={toolClass(editor?.isActive("heading", { level: 3 }) ?? false)} onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()} disabled={readOnly} aria-label="Heading 3">H3</button>
             <span className="tool-divider" />
-            <button type="button" className={toolClass(editor?.isActive("bulletList") ?? false)} onClick={() => editor?.chain().focus().toggleBulletList().run()} disabled={readOnly} aria-label="Bullet list">• List</button>
-            <button type="button" className={toolClass(editor?.isActive("orderedList") ?? false)} onClick={() => editor?.chain().focus().toggleOrderedList().run()} disabled={readOnly} aria-label="Ordered list">1. List</button>
-            <button type="button" className={toolClass(editor?.isActive("taskList") ?? false)} onClick={() => editor?.chain().focus().toggleTaskList().run()} disabled={readOnly} aria-label="Checklist">☐</button>
-            <button type="button" className={toolClass(editor?.isActive("blockquote") ?? false)} onClick={() => editor?.chain().focus().toggleBlockquote().run()} disabled={readOnly} aria-label="Quote">❝</button>
+            <button type="button" className={toolClass(editor?.isActive("bulletList") ?? false)} onClick={() => editor?.chain().focus().toggleBulletList().run()} disabled={readOnly} aria-label="Bullet list"><List size={15} strokeWidth={1.8} />List</button>
+            <button type="button" className={toolClass(editor?.isActive("orderedList") ?? false)} onClick={() => editor?.chain().focus().toggleOrderedList().run()} disabled={readOnly} aria-label="Ordered list"><ListOrdered size={15} strokeWidth={1.8} />List</button>
+            <button type="button" className={toolClass(editor?.isActive("taskList") ?? false)} onClick={() => editor?.chain().focus().toggleTaskList().run()} disabled={readOnly} aria-label="Checklist"><ListTodo size={15} strokeWidth={1.8} /></button>
+            <button type="button" className={toolClass(editor?.isActive("blockquote") ?? false)} onClick={() => editor?.chain().focus().toggleBlockquote().run()} disabled={readOnly} aria-label="Quote"><Quote size={15} strokeWidth={1.8} /></button>
             <button type="button" className={toolClass(editor?.isActive("codeBlock") ?? false)} onClick={() => editor?.chain().focus().toggleCodeBlock().run()} disabled={readOnly} aria-label="Code block">Code</button>
             <span className="tool-divider" />
-            <button type="button" className="tool" onClick={() => editor?.chain().focus().setHorizontalRule().run()} disabled={readOnly} aria-label="Horizontal rule">—</button>
+            <button type="button" className="tool" onClick={() => editor?.chain().focus().setHorizontalRule().run()} disabled={readOnly} aria-label="Horizontal rule"><Minus size={15} strokeWidth={1.8} /></button>
             <button type="button" className="tool" onClick={() => setFindOpen(true)} aria-label="Find" title="Find (⌘F)">Find</button>
           </div>
           <div className="connection-status" role="status" aria-live="polite">
@@ -573,9 +592,9 @@ export function CollabEditor({
               <button type="button" className={toolClass(editor.isActive("bold"))} onClick={() => editor.chain().focus().toggleBold().run()} aria-label="Bold"><strong>B</strong></button>
               <button type="button" className={toolClass(editor.isActive("italic"))} onClick={() => editor.chain().focus().toggleItalic().run()} aria-label="Italic"><em>I</em></button>
               <button type="button" className={toolClass(editor.isActive("underline"))} onClick={() => editor.chain().focus().toggleUnderline().run()} aria-label="Underline"><span style={{ textDecoration: "underline" }}>U</span></button>
-              <button type="button" className={toolClass(editor.isActive("highlight"))} onClick={() => editor.chain().focus().toggleHighlight().run()} aria-label="Highlight">▮</button>
+              <button type="button" className={toolClass(editor.isActive("highlight"))} onClick={() => editor.chain().focus().toggleHighlight().run()} aria-label="Highlight"><Highlighter size={15} strokeWidth={1.8} /></button>
               <button type="button" className={toolClass(editor.isActive("link"))} onClick={setLink} aria-label="Link">Link</button>
-              <button type="button" className="tool" onClick={() => { setCommentsOpen(true); void loadComments(); }} aria-label="Add comment">💬</button>
+              <button type="button" className="tool" onClick={() => { setCommentsOpen(true); void loadComments(); }} aria-label="Add comment"><MessageCircle size={14} strokeWidth={1.8} /></button>
             </BubbleMenu>
           )}
           <EditorContent editor={editor} />
@@ -593,7 +612,7 @@ export function CollabEditor({
         <aside className="comments-panel" aria-label="Comments">
           <div className="comments-header">
             <strong>Comments</strong>
-            <button type="button" className="modal-close" onClick={() => setCommentsOpen(false)} aria-label="Close comments">×</button>
+            <button type="button" className="modal-close" onClick={() => setCommentsOpen(false)} aria-label="Close comments"><X size={15} /></button>
           </div>
           <div className="comments-list">
             {commentsLoading && <div className="list-placeholder">Loading…</div>}
@@ -617,7 +636,7 @@ export function CollabEditor({
         <aside className="comments-panel" aria-label="Version history">
           <div className="comments-header">
             <strong>Versions</strong>
-            <button type="button" className="modal-close" onClick={() => setVersionsOpen(false)} aria-label="Close versions">×</button>
+            <button type="button" className="modal-close" onClick={() => setVersionsOpen(false)} aria-label="Close versions"><X size={15} /></button>
           </div>
           <div className="comments-list">
             {versionsLoading && <div className="list-placeholder">Loading…</div>}
