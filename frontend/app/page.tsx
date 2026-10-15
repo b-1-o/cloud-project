@@ -1,1 +1,1 @@
-SEE_FILE
+@file:///tmp/page-good.tsx
