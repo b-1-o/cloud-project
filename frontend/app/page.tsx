@@ -582,8 +582,8 @@ export default function HomePage() {
     setSidebarOpen(false);
   }, []);
 
-  const handleSmartFolderItemClick = useCallback((item: { id?: string } | null) => {
-    const itemId = item?.id;
+  const handleSmartFolderItemClick = useCallback((item: unknown) => {
+    const itemId = (item as { id?: string } | null)?.id;
     if (!itemId) return;
     const selected = documents.find((doc) => doc.id === itemId);
     if (selected) openDocument(selected);
