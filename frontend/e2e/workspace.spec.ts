@@ -151,6 +151,25 @@ test("empty smart folders contain no synthetic document pages", async ({ page })
   await expect(page.locator(".smart-folder-card .folder-item")).toHaveCount(0);
 });
 
+test("calendar opens a real navigable month grid", async ({ page }) => {
+  await page.route(/\\/api\\/documents\\?.*$/, async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ documents: [{
+      id: "e2e-calendar-doc", title: "Calendar test", updated_at: new Date().toISOString(), role: "owner",
+    }] }) });
+  });
+  await page.route("**/api/documents/*/ticket", async (route) => {
+    await route.fulfill({ status: 503, contentType: "application/json", body: '{"error":"test offline"}' });
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: /calendar/i }).click();
+  await expect(page.getByRole("grid", { name: /calendar dates/i })).toBeVisible();
+  await expect(page.locator(".workspace-calendar-day")).toHaveCount(42);
+  const monthBefore = await page.locator(".workspace-calendar-header h3").innerText();
+  await page.getByRole("button", { name: "Next month" }).click();
+  await expect(page.locator(".workspace-calendar-header h3")).not.toHaveText(monthBefore);
+});
+
 test("workspace comments shortcut opens a real document comments panel", async ({ page }) => {
   await page.route(/\/api\/documents\?.*$/, async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ documents: [{

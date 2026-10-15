@@ -8,7 +8,7 @@ import { Toaster, toast } from "sonner";
 import { CommandPalette, type CommandItem } from "@/components/command-palette";
 import Folder from "@/components/react-bits/Folder";
 import HoldButton from "@/components/HoldButton";
-import { ArrowRight, ArrowUpRight, Check, Cloud, Code2, Command, FileText, LayoutTemplate, NotebookPen, Plus, Sparkles, Target, Users, Wifi, Clock3, Files, ShieldCheck, Star, Trash2, FolderOpen, Pencil, Inbox, MessageCircle, CalendarDays, ListChecks, BarChart3, Sun, Moon, Activity } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, Cloud, Code2, Command, FileText, LayoutTemplate, NotebookPen, Plus, Sparkles, Target, Users, Wifi, Clock3, Files, ShieldCheck, Star, Trash2, FolderOpen, Pencil, Inbox, MessageCircle, CalendarDays, ListChecks, BarChart3, Sun, Moon, Activity, ChevronLeft, ChevronRight } from "lucide-react";
 
 type DashboardFolder = "all" | "mine" | "shared" | "favorites";
 
@@ -82,6 +82,10 @@ export default function HomePage() {
   const [cmdOpen, setCmdOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
   const [showWorkspaceStats, setShowWorkspaceStats] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState<Date | null>(null);
+  const [calendarToday, setCalendarToday] = useState<Date | null>(null);
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | null>(null);
   const [openCommentsForId, setOpenCommentsForId] = useState<string | null>(null);
   const contextRef = useRef<HTMLDivElement>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
@@ -504,6 +508,28 @@ export default function HomePage() {
     ];
   }, [documents, filtered, favorites, ownedDocumentCount, sharedDocumentCount, favoriteDocumentCount, folderColor]);
 
+  useEffect(() => {
+    const today = new Date();
+    setCalendarToday(today);
+    setCalendarMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+    setSelectedCalendarDate(today);
+  }, []);
+
+  const calendarDays = useMemo(() => {
+    if (!calendarMonth) return [];
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7;
+    const dateKey = (date: Date) => date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
+    const todayKey = calendarToday ? dateKey(calendarToday) : "";
+    const selectedKey = selectedCalendarDate ? dateKey(selectedCalendarDate) : "";
+    return Array.from({ length: 42 }, (_, index) => {
+      const date = new Date(year, month, index - firstWeekday + 1);
+      const key = dateKey(date);
+      return { date, key, inMonth: date.getMonth() === month, isToday: key === todayKey, isSelected: key === selectedKey };
+    });
+  }, [calendarMonth, calendarToday, selectedCalendarDate]);
+
   function openCommentsHub() {
     const target = filtered[0] ?? documents[0];
     if (!target) {
@@ -793,10 +819,10 @@ export default function HomePage() {
                   <span className="hub-card-copy"><span className="hub-card-kicker">DISCUSSION</span><strong>Comments</strong><small>Jump into the latest document thread.</small></span>
                   <span className="hub-card-trailing hub-action-indicator"><ArrowUpRight size={16} /></span>
                 </button>
-                <button type="button" className="workspace-hub-card hub-calendar" onClick={() => void createFromTemplate("Meeting notes")} disabled={creating}>
+                <button type="button" className={"workspace-hub-card hub-calendar" + (calendarOpen ? " is-expanded" : "")} onClick={() => setCalendarOpen((open) => !open)} aria-expanded={calendarOpen} aria-controls="workspace-calendar-panel">
                   <span className="hub-card-icon"><CalendarDays size={19} strokeWidth={1.7} /></span>
-                  <span className="hub-card-copy"><span className="hub-card-kicker">CALENDAR</span><strong>Meeting notes</strong><small>Capture an agenda and next steps.</small></span>
-                  <span className="hub-card-trailing hub-action-indicator"><Plus size={16} /></span>
+                  <span className="hub-card-copy"><span className="hub-card-kicker">CALENDAR</span><strong>Calendar</strong><small>Browse dates and plan your week.</small></span>
+                  <span className="hub-card-trailing hub-action-indicator"><ArrowUpRight size={16} className="hub-calendar-arrow" /></span>
                 </button>
                 <button type="button" className="workspace-hub-card hub-plans" onClick={() => void createFromTemplate("Project brief")} disabled={creating}>
                   <span className="hub-card-icon"><ListChecks size={19} strokeWidth={1.7} /></span>
@@ -820,6 +846,37 @@ export default function HomePage() {
                   <div className="workspace-mini-stat"><span>Owned by you</span><strong>{String(ownedDocumentCount).padStart(2, "0")}</strong></div>
                   <div className="workspace-mini-stat"><span>Shared with you</span><strong>{String(sharedDocumentCount).padStart(2, "0")}</strong></div>
                   <div className="workspace-mini-stat"><span>Favorites</span><strong>{String(favoriteDocumentCount).padStart(2, "0")}</strong></div>
+                </div>
+              )}
+              {calendarOpen && (
+                <div className="workspace-calendar-panel" id="workspace-calendar-panel" aria-label="Workspace calendar">
+                  <div className="workspace-calendar-header">
+                    <div>
+                      <div className="eyebrow">YOUR SCHEDULE</div>
+                      <h3>{calendarMonth ? calendarMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" }) : "Loading calendar…"}</h3>
+                      <p>{selectedCalendarDate ? selectedCalendarDate.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }) : "Choose a date to focus on."}</p>
+                    </div>
+                    <div className="workspace-calendar-controls">
+                      <button type="button" aria-label="Previous month" onClick={() => calendarMonth && setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}><ChevronLeft size={17} /></button>
+                      <button type="button" aria-label="Next month" onClick={() => calendarMonth && setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}><ChevronRight size={17} /></button>
+                      <button type="button" className="calendar-today-button" onClick={() => { if (calendarToday) { setCalendarMonth(new Date(calendarToday.getFullYear(), calendarToday.getMonth(), 1)); setSelectedCalendarDate(calendarToday); } }}>Today</button>
+                    </div>
+                  </div>
+                  <div className="workspace-calendar-grid" role="grid" aria-label={calendarMonth ? calendarMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" }) : "Calendar dates"}>
+                    {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => <span key={day} className="workspace-calendar-weekday" role="columnheader">{day}</span>)}
+                    {calendarDays.map((day) => (
+                      <button
+                        key={day.key}
+                        type="button"
+                        role="gridcell"
+                        className={"workspace-calendar-day" + (day.inMonth ? "" : " is-outside") + (day.isToday ? " is-today" : "") + (day.isSelected ? " is-selected" : "")}
+                        aria-label={day.date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+                        aria-pressed={day.isSelected}
+                        onClick={() => { setSelectedCalendarDate(day.date); if (calendarMonth && day.date.getMonth() !== calendarMonth.getMonth()) setCalendarMonth(new Date(day.date.getFullYear(), day.date.getMonth(), 1)); }}
+                      >{day.date.getDate()}</button>
+                    ))}
+                  </div>
+                  <div className="workspace-calendar-footer"><span className="calendar-date-marker" /> Selected date <strong>{selectedCalendarDate?.toLocaleDateString(undefined, { month: "short", day: "numeric" }) || "—"}</strong><span className="calendar-no-events">No events connected yet</span></div>
                 </div>
               )}
             </section>
