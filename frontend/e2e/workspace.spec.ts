@@ -29,8 +29,8 @@ test("creates a document and exposes the editor toolbar", async ({ page }) => {
   });
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /good ideas are better/i })).toBeVisible();
-  await page.getByRole("button", { name: /create your first document/i }).click();
+  await expect(page.getByRole("heading", { name: /make room for\s+good ideas/i })).toBeVisible();
+  await page.getByRole("button", { name: /create document/i }).click();
   await expect(page.getByRole("textbox", { name: "Document title" })).toHaveValue("Untitled document");
   await expect(page.getByRole("button", { name: "Bold" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Heading 1" })).toBeVisible();
