@@ -8,7 +8,7 @@ import { Toaster, toast } from "sonner";
 import { CommandPalette, type CommandItem } from "@/components/command-palette";
 import Folder from "@/components/react-bits/Folder";
 import HoldButton from "@/components/HoldButton";
-import { ArrowRight, ArrowUpRight, Check, Cloud, Code2, Command, FileText, LayoutTemplate, NotebookPen, Plus, Sparkles, Target, Users, Wifi, Clock3, Files, ShieldCheck, Star, Trash2, FolderOpen, Pencil } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, Cloud, Code2, Command, FileText, LayoutTemplate, NotebookPen, Plus, Sparkles, Target, Users, Wifi, Clock3, Files, ShieldCheck, Star, Trash2, FolderOpen, Pencil, Inbox, MessageCircle, CalendarDays, ListChecks, BarChart3, Sun, Moon } from "lucide-react";
 
 type DashboardFolder = "all" | "mine" | "shared" | "favorites";
 
@@ -81,6 +81,8 @@ export default function HomePage() {
   const [dashboardFolder, setDashboardFolder] = useState<DashboardFolder>("all");
   const [cmdOpen, setCmdOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
+  const [showWorkspaceStats, setShowWorkspaceStats] = useState(false);
+  const [openCommentsForId, setOpenCommentsForId] = useState<string | null>(null);
   const contextRef = useRef<HTMLDivElement>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const pendingDocId = useRef<string | null>(null);
@@ -137,7 +139,7 @@ export default function HomePage() {
   const refresh = useCallback(async (mode?: "docs" | "trash") => {
     const nextMode = mode || viewMode;
     try {
-      const path = nextMode === "trash" ? "/api/documents/trash" : "/api/documents?filter=" + encodeURIComponent(filter);
+      const path = nextMode === "trash" ? "/api/documents/trash" : "/api/documents?filter=all";
       const result = await request<{ documents: DocumentItem[] }>(path);
       setDocuments(result.documents);
       if (nextMode === "docs") {
@@ -164,7 +166,7 @@ export default function HomePage() {
     } finally {
       setLoading(false);
     }
-  }, [viewMode, filter]);
+  }, [viewMode]);
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -240,6 +242,15 @@ export default function HomePage() {
     else list = [...list].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
     return list;
   }, [documents, search, sortBy]);
+
+  const navigatedDocuments = useMemo(() => {
+    if (viewMode === "trash") return filtered;
+    if (filter === "mine") return filtered.filter((doc) => doc.role === "owner");
+    if (filter === "shared") return filtered.filter((doc) => Boolean(doc.role) && doc.role !== "owner");
+    return filtered;
+  }, [filtered, filter, viewMode]);
+
+  const sidebarDocuments = viewMode === "trash" ? filtered : navigatedDocuments;
 
 
   const dashboardDocuments = useMemo(() => {
@@ -472,6 +483,8 @@ export default function HomePage() {
     dashboardFolder === "mine" ? "Owned by you" :
     dashboardFolder === "shared" ? "Shared with you" :
     dashboardFolder === "favorites" ? "Favorites" : "Recent documents";
+  const folderColor = theme === "dark" ? "#d29aab" : "#713046";
+  const workspaceView = viewMode === "trash" ? "trash" : filter === "mine" ? "mine" : filter === "shared" ? "shared" : dashboardFolder === "favorites" ? "favorites" : "all";
   const collectionFolders = useMemo(() => {
     const makeItems = (list: DocumentItem[]) =>
       list.slice(0, 6).map((doc) => ({
@@ -484,12 +497,37 @@ export default function HomePage() {
     const saved = filtered.filter((doc) => favorites.includes(doc.id));
 
     return [
-      { id: "all" as const, label: "All documents", description: "Everything in your library", count: documents.length, color: "#d29aab", items: makeItems(filtered) },
-      { id: "mine" as const, label: "Owned by you", description: "Documents you manage", count: ownedDocumentCount, color: "#94abc8", items: makeItems(mine) },
-      { id: "shared" as const, label: "Shared with you", description: "Work with your team", count: sharedDocumentCount, color: "#d29aab", items: makeItems(shared) },
-      { id: "favorites" as const, label: "Favorites", description: "Your saved documents", count: favoriteDocumentCount, color: "#94abc8", items: makeItems(saved) },
+      { id: "all" as const, label: "All documents", description: "Everything in your library", count: documents.length, color: folderColor, items: makeItems(filtered) },
+      { id: "mine" as const, label: "Owned by you", description: "Documents you manage", count: ownedDocumentCount, color: folderColor, items: makeItems(mine) },
+      { id: "shared" as const, label: "Shared with you", description: "Work with your team", count: sharedDocumentCount, color: folderColor, items: makeItems(shared) },
+      { id: "favorites" as const, label: "Favorites", description: "Your saved documents", count: favoriteDocumentCount, color: folderColor, items: makeItems(saved) },
     ];
-  }, [documents, filtered, favorites, ownedDocumentCount, sharedDocumentCount, favoriteDocumentCount]);
+  }, [documents, filtered, favorites, ownedDocumentCount, sharedDocumentCount, favoriteDocumentCount, folderColor]);
+
+  function openCommentsHub() {
+    const target = filtered[0] ?? documents[0];
+    if (!target) {
+      toast.info("Create a document first to start a comment thread.");
+      return;
+    }
+    setOpenCommentsForId(target.id);
+    pendingDocId.current = target.id;
+    setActive(target);
+    setViewMode("docs");
+    setFilter("all");
+    setDashboardFolder("all");
+    setSidebarOpen(false);
+  }
+
+  function openDocument(doc: DocumentItem, comments = false) {
+    setOpenCommentsForId(comments ? doc.id : null);
+    pendingDocId.current = doc.id;
+    setActive(doc);
+    setViewMode("docs");
+    setFilter("all");
+    setDashboardFolder("all");
+    setSidebarOpen(false);
+  }
 
   return (
     <main className="shell">
@@ -506,11 +544,11 @@ export default function HomePage() {
           <button type="button" className={sortBy === "updated" ? "sort-btn active" : "sort-btn"} onClick={() => setSortBy("updated")}>Recent</button>
           <button type="button" className={sortBy === "name" ? "sort-btn active" : "sort-btn"} onClick={() => setSortBy("name")}>Name</button>
         </div>
-        <div className="sort-row filter-row">
-          <button type="button" className={filter === "all" && viewMode === "docs" ? "sort-btn active" : "sort-btn"} onClick={() => { setDashboardFolder("all"); setFilter("all"); setViewMode("docs"); }}>All</button>
-          <button type="button" className={filter === "mine" && viewMode === "docs" ? "sort-btn active" : "sort-btn"} onClick={() => { setDashboardFolder("mine"); setFilter("mine"); setViewMode("docs"); }}>Mine</button>
-          <button type="button" className={filter === "shared" && viewMode === "docs" ? "sort-btn active" : "sort-btn"} onClick={() => { setDashboardFolder("shared"); setFilter("shared"); setViewMode("docs"); }}>Shared</button>
-          <button type="button" className={viewMode === "trash" ? "sort-btn active" : "sort-btn"} onClick={() => { setViewMode("trash"); setActive(null); void refresh("trash"); }}>Trash</button>
+        <div className="sort-row filter-row workspace-nav" aria-label="Document views">
+          <button type="button" aria-current={filter === "all" && viewMode === "docs" ? "page" : undefined} className={filter === "all" && viewMode === "docs" ? "sort-btn workspace-route-button active" : "sort-btn workspace-route-button"} onClick={() => chooseDashboardFolder("all")}><Files size={13} aria-hidden="true" /><span>All</span></button>
+          <button type="button" aria-current={filter === "mine" && viewMode === "docs" ? "page" : undefined} className={filter === "mine" && viewMode === "docs" ? "sort-btn workspace-route-button active" : "sort-btn workspace-route-button"} onClick={() => chooseDashboardFolder("mine")}><ShieldCheck size={13} aria-hidden="true" /><span>Mine</span></button>
+          <button type="button" aria-current={filter === "shared" && viewMode === "docs" ? "page" : undefined} className={filter === "shared" && viewMode === "docs" ? "sort-btn workspace-route-button active" : "sort-btn workspace-route-button"} onClick={() => chooseDashboardFolder("shared")}><Users size={13} aria-hidden="true" /><span>Shared</span></button>
+          <button type="button" aria-current={viewMode === "trash" ? "page" : undefined} className={viewMode === "trash" ? "sort-btn workspace-route-button active" : "sort-btn workspace-route-button"} onClick={() => { setViewMode("trash"); setActive(null); setFilter("all"); setOpenCommentsForId(null); void refresh("trash"); }}><Trash2 size={13} aria-hidden="true" /><span>Trash</span></button>
         </div>
         <div className="sidebar-label docs-label">{viewMode === "trash" ? "TRASH" : "YOUR DOCUMENTS"}</div>
         <button className="new-doc" onClick={createDocument} disabled={creating || viewMode === "trash"}><span>＋</span> New document</button>
@@ -521,12 +559,12 @@ export default function HomePage() {
         </button>
         <div className="document-list" role="list">
           {loading && (<><div className="skeleton-row" /><div className="skeleton-row" /><div className="skeleton-row" /></>)}
-          {!loading && filtered.map((doc) => (
+          {!loading && sidebarDocuments.map((doc) => (
             <div key={doc.id} className={"document-item" + (active?.id === doc.id ? " selected" : "")} role="listitem">
               {renamingId === doc.id ? (
                 <input ref={renameInputRef} className="inline-rename" value={renameValue} maxLength={120} onChange={(e) => setRenameValue(e.target.value)} onBlur={() => void renameDocument(doc, renameValue)} onKeyDown={(e) => { if (e.key === "Enter") void renameDocument(doc, renameValue); if (e.key === "Escape") setRenamingId(null); }} aria-label="Rename document" />
               ) : (
-                <button type="button" className="document-link" onClick={() => { pendingDocId.current = doc.id; setActive(doc); setSidebarOpen(false); }} onDoubleClick={() => startRename(doc)} onContextMenu={(e) => openContextMenu(e, doc)}>
+                <button type="button" className="document-link" onClick={() => openDocument(doc)} onDoubleClick={() => startRename(doc)} onContextMenu={(e) => openContextMenu(e, doc)}>
                   <span className="doc-symbol" aria-hidden>▤</span>
                   <span className="doc-meta"><span className="doc-title">{doc.title}</span><span className="doc-date">{relativeTime(doc.updated_at)}</span></span>
                   {doc.role === "viewer" && <span className="role-badge">View</span>}
@@ -536,9 +574,9 @@ export default function HomePage() {
               <button type="button" className="doc-more" aria-label="Document actions" onClick={(e) => openContextMenu(e, doc)}>···</button>
             </div>
           ))}
-          {!loading && filtered.length === 0 && search && <div className="list-placeholder">No documents match “{search}”</div>}
-          {!loading && documents.length === 0 && (
-            <div className="list-placeholder">
+          {!loading && sidebarDocuments.length === 0 && search && <div className="list-placeholder">No documents match “{search}”</div>}
+          {!loading && sidebarDocuments.length === 0 && !search && (
+            <div className="list-placeholder sidebar-empty-note">
               {viewMode === "trash" ? "Trash is empty." : filter === "mine" ? "No owned documents." : filter === "shared" ? "Nothing shared with you." : "No documents yet."}
             </div>
           )}
@@ -552,7 +590,7 @@ export default function HomePage() {
             <div className="breadcrumbs"><span>Personal workspace</span><span className="slash">/</span><strong>{active?.title || (viewMode === "trash" ? "Trash" : "Home")}</strong></div>
           </div>
           <div className="top-actions">
-            <button type="button" className="theme-toggle" onClick={toggleTheme} aria-label="Toggle dark mode">{theme === "dark" ? "☀" : "☾"}</button>
+            <button type="button" className="theme-toggle" data-theme={theme} onClick={toggleTheme} aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"} title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}><span className="theme-toggle-icon" aria-hidden="true">{theme === "dark" ? <Sun size={17} strokeWidth={1.8} /> : <Moon size={17} strokeWidth={1.8} />}</span></button>
             <span className="secure-label"><span className="green-dot" /> Autosave enabled</span>
             <button className="share-button" onClick={() => { setShareMessage(""); setPublicLink(""); setShareOpen(true); }} disabled={!active || active.role !== "owner"}>↗ Share</button>
             {process.env.NEXT_PUBLIC_OIDC_AUTHORIZATION_URL && (signedIn ? <button className="auth-button" onClick={signOut}>Sign out</button> : <button className="auth-button" onClick={signIn}>Sign in</button>)}
@@ -561,13 +599,45 @@ export default function HomePage() {
         </header>
         {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError("")} aria-label="Dismiss error">×</button></div>}
         {active ? (
-          <CollabEditor key={active.id} documentId={active.id} initialTitle={active.title} apiBase={API} readOnly={active.role === "viewer"} onTitleChange={(title) => setDocuments((list) => list.map((d) => (d.id === active.id ? { ...d, title } : d)))} onDeleteRequest={() => { setDeleteTarget(active); setDeleteMode("trash"); }} />
+          <CollabEditor key={active.id} documentId={active.id} initialTitle={active.title} apiBase={API} readOnly={active.role === "viewer"} openCommentsOnMount={openCommentsForId === active.id} onTitleChange={(title) => setDocuments((list) => list.map((d) => (d.id === active.id ? { ...d, title } : d)))} onDeleteRequest={() => { setDeleteTarget(active); setDeleteMode("trash"); }} />
         ) : loading ? (
           <div className="dashboard"><div className="skeleton-row" style={{ maxWidth: 320, margin: "48px auto" }} /><div className="skeleton-row" style={{ maxWidth: 480, margin: "12px auto" }} /></div>
-        ) : viewMode === "trash" && (documents.length === 0 || filtered.length === 0) ? (
-          <div className="empty-state compact-empty"><div className="eyebrow">TRASH</div><h1>{documents.length === 0 ? "Trash is empty" : "No matches"}</h1><p>{documents.length === 0 ? "Deleted documents will appear here." : "No trashed documents match your search."}</p></div>
         ) : viewMode === "trash" ? (
-          <div className="empty-state compact-empty"><div className="eyebrow">TRASH</div><h1>{filtered.length} in trash</h1><p>Open a document from the sidebar, or use ··· to restore or delete forever.</p></div>
+          <div className="trash-workspace page-transition" data-view="trash">
+            <header className="trash-page-hero">
+              <div className="trash-page-symbol"><Trash2 size={21} strokeWidth={1.6} /></div>
+              <div className="trash-page-heading">
+                <div className="eyebrow">WORKSPACE / TRASH</div>
+                <h1>Recently deleted<span>.</span></h1>
+                <p>Restore something you still need, or remove it permanently.</p>
+              </div>
+              <span className="trash-page-count">{filtered.length.toString().padStart(2, "0")} <small>ITEMS</small></span>
+            </header>
+            {filtered.length === 0 ? (
+              <div className="trash-empty-panel">
+                <span className="trash-empty-icon"><Trash2 size={23} strokeWidth={1.5} /></span>
+                <h2>{search.trim() ? "No matches in Trash" : "Your Trash is empty"}</h2>
+                <p>{search.trim() ? "Try a different document title." : "Deleted documents will appear here. Nothing to clean up right now."}</p>
+                {search.trim() && <button type="button" className="secondary-button" onClick={() => setSearch("")}>Clear search</button>}
+              </div>
+            ) : (
+              <div className="trash-document-grid">
+                {filtered.map((doc) => (
+                  <article className="trash-document-card" key={doc.id}>
+                    <div className="trash-document-icon"><FileText size={19} strokeWidth={1.65} /></div>
+                    <div className="trash-document-copy">
+                      <strong title={doc.title}>{doc.title}</strong>
+                      <span>Deleted {relativeTime(doc.updated_at)}</span>
+                    </div>
+                    <div className="trash-document-actions">
+                      <button type="button" className="trash-restore-button" onClick={() => void restoreDocument(doc)}><ArrowRight size={14} /><span>Restore</span></button>
+                      <button type="button" className="trash-delete-button" aria-label={"Delete " + doc.title + " forever"} onClick={() => { setDeleteTarget(doc); setDeleteMode("permanent"); }} disabled={doc.role !== "owner"}><Trash2 size={14} /></button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
         ) : isFirstRunEmpty ? (
           <div className="workspace-home">
             <div className="home-overline">
@@ -678,23 +748,24 @@ export default function HomePage() {
               <span><Command size={13} strokeWidth={1.8} /> Press <kbd>⌘ K</kbd> for quick actions</span>
             </footer>
           </div>
-        ) : documents.length === 0 || filtered.length === 0 ? (
-          <div className="empty-state compact-empty">
-            <div className="eyebrow">{filter === "mine" ? "OWNED BY YOU" : filter === "shared" ? "SHARED WITH YOU" : "DOCUMENTS"}</div>
+        ) : filter === "all" && (documents.length === 0 || filtered.length === 0) ? (
+          <div className="empty-state compact-empty page-transition">
+            <div className="eyebrow">{search.trim() ? "SEARCH / NO RESULTS" : "DOCUMENTS"}</div>
             <h1>{search.trim() ? "No matches" : "No documents"}</h1>
-            <p>{search.trim() ? "No documents match “" + search.trim() + "”." : filter === "mine" ? "You don’t own any documents yet." : filter === "shared" ? "Nothing has been shared with you yet." : "No documents to show."}</p>
+            <p>{search.trim() ? "No documents match “" + search.trim() + "”." : "Create your first document or start from a template."}</p>
+            {!search.trim() && <button type="button" className="primary-button" onClick={createDocument} disabled={creating}><Plus size={15} /> New document</button>}
           </div>
         ) : (
-          <div className="dashboard workspace-dashboard">
+          <div className="dashboard workspace-dashboard" data-view={workspaceView}>
             <header className="dashboard-hero">
               <div className="dashboard-intro">
                 <div className="dashboard-kicker">
                   <span className="dashboard-kicker-mark"><Sparkles size={13} strokeWidth={1.8} /></span>
-                  <span>WORKSPACE / OVERVIEW</span>
+                  <span>{workspaceView === "mine" ? "YOUR SPACE / OWNED" : workspaceView === "shared" ? "COLLAB / SHARED" : workspaceView === "favorites" ? "LIBRARY / SAVED" : "WORKSPACE / OVERVIEW"}</span>
                   <span className="dashboard-kicker-rule" />
                 </div>
-                <h1 className="dashboard-title">Welcome back<span className="dashboard-title-period">.</span></h1>
-                <p className="dashboard-sub">Everything you’re working on, gathered in one quiet space.</p>
+                <h1 className="dashboard-title">{workspaceView === "mine" ? "Your documents" : workspaceView === "shared" ? "Shared with you" : workspaceView === "favorites" ? "Your favorites" : "Welcome back"}<span className="dashboard-title-period">.</span></h1>
+                <p className="dashboard-sub">{workspaceView === "mine" ? "The work you own and keep moving forward." : workspaceView === "shared" ? "Documents where you collaborate with other people." : workspaceView === "favorites" ? "Your most important documents, close at hand." : "Everything you’re working on, gathered in one quiet space."}</p>
               </div>
               <div className="dashboard-hero-actions">
                 <div className="workspace-status"><span className="workspace-status-dot" /> Personal workspace</div>
@@ -706,70 +777,51 @@ export default function HomePage() {
               </div>
             </header>
 
-            <section className="dashboard-stat-section" aria-labelledby="workspace-stat-title">
-              <div className="dashboard-section-heading dashboard-stat-heading">
-                <div>
-                  <div className="eyebrow">OVERVIEW / 01</div>
-                  <h2 id="workspace-stat-title">Workspace at a glance</h2>
+            <section className="workspace-hub-section" aria-labelledby="workspace-hub-title">
+              <div className="dashboard-section-heading workspace-hub-heading">
+                <div><div className="eyebrow">WORKSPACE / 01</div><h2 id="workspace-hub-title">Workspace hub</h2><p>Your next step, in one place.</p></div>
+                <span className="dashboard-live-label"><span /> Live workspace</span>
+              </div>
+              <div className="workspace-hub-grid">
+                <button type="button" className="workspace-hub-card hub-inbox" onClick={() => chooseDashboardFolder("shared")}>
+                  <span className="hub-card-icon"><Inbox size={19} strokeWidth={1.7} /></span>
+                  <span className="hub-card-copy"><span className="hub-card-kicker">INBOX</span><strong>Shared with you</strong><small>Open documents from collaborators.</small></span>
+                  <span className="hub-card-trailing"><b>{String(sharedDocumentCount).padStart(2, "0")}</b><ArrowUpRight size={16} /></span>
+                </button>
+                <button type="button" className="workspace-hub-card hub-comments" onClick={openCommentsHub} data-testid="workspace-hub-comments">
+                  <span className="hub-card-icon"><MessageCircle size={19} strokeWidth={1.7} /></span>
+                  <span className="hub-card-copy"><span className="hub-card-kicker">DISCUSSION</span><strong>Comments</strong><small>Jump into the latest document thread.</small></span>
+                  <span className="hub-card-trailing hub-action-indicator"><ArrowUpRight size={16} /></span>
+                </button>
+                <button type="button" className="workspace-hub-card hub-calendar" onClick={() => void createFromTemplate("Meeting notes")} disabled={creating}>
+                  <span className="hub-card-icon"><CalendarDays size={19} strokeWidth={1.7} /></span>
+                  <span className="hub-card-copy"><span className="hub-card-kicker">CALENDAR</span><strong>Meeting notes</strong><small>Capture an agenda and next steps.</small></span>
+                  <span className="hub-card-trailing hub-action-indicator"><Plus size={16} /></span>
+                </button>
+                <button type="button" className="workspace-hub-card hub-plans" onClick={() => void createFromTemplate("Project brief")} disabled={creating}>
+                  <span className="hub-card-icon"><ListChecks size={19} strokeWidth={1.7} /></span>
+                  <span className="hub-card-copy"><span className="hub-card-kicker">PLANS</span><strong>Project brief</strong><small>Turn a thought into a clear plan.</small></span>
+                  <span className="hub-card-trailing hub-action-indicator"><Plus size={16} /></span>
+                </button>
+                <button type="button" className="workspace-hub-card hub-edits" onClick={() => { setSortBy("updated"); chooseDashboardFolder("all"); }}>
+                  <span className="hub-card-icon"><Activity size={19} strokeWidth={1.7} /></span>
+                  <span className="hub-card-copy"><span className="hub-card-kicker">RECENT EDITS</span><strong>{filtered[0]?.title || "No edits yet"}</strong><small>{filtered[0] ? "Updated " + relativeTime(filtered[0].updated_at) : "Your latest activity will appear here."}</small></span>
+                  <span className="hub-card-trailing"><b>{String(filtered.length).padStart(2, "0")}</b><ArrowUpRight size={16} /></span>
+                </button>
+                <button type="button" className={"workspace-hub-card hub-statistics" + (showWorkspaceStats ? " is-expanded" : "")} aria-expanded={showWorkspaceStats} onClick={() => setShowWorkspaceStats((value) => !value)}>
+                  <span className="hub-card-icon"><BarChart3 size={19} strokeWidth={1.7} /></span>
+                  <span className="hub-card-copy"><span className="hub-card-kicker">STATISTICS</span><strong>Workspace pulse</strong><small>{showWorkspaceStats ? "Hide your live numbers." : "See how your library is taking shape."}</small></span>
+                  <span className="hub-card-trailing"><ArrowUpRight size={16} className="hub-stats-arrow" /></span>
+                </button>
+              </div>
+              {showWorkspaceStats && (
+                <div className="workspace-stats-reveal" aria-live="polite">
+                  <div className="workspace-mini-stat"><span>Documents</span><strong>{String(documents.length).padStart(2, "0")}</strong></div>
+                  <div className="workspace-mini-stat"><span>Owned by you</span><strong>{String(ownedDocumentCount).padStart(2, "0")}</strong></div>
+                  <div className="workspace-mini-stat"><span>Shared with you</span><strong>{String(sharedDocumentCount).padStart(2, "0")}</strong></div>
+                  <div className="workspace-mini-stat"><span>Favorites</span><strong>{String(favoriteDocumentCount).padStart(2, "0")}</strong></div>
                 </div>
-                <span className="dashboard-live-label"><span /> Live snapshot</span>
-              </div>
-
-              <div className="stat-row dashboard-stat-grid">
-                <article className="stat-card stat-card--documents">
-                  <div className="stat-card-top">
-                    <span className="stat-card-icon"><Files size={18} strokeWidth={1.7} /></span>
-                    <span className="stat-card-code">LIBRARY / 01</span>
-                  </div>
-                  <div className="stat-card-value">{String(documents.length).padStart(2, "0")}</div>
-                  <div className="stat-card-label">Documents</div>
-                  <p className="stat-card-note">Items in this workspace</p>
-                  <svg className="stat-card-art" viewBox="0 0 120 44" fill="none" aria-hidden="true">
-                    <path d="M2 34C17 34 17 10 31 10S45 34 59 34 74 15 89 15s17 19 29 19" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-                    <path d="M2 42H118" stroke="currentColor" strokeOpacity=".18" />
-                  </svg>
-                </article>
-                <article className="stat-card stat-card--shared">
-                  <div className="stat-card-top">
-                    <span className="stat-card-icon"><Users size={18} strokeWidth={1.7} /></span>
-                    <span className="stat-card-code">COLLAB / 02</span>
-                  </div>
-                  <div className="stat-card-value">{String(sharedDocumentCount).padStart(2, "0")}</div>
-                  <div className="stat-card-label">Shared with you</div>
-                  <p className="stat-card-note">Documents from collaborators</p>
-                  <svg className="stat-card-art" viewBox="0 0 120 44" fill="none" aria-hidden="true">
-                    <circle cx="26" cy="22" r="8" stroke="currentColor" strokeWidth="1.4" />
-                    <circle cx="48" cy="22" r="8" stroke="currentColor" strokeWidth="1.4" />
-                    <path d="M18 37C19 30 33 30 34 37M40 37C41 30 55 30 56 37M70 14H115M70 22H103M70 30H110" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-                  </svg>
-                </article>
-                <article className="stat-card stat-card--favorites">
-                  <div className="stat-card-top">
-                    <span className="stat-card-icon"><Star size={18} strokeWidth={1.7} /></span>
-                    <span className="stat-card-code">SAVED / 03</span>
-                  </div>
-                  <div className="stat-card-value">{String(favoriteDocumentCount).padStart(2, "0")}</div>
-                  <div className="stat-card-label">Favorites</div>
-                  <p className="stat-card-note">Pinned for quick access</p>
-                  <svg className="stat-card-art" viewBox="0 0 120 44" fill="none" aria-hidden="true">
-                    <path d="M16 8L20 18L31 19L23 26L25 37L16 31L7 37L9 26L1 19L12 18Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
-                    <path d="M46 12H117M46 22H102M46 32H110" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-                  </svg>
-                </article>
-                <article className="stat-card stat-card--owned">
-                  <div className="stat-card-top">
-                    <span className="stat-card-icon"><ShieldCheck size={18} strokeWidth={1.7} /></span>
-                    <span className="stat-card-code">OWNERSHIP / 04</span>
-                  </div>
-                  <div className="stat-card-value">{String(ownedDocumentCount).padStart(2, "0")}</div>
-                  <div className="stat-card-label">Owned by you</div>
-                  <p className="stat-card-note">Created and managed by you</p>
-                  <svg className="stat-card-art" viewBox="0 0 120 44" fill="none" aria-hidden="true">
-                    <path d="M20 5L34 10V21C34 29 28 34 20 39C12 34 6 29 6 21V10Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
-                    <path d="M14 21L18 25L26 16M47 13H117M47 22H104M47 31H112" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </article>
-              </div>
+              )}
             </section>
 
             <section className="dashboard-collections" aria-labelledby="collections-title">
@@ -786,7 +838,7 @@ export default function HomePage() {
                   <article
                     key={folder.id}
                     className={"smart-folder-card" + (dashboardFolder === folder.id ? " is-active" : "")}
-                    style={{ "--smart-folder-accent": folder.color } as CSSProperties}
+                    style={{ "--smart-folder-accent": "var(--accent)" } as CSSProperties}
                   >
                     <div className="smart-folder-meta">
                       <span className="smart-folder-title">{folder.label}</span>
@@ -809,10 +861,7 @@ export default function HomePage() {
                         tilt={0.28}
                         speed={0.95}
                         bounce={0.34}
-                        items={folder.items.length > 0 ? folder.items : [{
-                          title: "Nothing here yet",
-                          description: folder.id === "favorites" ? "Star a document to save it here." : "Create a document to get started.",
-                        }]}
+                        items={folder.items}
                         draggable={false}
                         zoomOnClick={false}
                         onOpenChange={(isOpen) => { if (isOpen) chooseDashboardFolder(folder.id); }}
@@ -853,7 +902,7 @@ export default function HomePage() {
               {dashboardDocuments.length > 0 ? (
                 <div className="dash-grid dashboard-document-grid">
                   {dashboardDocuments.slice(0, 8).map((doc) => (
-                    <button key={doc.id} type="button" className="dash-card dashboard-document-card" onClick={() => { pendingDocId.current = doc.id; setActive(doc); }}>
+                    <button key={doc.id} type="button" className="dash-card dashboard-document-card" onClick={() => openDocument(doc)}>
                       <span className="document-card-icon"><FileText size={19} strokeWidth={1.65} /></span>
                       <span className="dashboard-document-copy">
                         <span className="dashboard-document-title-row">
@@ -968,7 +1017,7 @@ export default function HomePage() {
             role="menu"
             aria-label="Document actions"
           >
-            <button type="button" role="menuitem" onClick={() => { pendingDocId.current = contextMenu.doc.id; setActive(contextMenu.doc); setContextMenu(null); setSidebarOpen(false); }}>
+            <button type="button" role="menuitem" onClick={() => { setOpenCommentsForId(null); pendingDocId.current = contextMenu.doc.id; setActive(contextMenu.doc); setContextMenu(null); setSidebarOpen(false); }}>
               <span className="context-menu-icon" aria-hidden="true"><FolderOpen size={16} /></span><span>Open</span>
             </button>
             <button type="button" role="menuitem" onClick={() => startRename(contextMenu.doc)}>

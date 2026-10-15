@@ -816,7 +816,7 @@ const Folder = ({
 
   const entries = useMemo(() => {
     const custom = Children.toArray(children).filter(isValidElement);
-    const source = custom.length ? custom : items?.length ? items : DEFAULT_ITEMS;
+    const source = custom.length ? custom : items !== undefined ? items : DEFAULT_ITEMS;
     return source.slice(0, MAX_ITEMS);
   }, [children, items]);
   const count = entries.length;

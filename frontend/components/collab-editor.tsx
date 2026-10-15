@@ -21,6 +21,7 @@ type Props = {
   initialTitle: string;
   apiBase: string;
   readOnly?: boolean;
+  openCommentsOnMount?: boolean;
   onTitleChange: (title: string) => void;
   onDeleteRequest?: () => void;
 };
@@ -50,6 +51,7 @@ export function CollabEditor({
   initialTitle,
   apiBase,
   readOnly = false,
+  openCommentsOnMount = false,
   onTitleChange,
   onDeleteRequest,
 }: Props) {
@@ -392,6 +394,14 @@ export function CollabEditor({
       setCommentsLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (!openCommentsOnMount) return;
+    setCommentsOpen(true);
+    void loadComments();
+    // This handler belongs to this editor instance; documentId defines its lifetime.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [documentId, openCommentsOnMount]);
 
   async function submitComment() {
     const body = commentDraft.trim();

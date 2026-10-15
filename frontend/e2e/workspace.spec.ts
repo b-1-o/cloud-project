@@ -74,14 +74,14 @@ test("shows live workspace statistics and working smart folders", async ({ page 
 
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /workspace at a glance/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /workspace hub/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /all documents/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /favorites/i })).toBeVisible();
   await expect(page.locator(".smart-folder-card .folder-root")).toHaveCount(4);
   await expect(page.locator(".dashboard-document-card").filter({ hasText: "Product notes" })).toBeVisible();
 
-  await page.getByRole("button", { name: /favorites/i }).click();
-  await expect(page.getByRole("heading", { name: "Favorites" })).toBeVisible();
+  await page.getByRole("button", { name: /favorites folder/i }).click();
+  await expect(page.getByRole("heading", { name: "Your favorites." })).toBeVisible();
   await expect(page.getByText("Nothing saved yet")).toBeVisible();
 
   await page.getByRole("button", { name: /templates/i }).click();
@@ -134,3 +134,39 @@ test("requires a continuous hold before moving a document to trash", async ({ pa
   await page.mouse.up();
   await expect.poll(() => deleteRequested, { timeout: 5000 }).toBe(true);
 });
+
+
+test("empty smart folders contain no synthetic document pages", async ({ page }) => {
+  await page.route(/\/api\/documents\?.*$/, async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ documents: [] }) });
+  });
+  await page.route("**/api/documents/*/ticket", async (route) => {
+    await route.fulfill({ status: 503, contentType: "application/json", body: '{"error":"test offline"}' });
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: /^mine$/i }).click();
+  await expect(page.getByRole("heading", { name: /your documents/i })).toBeVisible();
+  await expect(page.locator(".smart-folder-card .folder-root")).toHaveCount(4);
+  await expect(page.locator(".smart-folder-card .folder-item")).toHaveCount(0);
+});
+
+test("workspace comments shortcut opens a real document comments panel", async ({ page }) => {
+  await page.route(/\/api\/documents\?.*$/, async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ documents: [{
+      id: "e2e-comment-doc", title: "Discussion document", updated_at: new Date().toISOString(), role: "owner",
+    }] }) });
+  });
+  await page.route("**/api/documents/*/ticket", async (route) => {
+    await route.fulfill({ status: 503, contentType: "application/json", body: '{"error":"test offline"}' });
+  });
+  await page.route("**/api/documents/e2e-comment-doc/comments", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ comments: [] }) });
+  });
+
+  await page.goto("/");
+  await page.getByTestId("workspace-hub-comments").click();
+  await expect(page.getByRole("complementary", { name: "Comments" })).toBeVisible();
+  await expect(page.getByText("No comments yet.")).toBeVisible();
+});
+
