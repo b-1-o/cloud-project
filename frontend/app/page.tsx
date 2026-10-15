@@ -401,7 +401,7 @@ export default function HomePage() {
         setActive(null);
         window.history.replaceState({}, "", window.location.pathname);
       }
-      setDeleteTarget(null); setDeleteMode("trash");
+      setDeleteTarget(null); setDeleteConfirm("");
       pendingRestore.current = { id: doc.id, title: doc.title };
       toast.success("Moved to trash", {
         description: "Undo within 8 seconds",
@@ -468,9 +468,6 @@ export default function HomePage() {
   const ownedDocumentCount = documents.filter((doc) => doc.role === "owner").length;
   const sharedDocumentCount = documents.filter((doc) => Boolean(doc.role) && doc.role !== "owner").length;
   const favoriteDocumentCount = favorites.filter((id) => documents.some((doc) => doc.id === id)).length;
-  const ringCircumference = 138.23;
-  const ownedRingLength = documents.length ? (ownedDocumentCount / documents.length) * ringCircumference : 0;
-  const sharedRingLength = documents.length ? (sharedDocumentCount / documents.length) * ringCircumference : 0;
   const activeFolderLabel =
     dashboardFolder === "mine" ? "Owned by you" :
     dashboardFolder === "shared" ? "Shared with you" :
@@ -550,6 +547,128 @@ export default function HomePage() {
         {active ? (
           <CollabEditor key={active.id} documentId={active.id} initialTitle={active.title} apiBase={API} readOnly={active.role === "viewer"} onTitleChange={(title) => setDocuments((list) => list.map((d) => (d.id === active.id ? { ...d, title } : d)))} onDeleteRequest={() => { setDeleteTarget(active); setDeleteMode("trash"); }} />
         ) : loading ? (
+          <div className="dashboard"><div className="skeleton-row" style={{ maxWidth: 320, margin: "48px auto" }} /><div className="skeleton-row" style={{ maxWidth: 480, margin: "12px auto" }} /></div>
+        ) : viewMode === "trash" && (documents.length === 0 || filtered.length === 0) ? (
+          <div className="empty-state compact-empty"><div className="eyebrow">TRASH</div><h1>{documents.length === 0 ? "Trash is empty" : "No matches"}</h1><p>{documents.length === 0 ? "Deleted documents will appear here." : "No trashed documents match your search."}</p></div>
+        ) : viewMode === "trash" ? (
+          <div className="empty-state compact-empty"><div className="eyebrow">TRASH</div><h1>{filtered.length} in trash</h1><p>Open a document from the sidebar, or use ··· to restore or delete forever.</p></div>
+        ) : isFirstRunEmpty ? (
+          <div className="workspace-home">
+            <div className="home-overline">
+              <span className="home-overline-mark"><Sparkles size={13} strokeWidth={1.8} /></span>
+              <span>A QUIETER SPACE FOR BIG IDEAS</span>
+              <span className="home-overline-rule" />
+            </div>
+
+            <section className="workspace-hero">
+              <div className="workspace-intro">
+                <h1 className="workspace-title">Make room for<br /><em>good ideas.</em></h1>
+                <p className="workspace-lead">
+                  A calm place to think, write, and work things out together. Start with a blank page or give your idea a little structure.
+                </p>
+                <div className="workspace-actions">
+                  <button className="primary-button workspace-cta" onClick={createDocument} disabled={creating}>
+                    <Plus size={16} strokeWidth={2.1} />
+                    <span>{creating ? "Creating…" : "Create document"}</span>
+                    <ArrowRight size={15} strokeWidth={1.9} />
+                  </button>
+                  <button type="button" className="secondary-button workspace-template-cta" onClick={() => setTemplateOpen(true)} disabled={creating}>
+                    <LayoutTemplate size={15} strokeWidth={1.8} />
+                    <span>Browse templates</span>
+                  </button>
+                </div>
+                <div className="feature-row workspace-feature-row">
+                  <span className="feature-item"><Users size={14} strokeWidth={1.8} /> Built for collaboration</span>
+                  <span className="feature-item"><Wifi size={14} strokeWidth={1.8} /> Works offline</span>
+                </div>
+              </div>
+
+              <div className="preview-stage" aria-hidden="true">
+                <div className="preview-stage-glow" />
+                <div className="editor-preview">
+                  <div className="preview-chrome">
+                    <div className="preview-document-label">
+                      <span className="preview-document-icon"><FileText size={15} strokeWidth={1.8} /></span>
+                      <span className="preview-document-copy">
+                        <strong>Untitled document</strong>
+                        <small>PERSONAL WORKSPACE</small>
+                      </span>
+                    </div>
+                    <div className="preview-window-actions"><span /><span /><span /></div>
+                  </div>
+                  <div className="preview-toolbar">
+                    <span className="preview-format">Aa</span>
+                    <span className="preview-tool preview-tool-heading" />
+                    <span className="preview-toolbar-divider" />
+                    <span className="preview-tool" />
+                    <span className="preview-tool preview-tool-short" />
+                    <span className="preview-tool" />
+                    <span className="preview-toolbar-spacer" />
+                    <span className="preview-toolbar-dot" />
+                  </div>
+                  <div className="preview-paper">
+                    <div className="preview-paper-meta">
+                      <span>NEW DOCUMENT</span>
+                      <span>START ANYWHERE</span>
+                    </div>
+                    <h3>Start with a thought.<br /><em>See where it goes.</em></h3>
+                    <p>A quiet place to collect ideas, shape plans, and build something together.</p>
+                    <div className="preview-writing-lines">
+                      <span className="line-long" />
+                      <span />
+                      <span className="line-medium" />
+                    </div>
+                    <div className="preview-paper-footer">
+                      <span><i /> Ready when you are</span>
+                      <span>01 / 01</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="preview-float-note">
+                  <span className="preview-float-icon"><Check size={14} strokeWidth={2.1} /></span>
+                  <span><strong>Room to focus</strong><small>Everything starts somewhere</small></span>
+                </div>
+              </div>
+            </section>
+
+            <section className="quick-start">
+              <div className="quick-start-header">
+                <div>
+                  <div className="eyebrow">A GOOD PLACE TO BEGIN</div>
+                  <h2>Choose your starting point.</h2>
+                </div>
+                <p>Keep it simple, or start with a little structure.</p>
+              </div>
+              <div className="template-grid quick-start-grid">
+                {TEMPLATES.map((tpl) => {
+                  const TemplateIcon = tpl.id === "blank" ? FileText : tpl.id === "meeting" ? NotebookPen : tpl.id === "brief" ? Target : Code2;
+                  const description = tpl.id === "blank" ? "A clean page for whatever is on your mind" : tpl.id === "meeting" ? "Agenda, notes, decisions, and next steps" : tpl.id === "brief" ? "Goals, scope, and milestones in one place" : "Organize technical details and decisions";
+                  return (
+                    <button key={tpl.id} type="button" className="template-card" onClick={() => void createFromTemplate(tpl.title)} disabled={creating}>
+                      <span className="template-icon"><TemplateIcon size={18} strokeWidth={1.7} /></span>
+                      <span className="template-body">
+                        <span className="template-title">{tpl.title}</span>
+                        <span className="template-desc">{description}</span>
+                      </span>
+                      <span className="template-arrow"><ArrowUpRight size={15} strokeWidth={1.8} /></span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            <footer className="home-footnote">
+              <span><Cloud size={14} strokeWidth={1.7} /> Your work stays available offline</span>
+              <span><Command size={13} strokeWidth={1.8} /> Press <kbd>⌘ K</kbd> for quick actions</span>
+            </footer>
+          </div>
+        ) : documents.length === 0 || filtered.length === 0 ? (
+          <div className="empty-state compact-empty">
+            <div className="eyebrow">{filter === "mine" ? "OWNED BY YOU" : filter === "shared" ? "SHARED WITH YOU" : "DOCUMENTS"}</div>
+            <h1>{search.trim() ? "No matches" : "No documents"}</h1>
+            <p>{search.trim() ? "No documents match “" + search.trim() + "”." : filter === "mine" ? "You don’t own any documents yet." : filter === "shared" ? "Nothing has been shared with you yet." : "No documents to show."}</p>
+          </div>
+        ) : (
           <div className="dashboard workspace-dashboard">
             <header className="dashboard-hero">
               <div className="dashboard-intro">
@@ -707,6 +826,7 @@ export default function HomePage() {
               <span><Command size={13} strokeWidth={1.8} /> Quick actions with <kbd>⌘ K</kbd></span>
             </footer>
           </div>
+
         )}
         {shareOpen && active && (
           <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShareOpen(false); }}>
