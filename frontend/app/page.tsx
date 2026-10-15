@@ -1,14 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { clearAccessToken, completeOidcLogin, getAccessToken, startOidcLogin } from "@/lib/auth";
 import { CollabEditor } from "@/components/collab-editor";
 import { formatDistanceToNow } from "date-fns";
 import { Toaster, toast } from "sonner";
 import { CommandPalette, type CommandItem } from "@/components/command-palette";
-import CollectionFolder from "@/components/CollectionFolder";
+import Folder from "@/components/react-bits/Folder";
 import HoldButton from "@/components/HoldButton";
-import { ArrowRight, ArrowUpRight, Check, Cloud, Code2, Command, FileText, LayoutTemplate, NotebookPen, Plus, Sparkles, Target, Users, Wifi, Clock3, Files, ShieldCheck, Star, Trash2 } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, Cloud, Code2, Command, FileText, LayoutTemplate, NotebookPen, Plus, Sparkles, Target, Users, Wifi, Clock3, Files, ShieldCheck, Star, Trash2, FolderOpen, Pencil } from "lucide-react";
 
 type DashboardFolder = "all" | "mine" | "shared" | "favorites";
 
@@ -472,12 +472,24 @@ export default function HomePage() {
     dashboardFolder === "mine" ? "Owned by you" :
     dashboardFolder === "shared" ? "Shared with you" :
     dashboardFolder === "favorites" ? "Favorites" : "Recent documents";
-  const collectionFolders: Array<{ id: DashboardFolder; label: string; description: string; count: number; color: string }> = [
-    { id: "all", label: "All documents", description: "Your complete library", count: documents.length, color: "#abc9e4" },
-    { id: "mine", label: "Owned by you", description: "Made and managed by you", count: ownedDocumentCount, color: "#c0b0e8" },
-    { id: "shared", label: "Shared with you", description: "Work with other people", count: sharedDocumentCount, color: "#d99caf" },
-    { id: "favorites", label: "Favorites", description: "Saved for quick access", count: favoriteDocumentCount, color: "#d9c296" },
-  ];
+  const collectionFolders = useMemo(() => {
+    const makeItems = (list: DocumentItem[]) =>
+      list.slice(0, 6).map((doc) => ({
+        id: doc.id,
+        title: doc.title,
+        description: relativeTime(doc.updated_at),
+      }));
+    const mine = filtered.filter((doc) => doc.role === "owner");
+    const shared = filtered.filter((doc) => Boolean(doc.role) && doc.role !== "owner");
+    const saved = filtered.filter((doc) => favorites.includes(doc.id));
+
+    return [
+      { id: "all" as const, label: "All documents", description: "Everything in your library", count: documents.length, color: "#d29aab", items: makeItems(filtered) },
+      { id: "mine" as const, label: "Owned by you", description: "Documents you manage", count: ownedDocumentCount, color: "#94abc8", items: makeItems(mine) },
+      { id: "shared" as const, label: "Shared with you", description: "Work with your team", count: sharedDocumentCount, color: "#d29aab", items: makeItems(shared) },
+      { id: "favorites" as const, label: "Favorites", description: "Your saved documents", count: favoriteDocumentCount, color: "#94abc8", items: makeItems(saved) },
+    ];
+  }, [documents, filtered, favorites, ownedDocumentCount, sharedDocumentCount, favoriteDocumentCount]);
 
   return (
     <main className="shell">
@@ -502,7 +514,11 @@ export default function HomePage() {
         </div>
         <div className="sidebar-label docs-label">{viewMode === "trash" ? "TRASH" : "YOUR DOCUMENTS"}</div>
         <button className="new-doc" onClick={createDocument} disabled={creating || viewMode === "trash"}><span>＋</span> New document</button>
-        <button type="button" className="sort-btn" style={{ width: "100%", textAlign: "left" }} onClick={() => setTemplateOpen(true)} disabled={creating || viewMode === "trash"}>Templates…</button>
+        <button type="button" className="templates-launch" onClick={() => setTemplateOpen(true)} disabled={creating || viewMode === "trash"}>
+          <span className="templates-launch-icon" aria-hidden="true"><LayoutTemplate size={17} strokeWidth={1.8} /></span>
+          <span className="templates-launch-copy"><strong>Templates</strong><small>Start with a structure</small></span>
+          <span className="templates-launch-trailing"><span>04</span><ArrowUpRight size={14} /></span>
+        </button>
         <div className="document-list" role="list">
           {loading && (<><div className="skeleton-row" /><div className="skeleton-row" /><div className="skeleton-row" /></>)}
           {!loading && filtered.map((doc) => (
@@ -767,15 +783,55 @@ export default function HomePage() {
               </div>
               <div className="collection-folder-grid">
                 {collectionFolders.map((folder) => (
-                  <CollectionFolder
+                  <article
                     key={folder.id}
-                    label={folder.label}
-                    description={folder.description}
-                    count={folder.count}
-                    color={folder.color}
-                    active={dashboardFolder === folder.id}
-                    onClick={() => chooseDashboardFolder(folder.id)}
-                  />
+                    className={"smart-folder-card" + (dashboardFolder === folder.id ? " is-active" : "")}
+                    style={{ "--smart-folder-accent": folder.color } as CSSProperties}
+                  >
+                    <div className="smart-folder-meta">
+                      <span className="smart-folder-title">{folder.label}</span>
+                      <span className="smart-folder-count" aria-label={folder.count + " documents"}>
+                        <strong>{String(folder.count).padStart(2, "0")}</strong>
+                        <span>DOCS</span>
+                      </span>
+                    </div>
+                    <div className="smart-folder-visual">
+                      <Folder
+                        mode="flap"
+                        variant="glass"
+                        layout="stack"
+                        label={folder.label}
+                        color={folder.color}
+                        paperColor="#f4f5f8"
+                        size={0.78}
+                        theme={theme}
+                        frost={0.48}
+                        tilt={0.28}
+                        speed={0.95}
+                        bounce={0.34}
+                        items={folder.items.length > 0 ? folder.items : [{
+                          title: "Nothing here yet",
+                          description: folder.id === "favorites" ? "Star a document to save it here." : "Create a document to get started.",
+                        }]}
+                        draggable={false}
+                        zoomOnClick={false}
+                        onOpenChange={(isOpen) => { if (isOpen) chooseDashboardFolder(folder.id); }}
+                        onItemClick={(item: { id?: string }) => {
+                          if (!item.id) return;
+                          const selected = documents.find((doc) => doc.id === item.id);
+                          if (!selected) return;
+                          pendingDocId.current = selected.id;
+                          setActive(selected);
+                          setViewMode("docs");
+                          setSidebarOpen(false);
+                        }}
+                      />
+                    </div>
+                    <div className="smart-folder-footer">
+                      <span>{folder.description}</span>
+                      <span className="smart-folder-open" aria-hidden="true"><ArrowUpRight size={14} strokeWidth={1.8} /></span>
+                    </div>
+                  </article>
                 ))}
               </div>
             </section>
@@ -901,21 +957,44 @@ export default function HomePage() {
         )}
 
         {contextMenu && (
-          <div ref={contextRef} className="context-menu" style={{ top: contextMenu.y, left: contextMenu.x }} role="menu">
-            <button type="button" role="menuitem" onClick={() => { pendingDocId.current = contextMenu.doc.id; setActive(contextMenu.doc); setContextMenu(null); setSidebarOpen(false); }}>Open</button>
-            <button type="button" role="menuitem" onClick={() => startRename(contextMenu.doc)}>Rename</button>
-            <button type="button" role="menuitem" onClick={() => void duplicateDocument(contextMenu.doc)} disabled={viewMode === "trash"}>Duplicate</button>
-            <button type="button" role="menuitem" onClick={() => { setActive(contextMenu.doc); setShareOpen(true); setContextMenu(null); }} disabled={contextMenu.doc.role !== "owner" || viewMode === "trash"}>Share…</button>
+          <div
+            ref={contextRef}
+            className="context-menu"
+            style={{
+              top: Math.max(12, Math.min(contextMenu.y, window.innerHeight - (viewMode === "trash" ? 280 : 240))),
+              left: Math.max(12, Math.min(contextMenu.x, window.innerWidth - 240)),
+            }}
+            role="menu"
+            aria-label="Document actions"
+          >
+            <button type="button" role="menuitem" onClick={() => { pendingDocId.current = contextMenu.doc.id; setActive(contextMenu.doc); setContextMenu(null); setSidebarOpen(false); }}>
+              <span className="context-menu-icon" aria-hidden="true"><FolderOpen size={16} /></span><span>Open</span>
+            </button>
+            <button type="button" role="menuitem" onClick={() => startRename(contextMenu.doc)}>
+              <span className="context-menu-icon" aria-hidden="true"><Pencil size={16} /></span><span>Rename</span>
+            </button>
+            <button type="button" role="menuitem" onClick={() => void duplicateDocument(contextMenu.doc)} disabled={viewMode === "trash"}>
+              <span className="context-menu-icon" aria-hidden="true"><Files size={16} /></span><span>Duplicate</span>
+            </button>
+            <button type="button" role="menuitem" onClick={() => { setActive(contextMenu.doc); setShareOpen(true); setContextMenu(null); }} disabled={contextMenu.doc.role !== "owner" || viewMode === "trash"}>
+              <span className="context-menu-icon" aria-hidden="true"><Users size={16} /></span><span>Share…</span>
+            </button>
             {viewMode === "trash" ? (
               <>
-                <button type="button" role="menuitem" onClick={() => void restoreDocument(contextMenu.doc)}>Restore</button>
+                <button type="button" role="menuitem" onClick={() => void restoreDocument(contextMenu.doc)}>
+                  <span className="context-menu-icon" aria-hidden="true"><ArrowRight size={16} /></span><span>Restore</span>
+                </button>
                 <div className="context-divider" />
-                <button type="button" role="menuitem" className="danger-item" onClick={() => { setDeleteTarget(contextMenu.doc); setDeleteMode("permanent"); setContextMenu(null); }} disabled={contextMenu.doc.role !== "owner"}>Delete forever…</button>
+                <button type="button" role="menuitem" className="danger-item" onClick={() => { setDeleteTarget(contextMenu.doc); setDeleteMode("permanent"); setContextMenu(null); }} disabled={contextMenu.doc.role !== "owner"}>
+                  <span className="context-menu-icon" aria-hidden="true"><Trash2 size={16} /></span><span>Delete forever…</span>
+                </button>
               </>
             ) : (
               <>
                 <div className="context-divider" />
-                <button type="button" role="menuitem" className="danger-item" onClick={() => { setDeleteTarget(contextMenu.doc); setDeleteMode("trash"); setContextMenu(null); }} disabled={contextMenu.doc.role !== "owner"}>Move to trash…</button>
+                <button type="button" role="menuitem" className="danger-item" onClick={() => { setDeleteTarget(contextMenu.doc); setDeleteMode("trash"); setContextMenu(null); }} disabled={contextMenu.doc.role !== "owner"}>
+                  <span className="context-menu-icon" aria-hidden="true"><Trash2 size={16} /></span><span>Move to trash…</span>
+                </button>
               </>
             )}
           </div>
@@ -931,9 +1010,23 @@ export default function HomePage() {
             </div>
             <div className="template-grid">
               {TEMPLATES.map((tpl) => (
-                <button key={tpl.id} type="button" className="dash-card" onClick={() => void createFromTemplate(tpl.title)} disabled={creating}>
-                  <span className="t">{tpl.title}</span>
-                  <span className="m">{tpl.id === "blank" ? "Empty document" : "Prefilled title"}</span>
+                <button key={tpl.id} type="button" className="template-option" onClick={() => void createFromTemplate(tpl.title)} disabled={creating}>
+                  <span className="template-option-icon" aria-hidden="true">
+                    {tpl.id === "blank" ? <FileText size={21} strokeWidth={1.7} /> :
+                      tpl.id === "meeting" ? <NotebookPen size={21} strokeWidth={1.7} /> :
+                      tpl.id === "brief" ? <Target size={21} strokeWidth={1.7} /> :
+                      <Code2 size={21} strokeWidth={1.7} />}
+                  </span>
+                  <span className="template-option-copy">
+                    <span className="t">{tpl.title}</span>
+                    <span className="m">
+                      {tpl.id === "blank" ? "A clean page, ready for your ideas." :
+                        tpl.id === "meeting" ? "Agenda, notes, decisions, and action items." :
+                        tpl.id === "brief" ? "Goals, scope, and project milestones." :
+                        "Architecture and implementation details."}
+                    </span>
+                  </span>
+                  <span className="template-option-arrow" aria-hidden="true"><ArrowUpRight size={16} strokeWidth={1.8} /></span>
                 </button>
               ))}
             </div>

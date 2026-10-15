@@ -77,11 +77,16 @@ test("shows live workspace statistics and working smart folders", async ({ page 
   await expect(page.getByRole("heading", { name: /workspace at a glance/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /all documents/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /favorites/i })).toBeVisible();
+  await expect(page.locator(".smart-folder-card .folder-root")).toHaveCount(4);
   await expect(page.locator(".dashboard-document-card").filter({ hasText: "Product notes" })).toBeVisible();
 
   await page.getByRole("button", { name: /favorites/i }).click();
   await expect(page.getByRole("heading", { name: "Favorites" })).toBeVisible();
   await expect(page.getByText("Nothing saved yet")).toBeVisible();
+
+  await page.getByRole("button", { name: /templates/i }).click();
+  await expect(page.getByRole("dialog")).toContainText("Start from a template");
+  await expect(page.locator(".template-option-icon svg")).toHaveCount(4);
 });
 
 test("requires a continuous hold before moving a document to trash", async ({ page }) => {
