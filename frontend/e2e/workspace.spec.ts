@@ -79,6 +79,8 @@ test("shows live workspace statistics and working smart folders", async ({ page 
   await expect(page.getByRole("button", { name: /favorites/i })).toBeVisible();
   await expect(page.locator(".smart-folder-card .folder-root")).toHaveCount(4);
   await expect(page.getByRole("heading", { name: /quick actions/i })).toBeVisible();
+  await expect(page.locator(".workspace-stats-sidebar")).toBeVisible();
+  await expect(page.locator(".workspace-stats-sidebar")).toContainText("Workspace pulse");
   await expect(page.locator(".smart-folder-card .folder-doc-text").filter({ hasText: "Product notes" })).toHaveCount(2);
 
   await page.getByRole("button", { name: /favorites folder/i }).click();
@@ -167,9 +169,63 @@ test("calendar opens a real navigable month grid", async ({ page }) => {
   await page.locator(".workspace-hub-card.hub-calendar").click();
   await expect(page.locator(".workspace-calendar-grid")).toBeVisible();
   await expect(page.locator(".workspace-calendar-day")).toHaveCount(42);
-  const monthBefore = await page.locator(".workspace-calendar-header h3").innerText();
+  await expect(page.locator(".calendar-workspace-title h3")).toContainText(/January|February|March|April|May|June|July|August|September|October|November|December/);
+  const monthBefore = await page.locator(".calendar-workspace-title h3").innerText();
   await page.getByRole("button", { name: "Next month" }).click();
-  await expect(page.locator(".workspace-calendar-header h3")).not.toHaveText(monthBefore);
+  await expect(page.locator(".calendar-workspace-title h3")).not.toHaveText(monthBefore);
+});
+
+
+test("calendar creates events with reminders, links, email, and a document attachment", async ({ page }) => {
+  let storedEvents: Array<Record<string, unknown>> = [];
+  await page.route(/\\/api\\/documents\\?.*$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ documents: [{
+        id: "e2e-calendar-doc",
+        title: "Calendar test document",
+        updated_at: new Date().toISOString(),
+        role: "owner",
+      }] }),
+    });
+  });
+  await page.route("**/api/documents/*/ticket", async (route) => {
+    await route.fulfill({ status: 503, contentType: "application/json", body: '{"error":"test offline"}' });
+  });
+  await page.route("**/api/calendar/events**", async (route) => {
+    if (route.request().method() === "POST") {
+      const payload = route.request().postDataJSON() as Record<string, unknown>;
+      const event = {
+        id: "e2e-calendar-event",
+        ...payload,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      storedEvents = [event];
+      await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ event }) });
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ events: storedEvents }) });
+  });
+
+  await page.goto("/");
+  await page.locator(".workspace-hub-card.hub-calendar").click();
+  await page.getByRole("button", { name: /new event/i }).click();
+  await page.getByRole("textbox", { name: "Event title" }).fill("Planning session");
+  await page.getByRole("textbox", { name: "Description / notes" }).fill("Review this week's work.");
+  await page.getByRole("textbox", { name: "Link" }).fill("https://example.com/meeting");
+  await page.getByRole("textbox", { name: "Email invite" }).fill("teammate@example.com");
+  await page.getByLabel("Reminder").selectOption("15");
+  await page.getByLabel("Attach document").selectOption("e2e-calendar-doc");
+  await page.getByRole("button", { name: "Create event" }).click();
+
+  await expect(page.locator(".calendar-event-card")).toContainText("Planning session");
+  await expect(page.locator(".calendar-event-card")).toContainText("15 min before");
+  await expect(page.getByRole("link", { name: "Email teammate@example.com" })).toHaveAttribute("href", /mailto:/);
+  await expect(page.getByRole("link", { name: "Open event link" })).toHaveAttribute("href", "https://example.com/meeting");
+  await expect(page.getByRole("link", { name: "Open attached document Calendar test document" })).toHaveAttribute("href", /\\?doc=e2e-calendar-doc/);
+  expect(storedEvents).toHaveLength(1);
 });
 
 test("workspace comments shortcut opens a real document comments panel", async ({ page }) => {
