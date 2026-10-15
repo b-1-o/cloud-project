@@ -521,7 +521,7 @@ export default function HomePage() {
       list.slice(0, 6).map((doc) => ({
         id: doc.id,
         title: doc.title,
-        description: relativeTime(doc.updated_at),
+        description: doc.title,
       }));
     const mine = filtered.filter((doc) => doc.role === "owner");
     const shared = filtered.filter((doc) => Boolean(doc.role) && doc.role !== "owner");
@@ -992,7 +992,7 @@ export default function HomePage() {
                   <span className="workspace-action-shortcut"><kbd>Ctrl K</kbd><kbd>⌘ K</kbd></span>
                 </button>
               </div>
-            </section>  </section>
+            </section>
 
             <footer className="dashboard-footer">
               <span><FolderOpen size={14} strokeWidth={1.7} /> Open a folder, then select a document sheet</span>
