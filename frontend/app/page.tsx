@@ -8,7 +8,7 @@ import { Toaster, toast } from "sonner";
 import { CommandPalette, type CommandItem } from "@/components/command-palette";
 import Folder from "@/components/react-bits/Folder";
 import HoldButton from "@/components/HoldButton";
-import { ArrowRight, ArrowUpRight, Check, Cloud, Code2, Command, FileText, LayoutTemplate, NotebookPen, Plus, Sparkles, Target, Users, Wifi, Clock3, Files, ShieldCheck, Star, Trash2, FolderOpen, Pencil, Inbox, MessageCircle, CalendarDays, ListChecks, BarChart3, Sun, Moon } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, Cloud, Code2, Command, FileText, LayoutTemplate, NotebookPen, Plus, Sparkles, Target, Users, Wifi, Clock3, Files, ShieldCheck, Star, Trash2, FolderOpen, Pencil, Inbox, MessageCircle, CalendarDays, ListChecks, BarChart3, Sun, Moon, Activity } from "lucide-react";
 
 type DashboardFolder = "all" | "mine" | "shared" | "favorites";
 
