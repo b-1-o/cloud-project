@@ -574,6 +574,17 @@ export default function HomePage() {
     try {
       const transition = transitionDocument.startViewTransition(() => {
         flushSync(() => openDocument(selected, false, true));
+        const mainPanel = document.querySelector<HTMLElement>(".main-panel");
+        if (mainPanel) {
+          mainPanel.scrollTop = 0;
+          mainPanel.scrollLeft = 0;
+        }
+        const paperWrap = document.querySelector<HTMLElement>(".paper-wrap");
+        if (paperWrap) {
+          paperWrap.scrollTop = 0;
+          paperWrap.scrollLeft = 0;
+        }
+        window.scrollTo({ top: 0, left: 0, behavior: "auto" });
       });
       void transition.finished.then(() => {
         clearSourceName();
@@ -630,7 +641,7 @@ export default function HomePage() {
                   {doc.role === "viewer" && <span className="role-badge">View</span>}
                 </button>
               )}
-              <button type="button" className="fav-star" aria-label="Toggle favorite" onClick={(e) => { e.stopPropagation(); toggleFavorite(doc.id); }}>{favorites.includes(doc.id) ? "★" : "☆"}</button>
+              <button type="button" className="fav-star" aria-label="Toggle favorite" onClick={(e) => { e.stopPropagation(); toggleFavorite(doc.id); }}>{favorites.includes(doc.id) ? <Star size={13} fill="currentColor" /> : <Star size={13} />}</button>
               <button type="button" className="doc-more" aria-label="Document actions" onClick={(e) => openContextMenu(e, doc)}>···</button>
             </div>
           ))}
@@ -872,7 +883,7 @@ export default function HomePage() {
                 </button>
 
               </div>
-              <div className={"calendar-accordion" + (calendarOpen ? " is-open" : "")} aria-hidden={!calendarOpen}>
+              <div id="workspace-calendar-panel" className={"calendar-accordion" + (calendarOpen ? " is-open" : "")} aria-hidden={!calendarOpen}>
                 <div className="calendar-accordion-inner">
                   <WorkspaceCalendar open={calendarOpen} apiBase={API} documents={documents} />
                 </div>
@@ -986,7 +997,7 @@ export default function HomePage() {
         {shareOpen && active && (
           <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShareOpen(false); }}>
             <section className="share-modal" role="dialog" aria-modal="true" aria-labelledby="share-title">
-              <div className="modal-heading"><div><div className="eyebrow">COLLABORATION</div><h2 id="share-title">Share document</h2></div><button className="modal-close" onClick={() => setShareOpen(false)} aria-label="Close">×</button></div>
+              <div className="modal-heading"><div><div className="eyebrow">COLLABORATION</div><h2 id="share-title">Share document</h2></div><button className="modal-close" onClick={() => setShareOpen(false)} aria-label="Close"><X size={15} /></button></div>
               <p className="modal-copy">Invite a teammate, or create a public view link without an account.</p>
               {publicLink && <p className="share-feedback">Public: {publicLink}</p>}
               <form className="share-form" onSubmit={(e) => { e.preventDefault(); void shareDocument(); }}>
@@ -1013,7 +1024,7 @@ export default function HomePage() {
                   <div className="eyebrow danger-eyebrow">{deleteMode === "permanent" ? "PERMANENT REMOVAL" : "DESTRUCTIVE ACTION"}</div>
                   <h2 id="delete-dialog-title">{deleteMode === "permanent" ? "Delete forever?" : "Move document to trash?"}</h2>
                 </div>
-                <button className="modal-close" onClick={() => { if (!deleting) { setDeleteTarget(null); setDeleteMode("trash"); } }} aria-label="Close" disabled={deleting}>×</button>
+                <button className="modal-close" onClick={() => { if (!deleting) { setDeleteTarget(null); setDeleteMode("trash"); } }} aria-label="Close" disabled={deleting}><X size={15} /></button>
               </div>
               <p className="modal-copy" id="delete-dialog-description">
                 <strong>{deleteTarget.title}</strong>{deleteMode === "permanent" ? " will be permanently deleted. This cannot be undone." : " will be moved to Trash, where you can restore it later."}
@@ -1105,7 +1116,7 @@ export default function HomePage() {
           <section className="share-modal" role="dialog" aria-modal="true">
             <div className="modal-heading">
               <div><div className="eyebrow">TEMPLATES</div><h2>Start from a template</h2></div>
-              <button className="modal-close" onClick={() => setTemplateOpen(false)} aria-label="Close">×</button>
+              <button className="modal-close" onClick={() => setTemplateOpen(false)} aria-label="Close"><X size={15} /></button>
             </div>
             <div className="template-grid">
               {TEMPLATES.map((tpl) => (
