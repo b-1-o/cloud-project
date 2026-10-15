@@ -130,33 +130,29 @@ async function route(request: Request, env: Env): Promise<Response> {
     const doc = await env.DB.prepare("SELECT id, title, updated_at FROM documents WHERE public_token = ?").bind(token).first<{ id: string; title: string; updated_at: string }>();
     if (!doc) throw new HttpError(404, "Not found");
     const room = roomFor(env, doc.id);
-    const snap = await room.fetch(new Request("https://do/internal/snapshot", { method: "GET" }));
+    const snapshotUrl = new URL("https://do/__snapshot");
+    snapshotUrl.searchParams.set("documentId", doc.id);
+    const snap = await room.fetch(new Request(snapshotUrl.toString(), { method: "GET" }));
     const body = await snap.json().catch(() => ({ state: "" })) as { state?: string };
     return response(request, env, { document: { id: doc.id, title: doc.title, updated_at: doc.updated_at }, state: body.state || "", mode: "public-readonly" });
   }
 
-  const identity = await authenticate(request, env);
-  await ensureIdentity(env, identity);
-
-  if (parts.length === 4 && parts[2] && parts[3] === "socket" && request.headers.get("Upgrade")?.toLowerCase() === "websocket") {
+  // Browser WebSocket handshakes cannot attach Authorization headers. Authenticate
+  // the upgrade with the short-lived, single-use ticket created by POST /ticket.
+  if (parts.length === 4 && parts[1] === "documents" && parts[2] && parts[3] === "socket" && request.headers.get("Upgrade")?.toLowerCase() === "websocket") {
     const documentId = parts[2];
-    const role = await roleForDocument(env, documentId, identity.id);
-    if (!role || !canRead(role)) throw new HttpError(403, "Forbidden");
-    const ticketId = crypto.randomUUID();
-    const room = roomFor(env, documentId);
-    const issue = await room.fetch(new Request("https://do/internal/issue-ticket", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ticketId, userId: identity.id, role, documentId, expiresAt: Date.now() + 60_000 })
-    }));
-    if (!issue.ok) throw new HttpError(500, "Could not issue collaboration ticket");
-    const roomUrl = new URL(request.url);
+    const ticketId = url.searchParams.get("ticket") || "";
+    if (ticketId.length < 16 || ticketId.length > 128) throw new HttpError(401, "Collaboration ticket missing");
+    const roomUrl = new URL("https://do/__socket");
+    roomUrl.searchParams.set("documentId", documentId);
+    roomUrl.searchParams.set("ticket", ticketId);
     const forwarded = new Request(roomUrl.toString(), request);
     forwarded.headers.set("x-ticket-id", ticketId);
-    forwarded.headers.set("x-user-id", identity.id);
-    forwarded.headers.set("x-user-role", role);
-    return room.fetch(forwarded);
+    return roomFor(env, documentId).fetch(forwarded);
   }
+
+  const identity = await authenticate(request, env);
+  await ensureIdentity(env, identity);
 
   if (parts.length === 2 && parts[1] === "documents" && request.method === "GET") {
     const search = url.searchParams.get("search") || undefined;
@@ -254,13 +250,19 @@ async function route(request: Request, env: Env): Promise<Response> {
     const role = await roleForDocument(env, documentId, identity.id);
     if (!role || !canRead(role)) throw new HttpError(403, "Forbidden");
     const ticketId = crypto.randomUUID();
-    const room = roomFor(env, documentId);
-    const issue = await room.fetch(new Request("https://do/internal/issue-ticket", {
+    const expiresAt = Date.now() + 60_000;
+    const issueUrl = new URL("https://do/__issue_ticket");
+    issueUrl.searchParams.set("documentId", documentId);
+    const issue = await roomFor(env, documentId).fetch(new Request(issueUrl.toString(), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ticketId, userId: identity.id, role, documentId, expiresAt: Date.now() + 60_000 })
+      headers: {
+        "x-ticket-id": ticketId,
+        "x-user-id": identity.id,
+        "x-user-role": role,
+        "x-ticket-expiry": String(expiresAt)
+      }
     }));
-    if (!issue.ok) throw new HttpError(500, "Could not issue collaboration ticket");
+    if (!issue.ok) throw new HttpError(500, "Could not issue collaboration ticket (" + issue.status + ")");
     return response(request, env, { ticket: ticketId, expiresIn: 60 });
   }
 

@@ -104,20 +104,18 @@ export class DocumentRoom {
     if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
       return new Response("WebSocket upgrade required", { status: 426 });
     }
-    const ticketId = request.headers.get("x-ticket-id");
-    const userId = request.headers.get("x-user-id");
-    const role = request.headers.get("x-user-role");
-    if (!ticketId || !userId || !role || !docId) return new Response("Unauthorized", { status: 401 });
+    const ticketId = request.headers.get("x-ticket-id") || url.searchParams.get("ticket");
+    if (!ticketId || ticketId.length > 128 || !docId) return new Response("Unauthorized", { status: 401 });
 
-    let authorized = false;
+    let authorized: { userId: string; role: string } | null = null;
     this.ctx.storage.transactionSync(() => {
       const rows = this.ctx.storage.sql.exec(
-        "SELECT ticket_id FROM issued_tickets WHERE ticket_id = ? AND document_id = ? AND user_id = ? AND role = ? AND consumed = 0 AND expires_at > ?",
-        ticketId, docId, userId, role, Date.now()
-      ).toArray();
+        "SELECT ticket_id, user_id, role FROM issued_tickets WHERE ticket_id = ? AND document_id = ? AND consumed = 0 AND expires_at > ?",
+        ticketId, docId, Date.now()
+      ).toArray() as Array<{ ticket_id: string; user_id: string; role: string }>;
       if (rows.length === 1) {
         this.ctx.storage.sql.exec("UPDATE issued_tickets SET consumed = 1 WHERE ticket_id = ?", ticketId);
-        authorized = true;
+        authorized = { userId: rows[0].user_id, role: rows[0].role };
       }
     });
     if (!authorized) return new Response("Expired or already used ticket", { status: 401 });
@@ -126,7 +124,7 @@ export class DocumentRoom {
     const client = pair[0];
     const server = pair[1];
     this.ctx.acceptWebSocket(server);
-    server.serializeAttachment({ userId, role, documentId: docId } satisfies RoomAttachment);
+    server.serializeAttachment({ userId: authorized.userId, role: authorized.role, documentId: docId } satisfies RoomAttachment);
     console.log(JSON.stringify({ event: "ws.connected", documentId: docId, role }));
     return new Response(null, { status: 101, webSocket: client });
   }
