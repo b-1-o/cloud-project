@@ -77,7 +77,7 @@ test("shows live workspace statistics and working smart folders", async ({ page 
   await expect(page.getByRole("heading", { name: /workspace at a glance/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /all documents/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /favorites/i })).toBeVisible();
-  await expect(page.getByRole("button", { name: /product notes/i })).toBeVisible();
+  await expect(page.locator(".dashboard-document-card").filter({ hasText: "Product notes" })).toBeVisible();
 
   await page.getByRole("button", { name: /favorites/i }).click();
   await expect(page.getByRole("heading", { name: "Favorites" })).toBeVisible();
