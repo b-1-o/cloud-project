@@ -86,7 +86,7 @@ test("shows live workspace statistics and working smart folders", async ({ page 
   await expect(page.getByRole("heading", { name: /quick actions/i })).toBeVisible();
   await expect(page.locator(".smart-folder-card .folder-root[data-open]")).toHaveCount(1);
 
-  await page.getByRole("button", { name: /templates/i }).click();
+  await page.locator(".workspace-action-card").filter({ hasText: "Templates" }).click();
   await expect(page.getByRole("dialog")).toContainText("Start from a template");
   await expect(page.locator(".template-option-icon svg")).toHaveCount(4);
 });
