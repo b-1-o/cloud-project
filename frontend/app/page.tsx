@@ -816,9 +816,10 @@ export default function HomePage() {
                         draggable={false}
                         zoomOnClick={false}
                         onOpenChange={(isOpen) => { if (isOpen) chooseDashboardFolder(folder.id); }}
-                        onItemClick={(item: { id?: string }) => {
-                          if (!item.id) return;
-                          const selected = documents.find((doc) => doc.id === item.id);
+                        onItemClick={(item) => {
+                          const itemId = (item as { id?: string } | null)?.id;
+                          if (!itemId) return;
+                          const selected = documents.find((doc) => doc.id === itemId);
                           if (!selected) return;
                           pendingDocId.current = selected.id;
                           setActive(selected);
