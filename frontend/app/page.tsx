@@ -6,7 +6,11 @@ import { CollabEditor } from "@/components/collab-editor";
 import { formatDistanceToNow } from "date-fns";
 import { Toaster, toast } from "sonner";
 import { CommandPalette, type CommandItem } from "@/components/command-palette";
-import { ArrowRight, ArrowUpRight, Check, Cloud, Code2, Command, FileText, LayoutTemplate, NotebookPen, Plus, Sparkles, Target, Users, Wifi } from "lucide-react";
+import CollectionFolder from "@/components/CollectionFolder";
+import HoldButton from "@/components/HoldButton";
+import { ArrowRight, ArrowUpRight, Check, Cloud, Code2, Command, FileText, LayoutTemplate, NotebookPen, Plus, Sparkles, Target, Users, Wifi, Clock3, Files, ShieldCheck, Star, Trash2 } from "lucide-react";
+
+type DashboardFolder = "all" | "mine" | "shared" | "favorites";
 
 type DocumentItem = {
   id: string;
@@ -63,7 +67,7 @@ export default function HomePage() {
   const [sortBy, setSortBy] = useState<"updated" | "name">("updated");
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; doc: DocumentItem } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DocumentItem | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleteMode, setDeleteMode] = useState<"trash" | "permanent">("trash");
   const [deleting, setDeleting] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -74,6 +78,7 @@ export default function HomePage() {
   const [publicBusy, setPublicBusy] = useState(false);
   const [viewMode, setViewMode] = useState<"docs" | "trash">("docs");
   const [filter, setFilter] = useState<"all" | "mine" | "shared">("all");
+  const [dashboardFolder, setDashboardFolder] = useState<DashboardFolder>("all");
   const [cmdOpen, setCmdOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
   const contextRef = useRef<HTMLDivElement>(null);
@@ -236,6 +241,21 @@ export default function HomePage() {
     return list;
   }, [documents, search, sortBy]);
 
+
+  const dashboardDocuments = useMemo(() => {
+    if (dashboardFolder === "mine") return filtered.filter((doc) => doc.role === "owner");
+    if (dashboardFolder === "shared") return filtered.filter((doc) => Boolean(doc.role) && doc.role !== "owner");
+    if (dashboardFolder === "favorites") return filtered.filter((doc) => favorites.includes(doc.id));
+    return filtered;
+  }, [filtered, dashboardFolder, favorites]);
+
+  function chooseDashboardFolder(folder: DashboardFolder) {
+    setDashboardFolder(folder);
+    setViewMode("docs");
+    setActive(null);
+    setFilter(folder === "mine" || folder === "shared" ? folder : "all");
+  }
+
   useEffect(() => {
     const targetId = pendingDocId.current || (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("doc") : null);
     if (!targetId || documents.length === 0 || viewMode === "trash") return;
@@ -313,15 +333,25 @@ export default function HomePage() {
   }
 
   async function hardDeleteDocument(doc: DocumentItem) {
+    setDeleting(true);
     try {
       await request("/api/documents/" + encodeURIComponent(doc.id) + "/hard", {
         method: "DELETE",
         headers: { "Idempotency-Key": crypto.randomUUID() },
       });
       setDocuments((list) => list.filter((d) => d.id !== doc.id));
+      if (active?.id === doc.id) {
+        pendingDocId.current = null;
+        setActive(null);
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+      setDeleteTarget(null);
+      setDeleteMode("trash");
       toast.success("Permanently deleted");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not delete forever");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -371,7 +401,7 @@ export default function HomePage() {
         setActive(null);
         window.history.replaceState({}, "", window.location.pathname);
       }
-      setDeleteTarget(null); setDeleteConfirm("");
+      setDeleteTarget(null); setDeleteMode("trash");
       pendingRestore.current = { id: doc.id, title: doc.title };
       toast.success("Moved to trash", {
         description: "Undo within 8 seconds",
@@ -434,6 +464,24 @@ export default function HomePage() {
     })),
   ];
 
+
+  const ownedDocumentCount = documents.filter((doc) => doc.role === "owner").length;
+  const sharedDocumentCount = documents.filter((doc) => Boolean(doc.role) && doc.role !== "owner").length;
+  const favoriteDocumentCount = favorites.filter((id) => documents.some((doc) => doc.id === id)).length;
+  const ringCircumference = 138.23;
+  const ownedRingLength = documents.length ? (ownedDocumentCount / documents.length) * ringCircumference : 0;
+  const sharedRingLength = documents.length ? (sharedDocumentCount / documents.length) * ringCircumference : 0;
+  const activeFolderLabel =
+    dashboardFolder === "mine" ? "Owned by you" :
+    dashboardFolder === "shared" ? "Shared with you" :
+    dashboardFolder === "favorites" ? "Favorites" : "Recent documents";
+  const collectionFolders: Array<{ id: DashboardFolder; label: string; description: string; count: number; color: string }> = [
+    { id: "all", label: "All documents", description: "Your complete library", count: documents.length, color: "#abc9e4" },
+    { id: "mine", label: "Owned by you", description: "Made and managed by you", count: ownedDocumentCount, color: "#c0b0e8" },
+    { id: "shared", label: "Shared with you", description: "Work with other people", count: sharedDocumentCount, color: "#d99caf" },
+    { id: "favorites", label: "Favorites", description: "Saved for quick access", count: favoriteDocumentCount, color: "#d9c296" },
+  ];
+
   return (
     <main className="shell">
       <Toaster position="bottom-right" richColors closeButton />
@@ -450,9 +498,9 @@ export default function HomePage() {
           <button type="button" className={sortBy === "name" ? "sort-btn active" : "sort-btn"} onClick={() => setSortBy("name")}>Name</button>
         </div>
         <div className="sort-row filter-row">
-          <button type="button" className={filter === "all" && viewMode === "docs" ? "sort-btn active" : "sort-btn"} onClick={() => { setFilter("all"); setViewMode("docs"); void refresh("docs"); }}>All</button>
-          <button type="button" className={filter === "mine" && viewMode === "docs" ? "sort-btn active" : "sort-btn"} onClick={() => { setFilter("mine"); setViewMode("docs"); void refresh("docs"); }}>Mine</button>
-          <button type="button" className={filter === "shared" && viewMode === "docs" ? "sort-btn active" : "sort-btn"} onClick={() => { setFilter("shared"); setViewMode("docs"); void refresh("docs"); }}>Shared</button>
+          <button type="button" className={filter === "all" && viewMode === "docs" ? "sort-btn active" : "sort-btn"} onClick={() => { setDashboardFolder("all"); setFilter("all"); setViewMode("docs"); }}>All</button>
+          <button type="button" className={filter === "mine" && viewMode === "docs" ? "sort-btn active" : "sort-btn"} onClick={() => { setDashboardFolder("mine"); setFilter("mine"); setViewMode("docs"); }}>Mine</button>
+          <button type="button" className={filter === "shared" && viewMode === "docs" ? "sort-btn active" : "sort-btn"} onClick={() => { setDashboardFolder("shared"); setFilter("shared"); setViewMode("docs"); }}>Shared</button>
           <button type="button" className={viewMode === "trash" ? "sort-btn active" : "sort-btn"} onClick={() => { setViewMode("trash"); setActive(null); void refresh("trash"); }}>Trash</button>
         </div>
         <div className="sidebar-label docs-label">{viewMode === "trash" ? "TRASH" : "YOUR DOCUMENTS"}</div>
@@ -500,151 +548,164 @@ export default function HomePage() {
         </header>
         {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError("")} aria-label="Dismiss error">×</button></div>}
         {active ? (
-          <CollabEditor key={active.id} documentId={active.id} initialTitle={active.title} apiBase={API} readOnly={active.role === "viewer"} onTitleChange={(title) => setDocuments((list) => list.map((d) => (d.id === active.id ? { ...d, title } : d)))} onDeleteRequest={() => setDeleteTarget(active)} />
+          <CollabEditor key={active.id} documentId={active.id} initialTitle={active.title} apiBase={API} readOnly={active.role === "viewer"} onTitleChange={(title) => setDocuments((list) => list.map((d) => (d.id === active.id ? { ...d, title } : d)))} onDeleteRequest={() => { setDeleteTarget(active); setDeleteMode("trash"); }} />
         ) : loading ? (
-          <div className="dashboard"><div className="skeleton-row" style={{ maxWidth: 320, margin: "48px auto" }} /><div className="skeleton-row" style={{ maxWidth: 480, margin: "12px auto" }} /></div>
-        ) : viewMode === "trash" && (documents.length === 0 || filtered.length === 0) ? (
-          <div className="empty-state compact-empty"><div className="eyebrow">TRASH</div><h1>{documents.length === 0 ? "Trash is empty" : "No matches"}</h1><p>{documents.length === 0 ? "Deleted documents will appear here." : "No trashed documents match your search."}</p></div>
-        ) : viewMode === "trash" ? (
-          <div className="empty-state compact-empty"><div className="eyebrow">TRASH</div><h1>{filtered.length} in trash</h1><p>Open a document from the sidebar, or use ··· to restore or delete forever.</p></div>
-        ) : isFirstRunEmpty ? (
-          <div className="workspace-home">
-            <div className="home-overline">
-              <span className="home-overline-mark"><Sparkles size={13} strokeWidth={1.8} /></span>
-              <span>A QUIETER SPACE FOR BIG IDEAS</span>
-              <span className="home-overline-rule" />
-            </div>
-
-            <section className="workspace-hero">
-              <div className="workspace-intro">
-                <h1 className="workspace-title">Make room for<br /><em>good ideas.</em></h1>
-                <p className="workspace-lead">
-                  A calm place to think, write, and work things out together. Start with a blank page or give your idea a little structure.
-                </p>
-                <div className="workspace-actions">
-                  <button className="primary-button workspace-cta" onClick={createDocument} disabled={creating}>
-                    <Plus size={16} strokeWidth={2.1} />
-                    <span>{creating ? "Creating…" : "Create document"}</span>
-                    <ArrowRight size={15} strokeWidth={1.9} />
-                  </button>
-                  <button type="button" className="secondary-button workspace-template-cta" onClick={() => setTemplateOpen(true)} disabled={creating}>
-                    <LayoutTemplate size={15} strokeWidth={1.8} />
-                    <span>Browse templates</span>
-                  </button>
+          <div className="dashboard workspace-dashboard">
+            <header className="dashboard-hero">
+              <div className="dashboard-intro">
+                <div className="dashboard-kicker">
+                  <span className="dashboard-kicker-mark"><Sparkles size={13} strokeWidth={1.8} /></span>
+                  <span>WORKSPACE / OVERVIEW</span>
+                  <span className="dashboard-kicker-rule" />
                 </div>
-                <div className="feature-row workspace-feature-row">
-                  <span className="feature-item"><Users size={14} strokeWidth={1.8} /> Built for collaboration</span>
-                  <span className="feature-item"><Wifi size={14} strokeWidth={1.8} /> Works offline</span>
-                </div>
+                <h1 className="dashboard-title">Welcome back<span className="dashboard-title-period">.</span></h1>
+                <p className="dashboard-sub">Everything you’re working on, gathered in one quiet space.</p>
               </div>
-
-              <div className="preview-stage" aria-hidden="true">
-                <div className="preview-stage-glow" />
-                <div className="editor-preview">
-                  <div className="preview-chrome">
-                    <div className="preview-document-label">
-                      <span className="preview-document-icon"><FileText size={15} strokeWidth={1.8} /></span>
-                      <span className="preview-document-copy">
-                        <strong>Untitled document</strong>
-                        <small>PERSONAL WORKSPACE</small>
-                      </span>
-                    </div>
-                    <div className="preview-window-actions"><span /><span /><span /></div>
-                  </div>
-                  <div className="preview-toolbar">
-                    <span className="preview-format">Aa</span>
-                    <span className="preview-tool preview-tool-heading" />
-                    <span className="preview-toolbar-divider" />
-                    <span className="preview-tool" />
-                    <span className="preview-tool preview-tool-short" />
-                    <span className="preview-tool" />
-                    <span className="preview-toolbar-spacer" />
-                    <span className="preview-toolbar-dot" />
-                  </div>
-                  <div className="preview-paper">
-                    <div className="preview-paper-meta">
-                      <span>NEW DOCUMENT</span>
-                      <span>START ANYWHERE</span>
-                    </div>
-                    <h3>Start with a thought.<br /><em>See where it goes.</em></h3>
-                    <p>A quiet place to collect ideas, shape plans, and build something together.</p>
-                    <div className="preview-writing-lines">
-                      <span className="line-long" />
-                      <span />
-                      <span className="line-medium" />
-                    </div>
-                    <div className="preview-paper-footer">
-                      <span><i /> Ready when you are</span>
-                      <span>01 / 01</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="preview-float-note">
-                  <span className="preview-float-icon"><Check size={14} strokeWidth={2.1} /></span>
-                  <span><strong>Room to focus</strong><small>Everything starts somewhere</small></span>
-                </div>
+              <div className="dashboard-hero-actions">
+                <div className="workspace-status"><span className="workspace-status-dot" /> Personal workspace</div>
+                <button type="button" className="primary-button dashboard-new-doc" onClick={createDocument} disabled={creating}>
+                  <Plus size={16} strokeWidth={2.1} />
+                  <span>{creating ? "Creating…" : "New document"}</span>
+                  <ArrowUpRight size={15} strokeWidth={1.9} />
+                </button>
               </div>
-            </section>
+            </header>
 
-            <section className="quick-start">
-              <div className="quick-start-header">
+            <section className="dashboard-stat-section" aria-labelledby="workspace-stat-title">
+              <div className="dashboard-section-heading dashboard-stat-heading">
                 <div>
-                  <div className="eyebrow">A GOOD PLACE TO BEGIN</div>
-                  <h2>Choose your starting point.</h2>
+                  <div className="eyebrow">OVERVIEW / 01</div>
+                  <h2 id="workspace-stat-title">Workspace at a glance</h2>
                 </div>
-                <p>Keep it simple, or start with a little structure.</p>
+                <span className="dashboard-live-label"><span /> Live snapshot</span>
               </div>
-              <div className="template-grid quick-start-grid">
-                {TEMPLATES.map((tpl) => {
-                  const TemplateIcon = tpl.id === "blank" ? FileText : tpl.id === "meeting" ? NotebookPen : tpl.id === "brief" ? Target : Code2;
-                  const description = tpl.id === "blank" ? "A clean page for whatever is on your mind" : tpl.id === "meeting" ? "Agenda, notes, decisions, and next steps" : tpl.id === "brief" ? "Goals, scope, and milestones in one place" : "Organize technical details and decisions";
-                  return (
-                    <button key={tpl.id} type="button" className="template-card" onClick={() => void createFromTemplate(tpl.title)} disabled={creating}>
-                      <span className="template-icon"><TemplateIcon size={18} strokeWidth={1.7} /></span>
-                      <span className="template-body">
-                        <span className="template-title">{tpl.title}</span>
-                        <span className="template-desc">{description}</span>
-                      </span>
-                      <span className="template-arrow"><ArrowUpRight size={15} strokeWidth={1.8} /></span>
-                    </button>
-                  );
-                })}
+
+              <div className="stat-row dashboard-stat-grid">
+                <article className="stat-card stat-card--documents">
+                  <div className="stat-card-top">
+                    <span className="stat-card-icon"><Files size={18} strokeWidth={1.7} /></span>
+                    <span className="stat-card-code">LIBRARY / 01</span>
+                  </div>
+                  <div className="stat-card-value">{String(documents.length).padStart(2, "0")}</div>
+                  <div className="stat-card-label">Documents</div>
+                  <p className="stat-card-note">Items in this workspace</p>
+                  <svg className="stat-card-art" viewBox="0 0 120 44" fill="none" aria-hidden="true">
+                    <path d="M2 34C17 34 17 10 31 10S45 34 59 34 74 15 89 15s17 19 29 19" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                    <path d="M2 42H118" stroke="currentColor" strokeOpacity=".18" />
+                  </svg>
+                </article>
+                <article className="stat-card stat-card--shared">
+                  <div className="stat-card-top">
+                    <span className="stat-card-icon"><Users size={18} strokeWidth={1.7} /></span>
+                    <span className="stat-card-code">COLLAB / 02</span>
+                  </div>
+                  <div className="stat-card-value">{String(sharedDocumentCount).padStart(2, "0")}</div>
+                  <div className="stat-card-label">Shared with you</div>
+                  <p className="stat-card-note">Documents from collaborators</p>
+                  <svg className="stat-card-art" viewBox="0 0 120 44" fill="none" aria-hidden="true">
+                    <circle cx="26" cy="22" r="8" stroke="currentColor" strokeWidth="1.4" />
+                    <circle cx="48" cy="22" r="8" stroke="currentColor" strokeWidth="1.4" />
+                    <path d="M18 37C19 30 33 30 34 37M40 37C41 30 55 30 56 37M70 14H115M70 22H103M70 30H110" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                  </svg>
+                </article>
+                <article className="stat-card stat-card--favorites">
+                  <div className="stat-card-top">
+                    <span className="stat-card-icon"><Star size={18} strokeWidth={1.7} /></span>
+                    <span className="stat-card-code">SAVED / 03</span>
+                  </div>
+                  <div className="stat-card-value">{String(favoriteDocumentCount).padStart(2, "0")}</div>
+                  <div className="stat-card-label">Favorites</div>
+                  <p className="stat-card-note">Pinned for quick access</p>
+                  <svg className="stat-card-art" viewBox="0 0 120 44" fill="none" aria-hidden="true">
+                    <path d="M16 8L20 18L31 19L23 26L25 37L16 31L7 37L9 26L1 19L12 18Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+                    <path d="M46 12H117M46 22H102M46 32H110" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                  </svg>
+                </article>
+                <article className="stat-card stat-card--owned">
+                  <div className="stat-card-top">
+                    <span className="stat-card-icon"><ShieldCheck size={18} strokeWidth={1.7} /></span>
+                    <span className="stat-card-code">OWNERSHIP / 04</span>
+                  </div>
+                  <div className="stat-card-value">{String(ownedDocumentCount).padStart(2, "0")}</div>
+                  <div className="stat-card-label">Owned by you</div>
+                  <p className="stat-card-note">Created and managed by you</p>
+                  <svg className="stat-card-art" viewBox="0 0 120 44" fill="none" aria-hidden="true">
+                    <path d="M20 5L34 10V21C34 29 28 34 20 39C12 34 6 29 6 21V10Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+                    <path d="M14 21L18 25L26 16M47 13H117M47 22H104M47 31H112" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </article>
               </div>
             </section>
 
-            <footer className="home-footnote">
-              <span><Cloud size={14} strokeWidth={1.7} /> Your work stays available offline</span>
-              <span><Command size={13} strokeWidth={1.8} /> Press <kbd>⌘ K</kbd> for quick actions</span>
-            </footer>
-          </div>
-        ) : documents.length === 0 || filtered.length === 0 ? (
-          <div className="empty-state compact-empty">
-            <div className="eyebrow">{filter === "mine" ? "OWNED BY YOU" : filter === "shared" ? "SHARED WITH YOU" : "DOCUMENTS"}</div>
-            <h1>{search.trim() ? "No matches" : "No documents"}</h1>
-            <p>{search.trim() ? "No documents match “" + search.trim() + "”." : filter === "mine" ? "You don’t own any documents yet." : filter === "shared" ? "Nothing has been shared with you yet." : "No documents to show."}</p>
-          </div>
-        ) : (
-          <div className="dashboard">
-            <div className="eyebrow">Workspace</div>
-            <h1 className="dashboard-title">Welcome back</h1>
-            <p className="dashboard-sub">Your documents at a glance. Press ⌘K for commands.</p>
-            <div className="stat-row">
-              <div className="stat-card"><strong>{documents.length}</strong><span>Documents</span></div>
-              <div className="stat-card"><strong>{documents.filter((d) => d.role && d.role !== "owner").length}</strong><span>Shared with you</span></div>
-              <div className="stat-card"><strong>{favorites.filter((id) => documents.some((d) => d.id === id)).length}</strong><span>Favorites</span></div>
-              <div className="stat-card"><strong>{documents.filter((d) => d.role === "owner").length}</strong><span>Owned by you</span></div>
-            </div>
-            <div className="dash-section">
-              <h2>Recent</h2>
-              <div className="dash-grid">
-                {filtered.slice(0, 8).map((doc) => (
-                  <button key={doc.id} type="button" className="dash-card" onClick={() => { pendingDocId.current = doc.id; setActive(doc); }}>
-                    <span className="t">{doc.title}</span>
-                    <span className="m">{relativeTime(doc.updated_at)} · {doc.role || "member"}</span>
-                  </button>
+            <section className="dashboard-collections" aria-labelledby="collections-title">
+              <div className="dashboard-section-heading">
+                <div>
+                  <div className="eyebrow">YOUR LIBRARY / 02</div>
+                  <h2 id="collections-title">Smart folders</h2>
+                  <p>Jump straight to the work you need.</p>
+                </div>
+                <span className="dashboard-count-badge">{documents.length} {documents.length === 1 ? "document" : "documents"}</span>
+              </div>
+              <div className="collection-folder-grid">
+                {collectionFolders.map((folder) => (
+                  <CollectionFolder
+                    key={folder.id}
+                    label={folder.label}
+                    description={folder.description}
+                    count={folder.count}
+                    color={folder.color}
+                    active={dashboardFolder === folder.id}
+                    onClick={() => chooseDashboardFolder(folder.id)}
+                  />
                 ))}
               </div>
-            </div>
+            </section>
+
+            <section className="dash-section dashboard-recent" aria-labelledby="recent-documents-title">
+              <div className="dashboard-section-heading dashboard-recent-heading">
+                <div>
+                  <div className="eyebrow">KEEP THE MOMENTUM / 03</div>
+                  <h2 id="recent-documents-title">{activeFolderLabel}</h2>
+                  <p>{dashboardFolder === "favorites" ? "Documents you’ve saved for later." : "Your latest work, ready when you are."}</p>
+                </div>
+                <div className="dashboard-sort-controls" aria-label="Sort documents">
+                  <button type="button" className={sortBy === "updated" ? "dashboard-sort-button is-active" : "dashboard-sort-button"} aria-pressed={sortBy === "updated"} onClick={() => setSortBy("updated")}>Recent</button>
+                  <button type="button" className={sortBy === "name" ? "dashboard-sort-button is-active" : "dashboard-sort-button"} aria-pressed={sortBy === "name"} onClick={() => setSortBy("name")}>A–Z</button>
+                </div>
+              </div>
+
+              {dashboardDocuments.length > 0 ? (
+                <div className="dash-grid dashboard-document-grid">
+                  {dashboardDocuments.slice(0, 8).map((doc) => (
+                    <button key={doc.id} type="button" className="dash-card dashboard-document-card" onClick={() => { pendingDocId.current = doc.id; setActive(doc); }}>
+                      <span className="document-card-icon"><FileText size={19} strokeWidth={1.65} /></span>
+                      <span className="dashboard-document-copy">
+                        <span className="dashboard-document-title-row">
+                          <span className="t" title={doc.title}>{doc.title}</span>
+                          {favorites.includes(doc.id) && <Star className="document-favorite-mark" size={13} fill="currentColor" strokeWidth={1.5} aria-label="Favorite" />}
+                        </span>
+                        <span className="m"><Clock3 size={12} strokeWidth={1.8} /> {relativeTime(doc.updated_at)} <span className="document-role-chip">{doc.role || "member"}</span></span>
+                      </span>
+                      <span className="dashboard-document-open"><ArrowUpRight size={16} strokeWidth={1.8} /></span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="dashboard-folder-empty">
+                  <span className="dashboard-folder-empty-icon">{dashboardFolder === "favorites" ? <Star size={18} /> : <Files size={18} />}</span>
+                  <div>
+                    <strong>{dashboardFolder === "favorites" ? "Nothing saved yet" : "No documents here"}</strong>
+                    <p>{dashboardFolder === "favorites" ? "Use the star in a document to keep it close at hand." : "Try another folder or clear your search."}</p>
+                  </div>
+                  <button type="button" className="secondary-button" onClick={() => chooseDashboardFolder("all")}>View all documents</button>
+                </div>
+              )}
+            </section>
+
+            <footer className="dashboard-footer">
+              <span><Cloud size={14} strokeWidth={1.7} /> Your work stays available offline</span>
+              <span><Command size={13} strokeWidth={1.8} /> Quick actions with <kbd>⌘ K</kbd></span>
+            </footer>
           </div>
         )}
         {shareOpen && active && (
@@ -670,19 +731,55 @@ export default function HomePage() {
           </div>
         )}
         {deleteTarget && (
-          <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) { setDeleteTarget(null); setDeleteConfirm(""); } }}>
-            <section className="share-modal danger-modal" role="dialog" aria-modal="true">
-              <div className="modal-heading"><div><div className="eyebrow danger-eyebrow">DESTRUCTIVE</div><h2>Delete document?</h2></div><button className="modal-close" onClick={() => { setDeleteTarget(null); setDeleteConfirm(""); }} aria-label="Close">×</button></div>
-              <p className="modal-copy"><strong>{deleteTarget.title}</strong> will be moved to Trash.</p>
-              <label htmlFor="delete-confirm">Type delete to confirm</label>
-              <input id="delete-confirm" className="delete-confirm-input" value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)} placeholder="delete" autoComplete="off" />
+          <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget && !deleting) { setDeleteTarget(null); setDeleteMode("trash"); } }}>
+            <section className="share-modal danger-modal" role="dialog" aria-modal="true" aria-labelledby="delete-dialog-title" aria-describedby="delete-dialog-description">
+              <div className="modal-heading">
+                <div>
+                  <div className="eyebrow danger-eyebrow">{deleteMode === "permanent" ? "PERMANENT REMOVAL" : "DESTRUCTIVE ACTION"}</div>
+                  <h2 id="delete-dialog-title">{deleteMode === "permanent" ? "Delete forever?" : "Move document to trash?"}</h2>
+                </div>
+                <button className="modal-close" onClick={() => { if (!deleting) { setDeleteTarget(null); setDeleteMode("trash"); } }} aria-label="Close" disabled={deleting}>×</button>
+              </div>
+              <p className="modal-copy" id="delete-dialog-description">
+                <strong>{deleteTarget.title}</strong>{deleteMode === "permanent" ? " will be permanently deleted. This cannot be undone." : " will be moved to Trash, where you can restore it later."}
+              </p>
+              <div className="hold-confirm-hint"><Trash2 size={14} strokeWidth={1.8} /><span>Press and hold for 2 seconds to confirm</span></div>
+              <div className="hold-confirm-control">
+                <HoldButton
+                  doneLabel={deleteMode === "permanent" ? "Deleted" : "Moved to trash"}
+                  icon={<Trash2 size={15} strokeWidth={1.9} />}
+                  doneIcon={<Check size={15} strokeWidth={2} />}
+                  backgroundColor="#26181e"
+                  fillColor="#bd4260"
+                  textColor="#f4e8ec"
+                  fillTextColor="#ffffff"
+                  size="md"
+                  radius={12}
+                  fillDirection="right"
+                  holdTime={2000}
+                  releaseTime={200}
+                  pressScale={0.98}
+                  wave
+                  waveAmplitude={5}
+                  glow
+                  resetAfter={1200}
+                  disabled={deleting || deleteTarget.role !== "owner"}
+                  onHold={() => {
+                    if (deleteMode === "permanent") void hardDeleteDocument(deleteTarget);
+                    else void deleteDocument(deleteTarget);
+                  }}
+                  className="delete-hold-button"
+                >
+                  {deleteMode === "permanent" ? "Hold to delete forever" : "Hold to move to trash"}
+                </HoldButton>
+              </div>
               <div className="modal-actions">
-                <button type="button" className="secondary-button" onClick={() => { setDeleteTarget(null); setDeleteConfirm(""); }}>Cancel</button>
-                <button type="button" className="danger-button" disabled={deleteConfirm !== "delete" || deleting} onClick={() => void deleteDocument(deleteTarget)}>{deleting ? "Deleting…" : "Move to trash"}</button>
+                <button type="button" className="secondary-button" onClick={() => { if (!deleting) { setDeleteTarget(null); setDeleteMode("trash"); } }} disabled={deleting}>Cancel</button>
               </div>
             </section>
           </div>
         )}
+
         {contextMenu && (
           <div ref={contextRef} className="context-menu" style={{ top: contextMenu.y, left: contextMenu.x }} role="menu">
             <button type="button" role="menuitem" onClick={() => { pendingDocId.current = contextMenu.doc.id; setActive(contextMenu.doc); setContextMenu(null); setSidebarOpen(false); }}>Open</button>
@@ -693,12 +790,12 @@ export default function HomePage() {
               <>
                 <button type="button" role="menuitem" onClick={() => void restoreDocument(contextMenu.doc)}>Restore</button>
                 <div className="context-divider" />
-                <button type="button" role="menuitem" className="danger-item" onClick={() => { void hardDeleteDocument(contextMenu.doc); setContextMenu(null); }} disabled={contextMenu.doc.role !== "owner"}>Delete forever…</button>
+                <button type="button" role="menuitem" className="danger-item" onClick={() => { setDeleteTarget(contextMenu.doc); setDeleteMode("permanent"); setContextMenu(null); }} disabled={contextMenu.doc.role !== "owner"}>Delete forever…</button>
               </>
             ) : (
               <>
                 <div className="context-divider" />
-                <button type="button" role="menuitem" className="danger-item" onClick={() => { setDeleteTarget(contextMenu.doc); setContextMenu(null); }} disabled={contextMenu.doc.role !== "owner"}>Move to trash…</button>
+                <button type="button" role="menuitem" className="danger-item" onClick={() => { setDeleteTarget(contextMenu.doc); setDeleteMode("trash"); setContextMenu(null); }} disabled={contextMenu.doc.role !== "owner"}>Move to trash…</button>
               </>
             )}
           </div>
