@@ -117,7 +117,7 @@ export function WorkspaceCalendar({ open, apiBase, documents }: Props) {
 
   const days = useMemo(() => {
     if (!month) return [];
-    const first = new Date(month.getFullYear(), month.getMonth(), 1);
+    const first = new Date(activeMonth.getFullYear(), activeMonth.getMonth(), 1);
     const mondayOffset = (first.getDay() + 6) % 7;
     return Array.from({ length: 42 }, (_, index) => {
       const date = new Date(month.getFullYear(), month.getMonth(), index - mondayOffset + 1);
@@ -133,6 +133,7 @@ export function WorkspaceCalendar({ open, apiBase, documents }: Props) {
 
   useEffect(() => {
     if (!open || !month) return;
+    const activeMonth = month;
     let cancelled = false;
     async function load() {
       setLoading(true);
