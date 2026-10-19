@@ -2770,3 +2770,32 @@ body,
   }
   .filtered-document-row-enter { animation: none !important; }
 }
+
+
+/* CSS-driven sun/moon morph: no React state update for a visual preference. */
+.theme-toggle-icon {
+  position: relative;
+  width: 17px;
+  height: 17px;
+}
+.theme-toggle-icon svg {
+  position: absolute;
+  inset: 0;
+  transition: opacity 200ms ease, transform 220ms cubic-bezier(.22, 1, .36, 1);
+}
+.theme-sun-icon {
+  opacity: 0;
+  transform: rotate(-70deg) scale(.76);
+}
+.theme-moon-icon {
+  opacity: 1;
+  transform: rotate(0) scale(1);
+}
+html.dark .theme-sun-icon {
+  opacity: 1;
+  transform: rotate(0) scale(1);
+}
+html.dark .theme-moon-icon {
+  opacity: 0;
+  transform: rotate(70deg) scale(.76);
+}
