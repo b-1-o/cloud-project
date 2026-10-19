@@ -286,7 +286,7 @@ test("workspace breadcrumbs and quick navigation leave the active document", asy
 
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
-  await page.getByRole("button", { name: /Navigation test document/ }).click();
+  await page.locator(".document-item").filter({ hasText: "Navigation test document" }).locator(".document-link").click();
   await expect(page.getByRole("textbox", { name: "Document title" })).toHaveValue("Navigation test document");
   await page.getByRole("button", { name: "Workspace All" }).click();
   await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
