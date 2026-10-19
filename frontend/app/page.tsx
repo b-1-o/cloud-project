@@ -662,7 +662,7 @@ export default function HomePage() {
     dashboardFolder === "mine" ? "Owned by you" :
     dashboardFolder === "shared" ? "Shared with you" :
     dashboardFolder === "favorites" ? "Favorites" : "Recent documents";
-  const folderColor = theme === "dark" ? "#d29aab" : "#713046";
+  const folderColor = "#b45d80";
   const workspaceView = viewMode === "trash" ? "trash" : filter === "mine" ? "mine" : filter === "shared" ? "shared" : dashboardFolder === "favorites" ? "favorites" : "all";
   const mainViewDocuments = workspaceView === "favorites"
     ? filtered.filter((doc) => favorites.includes(doc.id))
