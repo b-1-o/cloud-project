@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none" role="img" aria-labelledby="title">
+  <title id="title">Collab Docs</title>
+  <defs>
+    <linearGradient id="mark" x1="8" y1="5" x2="55" y2="59" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#B56A83"/>
+      <stop offset="1" stop-color="#713046"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="19" fill="url(#mark)"/>
+  <path d="M18 15.5C18 13.57 19.57 12 21.5 12H37L46 21V47.5C46 49.43 44.43 51 42.5 51H21.5C19.57 51 18 49.43 18 47.5V15.5Z" fill="#FFF8FA"/>
+  <path d="M36.5 12.5V20.5C36.5 21.6 37.4 22.5 38.5 22.5H45.5" stroke="#9A536B" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M25 31H39M25 37H39M25 43H34" stroke="#885065" stroke-width="2.5" stroke-linecap="round"/>
+</svg>
