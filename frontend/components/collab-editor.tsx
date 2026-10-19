@@ -21,6 +21,7 @@ type Props = {
   documentId: string;
   initialTitle: string;
   apiBase: string;
+  localOnly?: boolean;
   readOnly?: boolean;
   openCommentsOnMount?: boolean;
   openingFromSheet?: boolean;
@@ -52,6 +53,7 @@ export function CollabEditor({
   documentId,
   initialTitle,
   apiBase,
+  localOnly = false,
   readOnly = false,
   openCommentsOnMount = false,
   openingFromSheet = false,
@@ -59,7 +61,7 @@ export function CollabEditor({
   onDeleteRequest,
 }: Props) {
   const [title, setTitle] = useState(initialTitle);
-  const [connection, setConnection] = useState<"connecting" | "live" | "offline">("connecting");
+  const [connection, setConnection] = useState<"connecting" | "live" | "offline" | "local">("connecting");
   const [wordCount, setWordCount] = useState(0);
   const [doc] = useState(() => new Y.Doc());
   const [undoManager] = useState(() => new Y.UndoManager(doc.getXmlFragment("default")));
@@ -170,6 +172,21 @@ export function CollabEditor({
     let reconnectAttempt = 0;
     let lastPongAt = 0;
     const persistence = new IndexeddbPersistence("collab-docs-" + documentId, doc);
+
+    if (localOnly) {
+      setConnection("local");
+      void persistence.whenSynced.then(() => {
+        if (!disposed) setConnection("local");
+      });
+      return () => {
+        disposed = true;
+        if (titleTimer.current) clearTimeout(titleTimer.current);
+        titleTimer.current = null;
+        persistence.destroy();
+        undoManager.destroy();
+        doc.destroy();
+      };
+    }
 
     const scheduleReconnect = () => {
       if (disposed || retryTimer) return;
@@ -330,7 +347,7 @@ export function CollabEditor({
       undoManager.destroy();
       doc.destroy();
     };
-  }, [apiBase, documentId, doc, undoManager]);
+  }, [apiBase, documentId, doc, undoManager, localOnly]);
 
   function changeTitle(value: string) {
     if (readOnly) return;
@@ -338,6 +355,8 @@ export function CollabEditor({
     setTitle(next);
     onTitleChange(next);
     if (titleTimer.current) clearTimeout(titleTimer.current);
+    titleTimer.current = null;
+    if (localOnly) return;
     titleTimer.current = setTimeout(() => {
       void getAccessToken()
         .then((token) =>
@@ -423,6 +442,10 @@ export function CollabEditor({
   }
 
   async function loadComments() {
+    if (localOnly) {
+      toast.info("Sign in to use document comments.");
+      return;
+    }
     setCommentsLoading(true);
     try {
       const token = await getAccessToken();
@@ -448,6 +471,10 @@ export function CollabEditor({
   }, [documentId, openCommentsOnMount]);
 
   async function submitComment() {
+    if (localOnly) {
+      toast.info("Sign in to use document comments.");
+      return;
+    }
     const body = commentDraft.trim();
     if (!body || commentPosting) return;
     setCommentPosting(true);
@@ -473,6 +500,10 @@ export function CollabEditor({
   }
 
   async function loadVersions() {
+    if (localOnly) {
+      toast.info("Sign in to use version history.");
+      return;
+    }
     setVersionsLoading(true);
     try {
       const token = await getAccessToken();
@@ -490,6 +521,10 @@ export function CollabEditor({
   }
 
   async function createSnapshot() {
+    if (localOnly) {
+      toast.info("Sign in to use version history.");
+      return;
+    }
     try {
       const token = await getAccessToken();
       const res = await fetch(apiBase + "/api/documents/" + encodeURIComponent(documentId) + "/versions", {
@@ -600,7 +635,7 @@ export function CollabEditor({
           </div>
           <div className="connection-status" role="status" aria-live="polite">
             <span className={"status-dot " + connection} />
-            {connection === "live" ? "Live sync" : connection === "offline" ? "Offline · saved locally" : "Connecting…"}
+            {connection === "live" ? "Live sync" : connection === "local" ? "Local · saved on device" : connection === "offline" ? "Offline · saved locally" : "Connecting…"}
           </div>
         </div>
       )}
@@ -679,7 +714,7 @@ export function CollabEditor({
       )}
       <footer className="editor-footer">
         <span><span className="green-dot" /> {connection === "live" ? "All changes synced" : "Changes saved on this device"}</span>
-        <span>{wordCount} words <i>·</i> ~{pageEstimate} page{pageEstimate === 1 ? "" : "s"} <i>·</i> {connection === "offline" ? "Offline mode" : "Private workspace"}</span>
+        <span>{wordCount} words <i>·</i> ~{pageEstimate} page{pageEstimate === 1 ? "" : "s"} <i>·</i> {connection === "local" ? "Local mode" : connection === "offline" ? "Offline mode" : "Private workspace"}</span>
       </footer>
     </div>
   );
