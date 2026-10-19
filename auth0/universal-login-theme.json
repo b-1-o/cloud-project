@@ -1,0 +1,57 @@
+{
+  "displayName": "Collab Docs — Production",
+  "colors": {
+    "primary_button": "#91475F",
+    "primary_button_label": "#FFFFFF",
+    "secondary_button_border": "#3A3540",
+    "secondary_button_label": "#F2EDF1",
+    "links_focused_components": "#C8879E",
+    "base_focus_color": "#C8879E",
+    "base_hover_color": "#A85C77",
+    "header": "#F9F6F8",
+    "body_text": "#C6C0CB",
+    "widget_background": "#15141B",
+    "widget_border": "#302934",
+    "input_labels_placeholders": "#A39BA8",
+    "input_filled_text": "#F9F6F8",
+    "input_border": "#3C3442",
+    "input_background": "#1E1B25",
+    "icons": "#AFA5B2",
+    "error": "#FF7E87",
+    "success": "#62D9A8"
+  },
+  "fonts": {
+    "font_url": "",
+    "links_style": "normal",
+    "reference_text_size": 16,
+    "title": { "size": 150, "bold": true },
+    "subtitle": { "size": 100, "bold": false },
+    "body_text": { "size": 100, "bold": false },
+    "buttons_text": { "size": 95, "bold": true },
+    "input_labels": { "size": 90, "bold": true },
+    "links": { "size": 90, "bold": true }
+  },
+  "borders": {
+    "button_border_weight": 0,
+    "buttons_style": "rounded",
+    "button_border_radius": 11,
+    "input_border_weight": 1,
+    "inputs_style": "rounded",
+    "input_border_radius": 11,
+    "widget_corner_radius": 20,
+    "widget_border_weight": 1,
+    "show_widget_shadow": true
+  },
+  "widget": {
+    "logo_position": "center",
+    "logo_url": "https://collab-docs-4tb.pages.dev/collab-docs-auth0.svg",
+    "logo_height": 56,
+    "header_text_alignment": "center",
+    "social_buttons_layout": "top"
+  },
+  "page_background": {
+    "background_color": "#0B0A10",
+    "background_image_url": "",
+    "page_layout": "center"
+  }
+}
