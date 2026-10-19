@@ -72,6 +72,9 @@ async function calendarRequest<T>(apiBase: string, path: string, init?: RequestI
   const result = await fetch(apiBase + path, { ...init, headers });
   if (!result.ok) {
     const body = await result.json().catch(() => ({})) as { error?: string };
+    if (result.status === 401) {
+      throw new Error("Authentication required. Please sign in to continue.");
+    }
     throw new Error(body.error || "Calendar request failed (" + result.status + ")");
   }
   if (result.status === 204) return undefined as T;
