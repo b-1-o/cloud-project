@@ -11,9 +11,13 @@ on:
       - ".github/workflows/deploy.yml"
 permissions:
   contents: read
+# Serialise production updates: parallel Wrangler deployments can race while updating Worker secrets.
+concurrency:
+  group: collab-docs-production-deploy
+  cancel-in-progress: false
 jobs:
   deploy-worker:
-    if: ${{ vars.CLOUDFLARE_DEPLOY_ENABLED == 'true' }}
+    if: ${{ vars.CLOUDFLARE_DEPLOY_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' || contains(toJSON(github.event.commits.*.modified), 'backend/') || contains(toJSON(github.event.commits.*.added), 'backend/') || contains(toJSON(github.event.commits.*.removed), 'backend/')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -58,8 +62,8 @@ jobs:
           printf '%s' "$AUTH_ISSUER" | pnpm --filter backend exec wrangler secret put AUTH_ISSUER --env production --config wrangler.jsonc
           printf '%s' "$AUTH_AUDIENCE" | pnpm --filter backend exec wrangler secret put AUTH_AUDIENCE --env production --config wrangler.jsonc
   deploy-pages:
+    # Pages only needs the frontend build; do not block it on a Worker deployment.
     if: ${{ vars.CLOUDFLARE_DEPLOY_ENABLED == 'true' }}
-    needs: [deploy-worker]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
