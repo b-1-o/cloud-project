@@ -260,23 +260,19 @@ export default function HomePage() {
   useEffect(() => {
     if (authInitializationRef.current) return;
     authInitializationRef.current = true;
-    let cancelled = false;
     async function finishSignIn() {
       try {
         const completed = await completeOidcLogin(new URL(window.location.href));
         const hasToken = completed || Boolean(await getAccessToken());
-        if (cancelled) return;
         setSignedIn(hasToken);
         await refresh("docs", hasToken);
       } catch (err) {
-        if (cancelled) return;
         setSignedIn(false);
         setError(err instanceof Error ? err.message : "Sign-in failed");
         await refresh("docs", false);
       }
     }
     void finishSignIn();
-    return () => { cancelled = true; };
   }, [refresh]);
 
   useEffect(() => {
