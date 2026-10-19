@@ -188,7 +188,13 @@ export default function HomePage() {
                 pendingDocId.current = targetId;
                 setActive(one.document);
               }
-            } catch { /* no access */ }
+            } catch (err) {
+              // Keep the existing silent fallback for inaccessible documents,
+              // but surface an expired/missing session instead of hiding a 401.
+              if (err instanceof Error && err.message === "Authentication required. Please sign in to continue.") {
+                throw err;
+              }
+            }
           }
         }
       }
@@ -449,7 +455,7 @@ export default function HomePage() {
             if (!target) return;
             void request("/api/documents/" + encodeURIComponent(target.id) + "/restore", { method: "POST" })
               .then(() => { toast.success("Restored"); void refresh("docs"); })
-              .catch(() => toast.error("Could not undo"));
+              .catch((err) => toast.error(err instanceof Error ? err.message : "Could not undo"));
           },
         },
       });
