@@ -24,6 +24,9 @@ type DocumentItem = {
 };
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+// Only Playwright's development server may simulate an authenticated session.
+// The production build is fail-closed even if this variable is accidentally set.
+const E2E_AUTHENTICATED = process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_E2E_AUTH === "true";
 const LOCAL_DOCUMENTS_KEY = "collab-local-documents";
 const LOCAL_TRASH_KEY = "collab-local-trash";
 
@@ -263,7 +266,7 @@ export default function HomePage() {
     async function finishSignIn() {
       try {
         const completed = await completeOidcLogin(new URL(window.location.href));
-        const hasToken = completed || Boolean(await getAccessToken());
+        const hasToken = E2E_AUTHENTICATED || completed || Boolean(await getAccessToken());
         setSignedIn(hasToken);
         await refresh("docs", hasToken);
       } catch (err) {
