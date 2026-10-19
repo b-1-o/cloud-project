@@ -2461,3 +2461,310 @@ html.theme-color-transition .breadcrumb-quick-nav button {
   .trash-page-count { margin-left: auto; }
   .empty-trash-button { width: 100%; }
 }
+
+
+/* -------------------------------------------------------------------------
+   Performance pass: preserve small transitions, remove continuous full-page
+   compositing, and keep the sidebar fixed while only its document list scrolls.
+   ------------------------------------------------------------------------- */
+
+/* The static forest/rose atmosphere is already painted by body::before. */
+body::after {
+  content: none !important;
+  animation: none !important;
+  will-change: auto !important;
+}
+
+/* Theme change animates only simple paint properties on key surfaces. */
+html,
+body,
+.sidebar,
+.topbar,
+.workspace-pill,
+.search-input,
+.sort-btn,
+.document-item,
+.document-link,
+.new-doc,
+.templates-launch,
+.theme-toggle,
+.auth-button,
+.share-button,
+.secure-label,
+.filtered-document-row,
+.filtered-document-main,
+.filtered-document-more,
+.breadcrumb-home {
+  transition-property: color, background-color, border-color;
+  transition-duration: 220ms;
+  transition-timing-function: cubic-bezier(.22, 1, .36, 1);
+}
+
+.theme-toggle-icon {
+  display: grid;
+  place-items: center;
+  transition: transform 220ms cubic-bezier(.22, 1, .36, 1);
+}
+.theme-toggle:active .theme-toggle-icon { transform: scale(.88) rotate(-12deg); }
+
+/* Lower blur on large, persistent surfaces; keep the glass but reduce GPU cost. */
+.sidebar,
+.topbar {
+  backdrop-filter: blur(8px) saturate(118%);
+  -webkit-backdrop-filter: blur(8px) saturate(118%);
+}
+.workspace-hub-card,
+.workspace-stats-sidebar,
+.smart-folder-card,
+.workspace-action-card,
+.trash-document-card {
+  backdrop-filter: blur(5px) saturate(108%);
+  -webkit-backdrop-filter: blur(5px) saturate(108%);
+}
+
+/* Sidebar chrome never scrolls with the page. Only the documents pane can overflow. */
+@media (min-width: 901px) {
+  .sidebar {
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+}
+.sidebar {
+  min-height: 0;
+}
+.document-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  scrollbar-color: transparent transparent;
+  padding-right: 3px;
+}
+.document-list:hover,
+.document-list:focus-within {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--accent) 45%, transparent) transparent;
+}
+.document-list::-webkit-scrollbar { width: 0; height: 0; }
+.document-list:hover::-webkit-scrollbar,
+.document-list:focus-within::-webkit-scrollbar { width: 6px; }
+.document-list::-webkit-scrollbar-track { background: transparent; }
+.document-list::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 42%, transparent);
+}
+.document-list:not(:hover):not(:focus-within)::-webkit-scrollbar-thumb { background: transparent; }
+
+/* SVG icon alignment in the breadcrumb and account actions. */
+.workspace-pill { display: flex; align-items: center; }
+.breadcrumb-home,
+.breadcrumb-current {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.breadcrumb-current { min-width: 0; color: var(--text); }
+.breadcrumb-current span,
+.breadcrumb-home span { overflow: hidden; text-overflow: ellipsis; }
+.secure-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.auth-button,
+.share-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+/* Mine, Shared and Favorites have a compact list view; the rich hub is reserved for All. */
+.filtered-documents {
+  min-height: calc(100vh - 74px);
+  padding: clamp(24px, 4vw, 48px);
+}
+.filtered-documents-header {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  max-width: 1100px;
+  margin: 0 auto 22px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--glass-border-soft);
+}
+.filtered-documents-heading { flex: 1; min-width: 0; }
+.filtered-documents-heading h1 {
+  margin: 6px 0 5px;
+  color: var(--text);
+  font-size: clamp(27px, 3vw, 36px);
+  font-weight: 680;
+  letter-spacing: -1.2px;
+}
+.filtered-documents-heading h1 span { color: var(--accent); }
+.filtered-documents-heading p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.filtered-documents-count {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 8px 10px;
+  border: 1px solid var(--glass-border-soft);
+  border-radius: 10px;
+  background: var(--glass-1);
+  color: var(--text);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.filtered-documents-count small {
+  color: var(--text-muted);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .7px;
+}
+.filtered-new-document { flex: 0 0 auto; }
+.filtered-documents-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.filtered-document-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 72px;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--glass-border-soft);
+  border-radius: 13px;
+  background: var(--glass-2);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--shadow);
+  animation: hubCardEnter .28s cubic-bezier(.22, 1, .36, 1) both;
+  animation-delay: calc(min(var(--row-index, 0), 8) * 18ms);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+.filtered-document-row:hover {
+  transform: translateY(-1px);
+  border-color: var(--glass-border);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--shadow-float);
+}
+.filtered-document-main {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  border-radius: 9px;
+  padding: 5px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+.filtered-document-icon,
+.filtered-empty-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--glass-border-soft);
+  border-radius: 11px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.filtered-document-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 5px;
+}
+.filtered-document-copy strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 660;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.filtered-document-copy small {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+.filtered-document-more {
+  display: grid;
+  place-items: center;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-muted);
+}
+.filtered-document-more:hover { background: var(--accent-soft); color: var(--accent); }
+.filtered-documents-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 260px;
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 30px;
+  border: 1px solid var(--glass-border-soft);
+  border-radius: 18px;
+  background: var(--glass-1);
+  text-align: center;
+}
+.filtered-documents-empty h2 {
+  margin: 15px 0 6px;
+  color: var(--text);
+  font-size: 17px;
+  letter-spacing: -.25px;
+}
+.filtered-documents-empty p {
+  margin: 0 0 16px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.filtered-empty-icon { flex-basis: 46px; width: 46px; height: 46px; }
+
+@media (max-width: 900px) {
+  .filtered-documents { padding: 26px 20px 48px; }
+  .filtered-documents-list { grid-template-columns: 1fr; }
+  .filtered-documents-header { align-items: center; flex-wrap: wrap; }
+  .filtered-documents-count { margin-left: auto; }
+}
+@media (max-width: 560px) {
+  .filtered-documents { padding: 22px 14px 40px; }
+  .filtered-documents-heading h1 { font-size: 25px; }
+  .filtered-documents-header { gap: 10px; }
+  .filtered-new-document { order: 3; width: 100%; }
+  .filtered-document-row { min-height: 66px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html, body, .sidebar, .topbar, .workspace-pill, .search-input, .sort-btn,
+  .document-item, .document-link, .new-doc, .templates-launch, .theme-toggle,
+  .auth-button, .share-button, .filtered-document-row, .filtered-document-main,
+  .filtered-document-more, .breadcrumb-home, .theme-toggle-icon {
+    transition-duration: 0.01ms !important;
+  }
+  .filtered-document-row { animation: none !important; }
+}
