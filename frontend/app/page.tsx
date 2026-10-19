@@ -39,6 +39,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(API + path, { ...init, headers });
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as { error?: string };
+    if (response.status === 401) {
+      throw new Error("Authentication required. Please sign in to continue.");
+    }
     throw new Error(body.error || "Request failed (" + response.status + ")");
   }
   if (response.status === 204) return undefined as T;
