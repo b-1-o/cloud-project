@@ -823,10 +823,10 @@ export default function HomePage() {
             <div className="breadcrumbs"><button type="button" className="breadcrumb-home" onClick={() => chooseDashboardFolder("all")}>Personal workspace</button><span className="slash">/</span><strong>{active?.title || (viewMode === "trash" ? "Trash" : "Home")}</strong></div>
           </div>
           <nav className="breadcrumb-quick-nav" aria-label="Quick workspace navigation">
-            <button type="button" className={viewMode === "docs" && filter === "all" ? "active" : ""} onClick={() => chooseDashboardFolder("all")}>All</button>
-            <button type="button" className={viewMode === "docs" && filter === "mine" ? "active" : ""} onClick={() => chooseDashboardFolder("mine")}>Mine</button>
-            <button type="button" className={viewMode === "docs" && filter === "shared" ? "active" : ""} onClick={() => chooseDashboardFolder("shared")}>Shared</button>
-            <button type="button" className={viewMode === "trash" ? "active" : ""} onClick={() => { setViewMode("trash"); setActive(null); setFilter("all"); setOpenCommentsForId(null); void refresh("trash"); }}>Trash</button>
+            <button type="button" aria-label="Workspace All" className={viewMode === "docs" && filter === "all" ? "active" : ""} onClick={() => chooseDashboardFolder("all")}>All</button>
+            <button type="button" aria-label="Workspace Mine" className={viewMode === "docs" && filter === "mine" ? "active" : ""} onClick={() => chooseDashboardFolder("mine")}>Mine</button>
+            <button type="button" aria-label="Workspace Shared" className={viewMode === "docs" && filter === "shared" ? "active" : ""} onClick={() => chooseDashboardFolder("shared")}>Shared</button>
+            <button type="button" aria-label="Workspace Trash" className={viewMode === "trash" ? "active" : ""} onClick={() => { setViewMode("trash"); setActive(null); setFilter("all"); setOpenCommentsForId(null); void refresh("trash"); }}>Trash</button>
           </nav>
           <div className="top-actions">
             <button type="button" className="theme-toggle" data-theme={theme} onClick={toggleTheme} aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"} title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}><span className="theme-toggle-icon" aria-hidden="true">{theme === "dark" ? <Sun size={17} strokeWidth={1.8} /> : <Moon size={17} strokeWidth={1.8} />}</span></button>
