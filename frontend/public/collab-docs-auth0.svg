@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="88" viewBox="0 0 440 88" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">Collab Docs</title>
+  <desc id="desc">Collab Docs product logo with a burgundy layered document mark.</desc>
+  <defs>
+    <linearGradient id="mark" x1="8" y1="6" x2="62" y2="66" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#B56A83"/>
+      <stop offset="1" stop-color="#713046"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="72" height="72" rx="21" fill="url(#mark)"/>
+  <path d="M24 19.5C24 17.57 25.57 16 27.5 16H45L54 25V53.5C54 55.43 52.43 57 50.5 57H27.5C25.57 57 24 55.43 24 53.5V19.5Z" fill="#FFF8FA" fill-opacity=".98"/>
+  <path d="M44.5 16.5V24.5C44.5 25.6 45.4 26.5 46.5 26.5H53.5" stroke="#9A536B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M31 35H46M31 42H46M31 49H41" stroke="#885065" stroke-width="2.8" stroke-linecap="round"/>
+  <text x="94" y="40" fill="#F5F3F6" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="29" font-weight="720" letter-spacing="-1.1">Collab Docs</text>
+  <text x="96" y="61" fill="#9A98A6" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" font-weight="650" letter-spacing="2.6">WORKSPACE, IN SYNC</text>
+</svg>
