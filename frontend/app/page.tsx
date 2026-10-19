@@ -1038,7 +1038,7 @@ export default function HomePage() {
                   <span className="hub-card-copy"><span className="hub-card-kicker">DISCUSSION</span><strong>Comments</strong><small>Jump into the latest document thread.</small></span>
                   <span className="hub-card-trailing hub-action-indicator"><ArrowUpRight size={16} /></span>
                 </button>
-                <button type="button" className={"workspace-hub-card hub-calendar" + (calendarOpen ? " is-expanded" : "")} onClick={() => { if (!signedIn) { toast.info("Sign in to use the workspace calendar."); return; } setCalendarOpen((open) => !open); }} aria-expanded={calendarOpen} aria-controls="workspace-calendar-panel" disabled={!signedIn}>
+                <button type="button" className={"workspace-hub-card hub-calendar" + (calendarOpen ? " is-expanded" : "")} onClick={() => { if (!signedIn) { toast.info("Sign in to use the workspace calendar."); return; } setCalendarOpen((open) => !open); }} aria-expanded={calendarOpen} aria-controls="workspace-calendar-panel" aria-disabled={!signedIn} title={signedIn ? "Open calendar" : "Sign in to use the workspace calendar"}>
                   <span className="hub-card-icon"><CalendarDays size={19} strokeWidth={1.7} /></span>
                   <span className="hub-card-copy"><span className="hub-card-kicker">CALENDAR</span><strong>Calendar</strong><small>Browse dates and plan your week.</small></span>
                   <span className="hub-card-trailing hub-action-indicator"><ArrowUpRight size={16} className="hub-calendar-arrow" /></span>
