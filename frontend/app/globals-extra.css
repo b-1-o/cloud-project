@@ -2327,3 +2327,137 @@ html.theme-color-transition .calendar-event-card {
   }
   .theme-reveal { display:none!important; }
 }
+
+
+/* Refined mauve atmosphere: keep the existing motion, unify the ambient shadows in both themes. */
+:root {
+  --mist-a: rgba(177, 88, 123, 0.17);
+  --mist-b: rgba(153, 77, 111, 0.11);
+  --mist-c: rgba(192, 104, 139, 0.08);
+  --shadow: 0 1px 2px rgba(113, 48, 70, 0.06), 0 7px 22px rgba(147, 57, 94, 0.12);
+  --shadow-float: 0 10px 34px rgba(132, 48, 82, 0.16), 0 3px 9px rgba(179, 76, 119, 0.10);
+}
+
+html.dark {
+  --mist-a: rgba(166, 70, 111, 0.18);
+  --mist-b: rgba(121, 49, 84, 0.13);
+  --mist-c: rgba(186, 76, 120, 0.09);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.24), 0 8px 26px rgba(150, 50, 92, 0.17);
+  --shadow-float: 0 12px 38px rgba(0, 0, 0, 0.45), 0 4px 18px rgba(177, 58, 105, 0.20);
+}
+
+/* The reveal remains GPU-composited; light mode now blooms with the same rose accent. */
+.theme-reveal-light { --theme-bloom: #e7a7bc; }
+.theme-reveal-dark { --theme-bloom: #b45d80; }
+
+html.theme-color-transition,
+html.theme-color-transition body,
+html.theme-color-transition .shell,
+html.theme-color-transition .sidebar,
+html.theme-color-transition .main-panel,
+html.theme-color-transition .topbar,
+html.theme-color-transition .workspace-pill,
+html.theme-color-transition .workspace-hub-card,
+html.theme-color-transition .workspace-stats-sidebar,
+html.theme-color-transition .smart-folder-card,
+html.theme-color-transition .workspace-action-card,
+html.theme-color-transition .trash-document-card,
+html.theme-color-transition .trash-empty-panel,
+html.theme-color-transition .editor-toolbar,
+html.theme-color-transition .paper,
+html.theme-color-transition .comments-panel,
+html.theme-color-transition .share-modal,
+html.theme-color-transition .theme-toggle,
+html.theme-color-transition .breadcrumb-quick-nav button {
+  transition-property: color, background-color, border-color, box-shadow, fill, stroke;
+  transition-duration: 540ms !important;
+  transition-timing-function: cubic-bezier(.22, 1, .36, 1);
+}
+
+/* Workspace navigation stays reachable while a document is open. */
+.breadcrumb-home {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+  transition: color var(--transition);
+}
+.breadcrumb-home:hover { color: var(--accent); }
+
+.breadcrumb-quick-nav {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--glass-border-soft);
+  border-radius: 11px;
+  background: var(--glass-1);
+}
+.breadcrumb-quick-nav button {
+  min-height: 28px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 9px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 640;
+  white-space: nowrap;
+  transition: color var(--transition), background-color var(--transition);
+}
+.breadcrumb-quick-nav button:hover,
+.breadcrumb-quick-nav button.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.local-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.empty-trash-button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  border: 1px solid color-mix(in srgb, var(--danger) 28%, var(--glass-border-soft));
+  border-radius: 10px;
+  padding: 0 12px;
+  background: color-mix(in srgb, var(--danger) 7%, var(--glass-1));
+  color: var(--danger);
+  font-size: 11px;
+  font-weight: 680;
+  transition: background-color var(--transition), border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+}
+.empty-trash-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 13%, var(--glass-2));
+  border-color: color-mix(in srgb, var(--danger) 42%, var(--glass-border-soft));
+  box-shadow: 0 5px 16px color-mix(in srgb, var(--danger) 14%, transparent);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 1180px) {
+  .topbar { flex-wrap: wrap; }
+  .topbar-left { flex: 1 1 220px; }
+  .breadcrumb-quick-nav { order: 3; }
+}
+@media (max-width: 680px) {
+  .topbar { gap: 8px; margin: 8px 8px 0; padding: 9px 10px; }
+  .topbar-left { flex-basis: 100%; }
+  .breadcrumbs { min-width: 0; flex: 1; }
+  .breadcrumb-quick-nav { width: 100%; order: 3; justify-content: space-between; }
+  .breadcrumb-quick-nav button { flex: 1; padding: 0 7px; }
+  .top-actions { width: 100%; justify-content: flex-end; gap: 6px; }
+  .secure-label { display: none; }
+  .trash-page-hero { flex-wrap: wrap; gap: 12px; }
+  .trash-page-count { margin-left: auto; }
+  .empty-trash-button { width: 100%; }
+}
