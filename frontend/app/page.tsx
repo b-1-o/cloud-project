@@ -116,7 +116,6 @@ export default function HomePage() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [theme, setTheme] = useState<"light" | "dark">("light");
 
   const [favorites, setFavorites] = useState<string[]>([]);
   const [publicLink, setPublicLink] = useState("");
@@ -146,7 +145,6 @@ export default function HomePage() {
     const stored = localStorage.getItem("collab-theme");
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     const next = stored === "dark" || (!stored && prefersDark) ? "dark" : "light";
-    setTheme(next);
     document.documentElement.classList.toggle("dark", next === "dark");
   }, []);
 
@@ -182,16 +180,16 @@ export default function HomePage() {
   }
 
   function toggleTheme() {
-    const next = theme === "dark" ? "light" : "dark";
-    // Keep the theme switch state-only: no giant full-screen overlay, timer,
-    // or forced CSS transition pass across every element.
-    setTheme(next);
+    const root = document.documentElement;
+    const next = root.classList.contains("dark") ? "light" : "dark";
+    // Toggle only the root class: avoid re-rendering the entire workspace
+    // and the four interactive folder illustrations for a CSS-only change.
+    root.classList.toggle("dark", next === "dark");
     try {
       localStorage.setItem("collab-theme", next);
     } catch {
-      // The theme still switches when storage is unavailable.
+      // The visual theme still works when storage is unavailable.
     }
-    document.documentElement.classList.toggle("dark", next === "dark");
   }
 
   const refresh = useCallback(async (mode?: "docs" | "trash", allowRemote = signedIn) => {
@@ -832,7 +830,7 @@ export default function HomePage() {
             </div>
           </div>
           <div className="top-actions">
-            <button type="button" className="theme-toggle" data-theme={theme} onClick={toggleTheme} aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"} title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}><span className="theme-toggle-icon" aria-hidden="true">{theme === "dark" ? <Sun size={17} strokeWidth={1.8} /> : <Moon size={17} strokeWidth={1.8} />}</span></button>
+            <button type="button" className="theme-toggle" onClick={toggleTheme} aria-label="Toggle color theme" title="Toggle color theme"><span className="theme-toggle-icon" aria-hidden="true"><Sun className="theme-sun-icon" size={17} strokeWidth={1.8} /><Moon className="theme-moon-icon" size={17} strokeWidth={1.8} /></span></button>
             <span className="secure-label">{signedIn ? <CheckCircle2 size={14} strokeWidth={1.9} aria-hidden="true" /> : <HardDrive size={14} strokeWidth={1.9} aria-hidden="true" />}<span>{signedIn ? "Autosave enabled" : "Saved on this device"}</span></span>
             <button className="share-button" onClick={() => { if (!signedIn || active?.local) { toast.info("Sign in to unlock sharing and collaboration."); return; } setShareMessage(""); setPublicLink(""); setShareOpen(true); }} disabled={!active || active.role !== "owner" || active.local}><Share2 size={14} strokeWidth={1.9} /> <span>Share</span></button>
             {process.env.NEXT_PUBLIC_OIDC_AUTHORIZATION_URL && (signedIn ? <button className="auth-button" onClick={signOut}><LogOut size={14} strokeWidth={1.9} aria-hidden="true" /><span>Sign out</span></button> : <button className="auth-button" onClick={signIn}><LogIn size={14} strokeWidth={1.9} aria-hidden="true" /><span>Sign in</span></button>)}
@@ -1151,7 +1149,7 @@ export default function HomePage() {
                         color={folder.color}
                         paperColor="#f4f5f8"
                         size={0.78}
-                        theme={theme}
+                        theme="light"
                         frost={0}
                         intro={false}
                         tilt={0.28}
