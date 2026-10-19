@@ -1019,7 +1019,7 @@ export default function HomePage() {
             ) : (
               <div className="filtered-documents-list">
                 {mainViewDocuments.map((doc, index) => (
-                  <article className="filtered-document-row" key={doc.id} style={{ "--row-index": index } as CSSProperties}>
+                  <article className={"filtered-document-row" + (index < 8 ? " filtered-document-row-enter" : "")} key={doc.id} style={{ "--row-delay": Math.min(index, 8) * 18 + "ms" } as CSSProperties}>
                     <button type="button" className="filtered-document-main" onClick={() => openDocument(doc)} onDoubleClick={() => startRename(doc)}>
                       <span className="filtered-document-icon"><FileText size={17} strokeWidth={1.7} /></span>
                       <span className="filtered-document-copy"><strong>{doc.title}</strong><small>Updated {relativeTime(doc.updated_at)}</small></span>
