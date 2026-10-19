@@ -1044,11 +1044,11 @@ export default function HomePage() {
               <div className="dashboard-intro">
                 <div className="dashboard-kicker">
                   <span className="dashboard-kicker-mark"><Sparkles size={13} strokeWidth={1.8} /></span>
-                  <span>{workspaceView === "mine" ? "YOUR SPACE / OWNED" : workspaceView === "shared" ? "COLLAB / SHARED" : workspaceView === "favorites" ? "LIBRARY / SAVED" : "WORKSPACE / OVERVIEW"}</span>
+                  <span>WORKSPACE / OVERVIEW</span>
                   <span className="dashboard-kicker-rule" />
                 </div>
-                <h1 className="dashboard-title">{workspaceView === "mine" ? "Your documents" : workspaceView === "shared" ? "Shared with you" : workspaceView === "favorites" ? "Your favorites" : "Welcome back"}<span className="dashboard-title-period">.</span></h1>
-                <p className="dashboard-sub">{workspaceView === "mine" ? "The work you own and keep moving forward." : workspaceView === "shared" ? "Documents where you collaborate with other people." : workspaceView === "favorites" ? "Your most important documents, close at hand." : "Everything you’re working on, gathered in one quiet space."}</p>
+                <h1 className="dashboard-title">Welcome back<span className="dashboard-title-period">.</span></h1>
+                <p className="dashboard-sub">Everything you’re working on, gathered in one quiet space.</p>
               </div>
               <div className="dashboard-hero-actions">
                 <div className="workspace-status"><span className="workspace-status-dot" /> Personal workspace</div>
