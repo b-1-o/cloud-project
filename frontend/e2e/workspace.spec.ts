@@ -140,7 +140,7 @@ test("requires a continuous hold before moving a document to trash", async ({ pa
 });
 
 
-test("empty smart folders contain no synthetic document pages", async ({ page }) => {
+test("Mine view hides the All dashboard and uses a compact document view", async ({ page }) => {
   await page.route(/\/api\/documents\?.*$/, async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ documents: [] }) });
   });
@@ -149,10 +149,12 @@ test("empty smart folders contain no synthetic document pages", async ({ page })
   });
 
   await page.goto("/");
-  await page.getByRole("button", { name: /^mine$/i }).click();
+  await page.locator(".workspace-nav").getByRole("button", { name: "Mine" }).click();
   await expect(page.getByRole("heading", { name: /your documents/i })).toBeVisible();
-  await expect(page.locator(".smart-folder-card .folder-root")).toHaveCount(4);
-  await expect(page.locator(".smart-folder-card .folder-item")).toHaveCount(0);
+  await expect(page.locator(".workspace-hub-section")).toHaveCount(0);
+  await expect(page.locator(".workspace-stats-sidebar")).toHaveCount(0);
+  await expect(page.locator(".smart-folder-card")).toHaveCount(0);
+  await expect(page.locator(".filtered-documents-empty")).toBeVisible();
 });
 
 test("calendar opens a real navigable month grid", async ({ page }) => {
