@@ -320,7 +320,7 @@ test("theme switches smoothly between light and dark", async ({ page }) => {
   });
   await page.goto("/");
   const before = await page.locator("html").evaluate((element) => element.classList.contains("dark"));
-  await page.getByRole("button", { name: /switch to (light|dark) theme/i }).click();
+  await page.getByRole("button", { name: /toggle color theme/i }).click();
   await expect.poll(() => page.locator("html").evaluate((element) => element.classList.contains("dark"))).toBe(!before);
 });
 
