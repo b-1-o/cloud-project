@@ -433,6 +433,10 @@ export function CollabEditor({
   }
 
   function copyShareLink() {
+    if (localOnly) {
+      toast.info("Sign in to share a document link.");
+      return;
+    }
     const link = new URL("/", window.location.origin);
     link.searchParams.set("doc", documentId);
     void navigator.clipboard.writeText(link.toString()).then(
