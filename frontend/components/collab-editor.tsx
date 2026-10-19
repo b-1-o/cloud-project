@@ -194,7 +194,29 @@ export function CollabEditor({
           apiBase + "/api/documents/" + encodeURIComponent(documentId) + "/ticket",
           { method: "POST", headers: token ? { Authorization: "Bearer " + token } : {} }
         );
-        if (!response.ok) throw new Error("Collaboration ticket request failed (" + response.status + ")");
+        if (!response.ok) {
+          const body = (await response.json().catch(() => ({}))) as { error?: unknown };
+          if (response.status >= 400 && response.status < 500) {
+            connecting = false;
+            if (!disposed) {
+              setConnection("offline");
+              const message = response.status === 401
+                ? "Authentication required. Please sign in to continue."
+                : typeof body.error === "string"
+                  ? body.error
+                  : "This document is not available to your account.";
+              toast.error(response.status === 401 ? "Sign-in required" : "Unable to connect", {
+                description: message,
+              });
+            }
+            return;
+          }
+          throw new Error(
+            typeof body.error === "string"
+              ? body.error
+              : "Collaboration ticket request failed (" + response.status + ")",
+          );
+        }
         const { ticket } = (await response.json()) as TicketResponse;
         if (disposed) return;
         const url = new URL(apiBase || window.location.origin);
