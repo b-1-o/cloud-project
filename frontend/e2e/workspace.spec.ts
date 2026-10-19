@@ -267,6 +267,33 @@ test("clicking a sheet opens its document without navigating on folder open", as
   await expect(page.getByRole("textbox", { name: "Document title" })).toHaveValue("Design brief");
 });
 
+test("workspace breadcrumbs and quick navigation leave the active document", async ({ page }) => {
+  await page.route(/\/api\/documents\?.*$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ documents: [{
+        id: "e2e-navigation-doc",
+        title: "Navigation test document",
+        updated_at: new Date().toISOString(),
+        role: "owner",
+      }] }),
+    });
+  });
+  await page.route("**/api/documents/*/ticket", async (route) => {
+    await route.fulfill({ status: 503, contentType: "application/json", body: '{"error":"test offline"}' });
+  });
+
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
+  await page.getByRole("button", { name: /Navigation test document/ }).click();
+  await expect(page.getByRole("textbox", { name: "Document title" })).toHaveValue("Navigation test document");
+  await page.getByRole("button", { name: "Workspace All" }).click();
+  await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Document title" })).toHaveCount(0);
+  await expect(page).not.toHaveURL(/doc=e2e-navigation-doc/);
+});
+
 test("Ctrl/Command+K follows the physical key across keyboard layouts", async ({ page }) => {
   await page.route(/\/api\/documents\?.*$/, async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ documents: [] }) });
