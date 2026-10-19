@@ -131,6 +131,7 @@ export default function HomePage() {
   const renameInputRef = useRef<HTMLInputElement>(null);
   const pendingDocId = useRef<string | null>(null);
   const pendingRestore = useRef<{ id: string; title: string } | null>(null);
+  const authInitializationRef = useRef(false);
 
   useEffect(() => {
     const fromUrl = new URLSearchParams(window.location.search).get("doc");
@@ -257,6 +258,8 @@ export default function HomePage() {
   }, [viewMode, signedIn]);
 
   useEffect(() => {
+    if (authInitializationRef.current) return;
+    authInitializationRef.current = true;
     let cancelled = false;
     async function finishSignIn() {
       try {
