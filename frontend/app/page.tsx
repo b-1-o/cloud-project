@@ -338,10 +338,27 @@ export default function HomePage() {
   const sidebarDocuments = viewMode === "trash" ? filtered : navigatedDocuments;
 
 
+  function clearDocumentSelection() {
+    pendingDocId.current = null;
+    setActive(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("doc");
+    window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+  }
+
+  function showTrash() {
+    clearDocumentSelection();
+    setViewMode("trash");
+    setFilter("all");
+    setDashboardFolder("all");
+    setOpenCommentsForId(null);
+    void refresh("trash");
+  }
+
   function chooseDashboardFolder(folder: DashboardFolder) {
+    clearDocumentSelection();
     setDashboardFolder(folder);
     setViewMode("docs");
-    setActive(null);
     setOpenCommentsForId(null);
     setFilter(folder === "mine" || folder === "shared" ? folder : "all");
     void refresh("docs");
@@ -644,8 +661,8 @@ export default function HomePage() {
   const commandItems: CommandItem[] = [
     { id: "new", label: "New document", hint: "Create blank", run: () => void createDocument() },
     { id: "template", label: "New from template…", run: () => setTemplateOpen(true) },
-    { id: "home", label: "Go to home", run: () => { pendingDocId.current = null; setActive(null); } },
-    { id: "trash", label: "Open trash", run: () => { setViewMode("trash"); setActive(null); void refresh("trash"); } },
+    { id: "home", label: "Go to home", run: () => chooseDashboardFolder("all") },
+    { id: "trash", label: "Open trash", run: showTrash },
     { id: "theme", label: "Toggle theme", run: () => toggleTheme() },
     ...documents.slice(0, 12).map((d) => ({
       id: "doc-" + d.id,
@@ -781,7 +798,7 @@ export default function HomePage() {
           <button type="button" aria-current={filter === "all" && viewMode === "docs" ? "page" : undefined} className={filter === "all" && viewMode === "docs" ? "sort-btn workspace-route-button active" : "sort-btn workspace-route-button"} onClick={() => chooseDashboardFolder("all")}><Files size={13} aria-hidden="true" /><span>All</span></button>
           <button type="button" aria-current={filter === "mine" && viewMode === "docs" ? "page" : undefined} className={filter === "mine" && viewMode === "docs" ? "sort-btn workspace-route-button active" : "sort-btn workspace-route-button"} onClick={() => chooseDashboardFolder("mine")}><ShieldCheck size={13} aria-hidden="true" /><span>Mine</span></button>
           <button type="button" aria-current={filter === "shared" && viewMode === "docs" ? "page" : undefined} className={filter === "shared" && viewMode === "docs" ? "sort-btn workspace-route-button active" : "sort-btn workspace-route-button"} onClick={() => chooseDashboardFolder("shared")}><Users size={13} aria-hidden="true" /><span>Shared</span></button>
-          <button type="button" aria-current={viewMode === "trash" ? "page" : undefined} className={viewMode === "trash" ? "sort-btn workspace-route-button active" : "sort-btn workspace-route-button"} onClick={() => { setViewMode("trash"); setActive(null); setFilter("all"); setOpenCommentsForId(null); void refresh("trash"); }}><Trash2 size={13} aria-hidden="true" /><span>Trash</span></button>
+          <button type="button" aria-current={viewMode === "trash" ? "page" : undefined} className={viewMode === "trash" ? "sort-btn workspace-route-button active" : "sort-btn workspace-route-button"} onClick={showTrash}><Trash2 size={13} aria-hidden="true" /><span>Trash</span></button>
         </div>
         <div className="sidebar-label docs-label">{viewMode === "trash" ? "TRASH" : "YOUR DOCUMENTS"}</div>
         <button className="new-doc" onClick={createDocument} disabled={creating || viewMode === "trash"}><span>＋</span> New document</button>
