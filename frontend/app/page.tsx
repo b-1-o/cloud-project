@@ -20,9 +20,44 @@ type DocumentItem = {
   updated_at: string;
   workspace_name?: string;
   role?: string;
+  local?: boolean;
 };
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+const LOCAL_DOCUMENTS_KEY = "collab-local-documents";
+const LOCAL_TRASH_KEY = "collab-local-trash";
+
+function readLocalDocuments(key = LOCAL_DOCUMENTS_KEY): DocumentItem[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const value = JSON.parse(window.localStorage.getItem(key) || "[]");
+    return Array.isArray(value)
+      ? value.filter((item): item is DocumentItem => Boolean(item && item.local === true && typeof item.id === "string" && typeof item.title === "string"))
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeLocalDocuments(documents: DocumentItem[], key = LOCAL_DOCUMENTS_KEY): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(documents.filter((item) => item.local === true)));
+  } catch {
+    toast.error("Could not save the local document list. Check your browser storage.");
+  }
+}
+
+function createLocalDocument(title: string): DocumentItem {
+  return {
+    id: "local-" + crypto.randomUUID(),
+    title: title.trim().slice(0, 120) || "Untitled document",
+    updated_at: new Date().toISOString(),
+    workspace_name: "Personal workspace",
+    role: "owner",
+    local: true,
+  };
+}
 
 const TEMPLATES: Array<{ id: string; title: string }> = [
   { id: "blank", title: "Untitled document" },
@@ -72,6 +107,7 @@ export default function HomePage() {
   const [sortBy, setSortBy] = useState<"updated" | "name">("updated");
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; doc: DocumentItem } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DocumentItem | null>(null);
+  const [emptyTrashConfirm, setEmptyTrashConfirm] = useState(false);
   const [deleteMode, setDeleteMode] = useState<"trash" | "permanent">("trash");
   const [deleting, setDeleting] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -120,6 +156,10 @@ export default function HomePage() {
 
   async function ensurePublicLink() {
     if (!active) return;
+    if (!signedIn || active.local) {
+      toast.info("Sign in to create public links.");
+      return;
+    }
     setPublicBusy(true);
     try {
       const result = await request<{ publicUrl: string; token: string }>(
@@ -168,32 +208,42 @@ export default function HomePage() {
     }, reduceMotion ? 0 : 620);
   }
 
-  const refresh = useCallback(async (mode?: "docs" | "trash") => {
+  const refresh = useCallback(async (mode?: "docs" | "trash", allowRemote = signedIn) => {
     const nextMode = mode || viewMode;
+    const localKey = nextMode === "trash" ? LOCAL_TRASH_KEY : LOCAL_DOCUMENTS_KEY;
     try {
+      const localDocuments = readLocalDocuments(localKey);
+      if (!allowRemote) {
+        setDocuments(localDocuments);
+        if (nextMode === "docs") {
+          const targetId = pendingDocId.current || new URLSearchParams(window.location.search).get("doc");
+          const found = targetId ? localDocuments.find((document) => document.id === targetId) : undefined;
+          if (found) setActive(found);
+        }
+        setError("");
+        return;
+      }
+
       const path = nextMode === "trash" ? "/api/documents/trash" : "/api/documents?filter=all";
       const result = await request<{ documents: DocumentItem[] }>(path);
-      setDocuments(result.documents);
+      const remoteDocuments = Array.isArray(result.documents) ? result.documents : [];
+      const merged = [
+        ...localDocuments,
+        ...remoteDocuments.filter((remote) => !localDocuments.some((local) => local.id === remote.id)),
+      ];
+      setDocuments(merged);
       if (nextMode === "docs") {
         const targetId = pendingDocId.current || new URLSearchParams(window.location.search).get("doc");
         if (targetId) {
-          const found = result.documents.find((d) => d.id === targetId);
+          const found = merged.find((document) => document.id === targetId);
           if (found) {
             pendingDocId.current = targetId;
             setActive(found);
           } else {
-            try {
-              const one = await request<{ document: DocumentItem }>("/api/documents/" + encodeURIComponent(targetId));
-              if (one.document) {
-                pendingDocId.current = targetId;
-                setActive(one.document);
-              }
-            } catch (err) {
-              // Keep the existing silent fallback for inaccessible documents,
-              // but surface an expired/missing session instead of hiding a 401.
-              if (err instanceof Error && err.message === "Authentication required. Please sign in to continue.") {
-                throw err;
-              }
+            const one = await request<{ document: DocumentItem }>("/api/documents/" + encodeURIComponent(targetId)).catch(() => null);
+            if (one?.document) {
+              pendingDocId.current = targetId;
+              setActive(one.document);
             }
           }
         }
@@ -204,32 +254,26 @@ export default function HomePage() {
     } finally {
       setLoading(false);
     }
-  }, [viewMode]);
+  }, [viewMode, signedIn]);
 
   useEffect(() => {
-    const url = new URL(window.location.href);
-    if (!url.searchParams.has("code") && !url.searchParams.has("state") && !url.searchParams.has("error")) void refresh();
-  }, [refresh]);
-
-  useEffect(() => {
+    let cancelled = false;
     async function finishSignIn() {
       try {
         const completed = await completeOidcLogin(new URL(window.location.href));
-        if (completed) {
-          setSignedIn(true);
-          setError("");
-          await refresh();
-          return;
-        }
-        const hasToken = Boolean(await getAccessToken());
+        const hasToken = completed || Boolean(await getAccessToken());
+        if (cancelled) return;
         setSignedIn(hasToken);
-        await refresh();
+        await refresh("docs", hasToken);
       } catch (err) {
+        if (cancelled) return;
         setSignedIn(false);
         setError(err instanceof Error ? err.message : "Sign-in failed");
+        await refresh("docs", false);
       }
     }
     void finishSignIn();
+    return () => { cancelled = true; };
   }, [refresh]);
 
   useEffect(() => {
@@ -253,6 +297,7 @@ export default function HomePage() {
         setContextMenu(null);
         setDeleteTarget(null);
         setShareOpen(false);
+        setEmptyTrashConfirm(false);
         setCmdOpen(false);
         setTemplateOpen(false);
       }
@@ -283,8 +328,8 @@ export default function HomePage() {
 
   const navigatedDocuments = useMemo(() => {
     if (viewMode === "trash") return filtered;
-    if (filter === "mine") return filtered.filter((doc) => doc.role === "owner");
-    if (filter === "shared") return filtered.filter((doc) => Boolean(doc.role) && doc.role !== "owner");
+    if (filter === "mine") return filtered.filter((doc) => doc.local || doc.role === "owner");
+    if (filter === "shared") return filtered.filter((doc) => !doc.local && Boolean(doc.role) && doc.role !== "owner");
     return filtered;
   }, [filtered, filter, viewMode]);
 
@@ -295,7 +340,9 @@ export default function HomePage() {
     setDashboardFolder(folder);
     setViewMode("docs");
     setActive(null);
+    setOpenCommentsForId(null);
     setFilter(folder === "mine" || folder === "shared" ? folder : "all");
+    void refresh("docs");
   }
 
   useEffect(() => {
@@ -314,13 +361,17 @@ export default function HomePage() {
 
   async function signOut() {
     pendingDocId.current = null;
-    setSignedIn(false); setActive(null); setDocuments([]); setError("");
+    setSignedIn(false); setActive(null); setDocuments(readLocalDocuments()); setError("");
     window.history.replaceState({}, "", window.location.pathname);
     await clearAccessToken();
   }
 
   async function shareDocument() {
     if (!active) return;
+    if (!signedIn || active.local) {
+      toast.info("Sign in to share documents and use collaboration tools.");
+      return;
+    }
     setSharing(true); setShareMessage("");
     try {
       const result = await request<{ member: { email: string; role: string } }>(
@@ -337,6 +388,10 @@ export default function HomePage() {
 
   async function copyDocumentLink() {
     if (!active) return;
+    if (!signedIn || active.local) {
+      toast.info("Sign in to share a document link.");
+      return;
+    }
     try {
       const link = new URL("/", window.location.origin);
       link.searchParams.set("doc", active.id);
@@ -347,6 +402,10 @@ export default function HomePage() {
   }
 
   async function duplicateDocument(doc: DocumentItem) {
+    if (!signedIn || doc.local) {
+      toast.info("Sign in to use workspace duplication.");
+      return;
+    }
     try {
       const result = await request<{ document: DocumentItem }>(
         "/api/documents/" + encodeURIComponent(doc.id) + "/duplicate",
@@ -365,6 +424,16 @@ export default function HomePage() {
 
   async function restoreDocument(doc: DocumentItem) {
     try {
+      if (doc.local) {
+        const trash = readLocalDocuments(LOCAL_TRASH_KEY).filter((item) => item.id !== doc.id);
+        const current = readLocalDocuments(LOCAL_DOCUMENTS_KEY);
+        writeLocalDocuments(trash, LOCAL_TRASH_KEY);
+        writeLocalDocuments([doc, ...current.filter((item) => item.id !== doc.id)], LOCAL_DOCUMENTS_KEY);
+        toast.success("Document restored");
+        setViewMode("docs");
+        await refresh("docs");
+        return;
+      }
       await request("/api/documents/" + encodeURIComponent(doc.id) + "/restore", { method: "POST" });
       toast.success("Document restored");
       setViewMode("docs");
@@ -374,9 +443,38 @@ export default function HomePage() {
     }
   }
 
+  async function emptyTrashNow() {
+    setDeleting(true);
+    try {
+      let remoteDeleted = 0;
+      if (signedIn) {
+        const result = await request<{ deleted: number }>("/api/documents/trash", { method: "DELETE" });
+        remoteDeleted = Number(result.deleted) || 0;
+      }
+      const localTrash = readLocalDocuments(LOCAL_TRASH_KEY);
+      const locallyDeleted = localTrash.length;
+      writeLocalDocuments([], LOCAL_TRASH_KEY);
+      setDocuments((current) => current.filter((doc) => !doc.local && doc.role !== "owner"));
+      setEmptyTrashConfirm(false);
+      toast.success("Trash emptied", { description: (remoteDeleted + locallyDeleted) + " document(s) permanently deleted." });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not empty trash");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   async function hardDeleteDocument(doc: DocumentItem) {
     setDeleting(true);
     try {
+      if (doc.local) {
+        writeLocalDocuments(readLocalDocuments(LOCAL_TRASH_KEY).filter((item) => item.id !== doc.id), LOCAL_TRASH_KEY);
+        setDocuments((list) => list.filter((item) => item.id !== doc.id));
+        setDeleteTarget(null);
+        setDeleteMode("trash");
+        toast.success("Permanently deleted");
+        return;
+      }
       await request("/api/documents/" + encodeURIComponent(doc.id) + "/hard", {
         method: "DELETE",
         headers: { "Idempotency-Key": crypto.randomUUID() },
@@ -401,6 +499,19 @@ export default function HomePage() {
     setCreating(true);
     setTemplateOpen(false);
     try {
+      if (!signedIn) {
+        const document = createLocalDocument(title);
+        writeLocalDocuments([document, ...readLocalDocuments()]);
+        setDocuments((current) => [document, ...current.filter((item) => item.id !== document.id)]);
+        pendingDocId.current = document.id;
+        setViewMode("docs");
+        setFilter("all");
+        setDashboardFolder("all");
+        setActive(document);
+        setError("");
+        toast.success("Saved on this device");
+        return;
+      }
       const result = await request<{ document: DocumentItem }>("/api/documents", {
         method: "POST",
         headers: { "Idempotency-Key": crypto.randomUUID() },
@@ -420,6 +531,20 @@ export default function HomePage() {
   async function createDocument() {
     setCreating(true);
     try {
+      if (!signedIn) {
+        const document = createLocalDocument("Untitled document");
+        writeLocalDocuments([document, ...readLocalDocuments()]);
+        setDocuments((current) => [document, ...current.filter((item) => item.id !== document.id)]);
+        pendingDocId.current = document.id;
+        setViewMode("docs");
+        setFilter("all");
+        setDashboardFolder("all");
+        setActive(document);
+        setError("");
+        setSidebarOpen(false);
+        toast.success("Saved on this device");
+        return;
+      }
       const result = await request<{ document: DocumentItem }>("/api/documents", {
         method: "POST", headers: { "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ title: "Untitled document" }),
       });
@@ -436,6 +561,22 @@ export default function HomePage() {
   async function deleteDocument(doc: DocumentItem) {
     setDeleting(true);
     try {
+      if (doc.local) {
+        const remaining = readLocalDocuments(LOCAL_DOCUMENTS_KEY).filter((item) => item.id !== doc.id);
+        const trash = readLocalDocuments(LOCAL_TRASH_KEY);
+        writeLocalDocuments(remaining, LOCAL_DOCUMENTS_KEY);
+        writeLocalDocuments([{ ...doc, updated_at: new Date().toISOString() }, ...trash], LOCAL_TRASH_KEY);
+        setDocuments((list) => list.filter((item) => item.id !== doc.id));
+        if (active?.id === doc.id) {
+          pendingDocId.current = null;
+          setActive(null);
+          window.history.replaceState({}, "", window.location.pathname);
+        }
+        setDeleteTarget(null);
+        setDeleteMode("trash");
+        toast.success("Moved to local trash");
+        return;
+      }
       await request("/api/documents/" + encodeURIComponent(doc.id), { method: "DELETE", headers: { "Idempotency-Key": crypto.randomUUID() } });
       setDocuments((list) => list.filter((d) => d.id !== doc.id));
       if (active?.id === doc.id) {
@@ -468,8 +609,14 @@ export default function HomePage() {
     const next = title.trim().slice(0, 120) || "Untitled document";
     setRenamingId(null);
     if (next === doc.title) return;
-    setDocuments((list) => list.map((d) => (d.id === doc.id ? { ...d, title: next } : d)));
+    setDocuments((list) => list.map((d) => (d.id === doc.id ? { ...d, title: next, updated_at: new Date().toISOString() } : d)));
     if (active?.id === doc.id) setActive((a) => (a ? { ...a, title: next } : a));
+    if (doc.local) {
+      const key = viewMode === "trash" ? LOCAL_TRASH_KEY : LOCAL_DOCUMENTS_KEY;
+      writeLocalDocuments(readLocalDocuments(key).map((item) => item.id === doc.id ? { ...item, title: next, updated_at: new Date().toISOString() } : item), key);
+      toast.success("Renamed");
+      return;
+    }
     try {
       await request("/api/documents/" + encodeURIComponent(doc.id), {
         method: "PATCH", headers: { "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ title: next }),
@@ -536,6 +683,10 @@ export default function HomePage() {
   }, [documents, filtered, favorites, ownedDocumentCount, sharedDocumentCount, favoriteDocumentCount, folderColor]);
 
   function openCommentsHub() {
+    if (!signedIn) {
+      toast.info("Sign in to use workspace comments.");
+      return;
+    }
     const target = filtered[0] ?? documents[0];
     if (!target) {
       toast.info("Create a document first to start a comment thread.");
@@ -667,19 +818,31 @@ export default function HomePage() {
         <header className="topbar">
           <div className="topbar-left">
             <button type="button" className="menu-toggle" aria-label="Toggle sidebar" onClick={() => setSidebarOpen((o) => !o)}><Menu size={17} strokeWidth={1.8} /></button>
-            <div className="breadcrumbs"><span>Personal workspace</span><span className="slash">/</span><strong>{active?.title || (viewMode === "trash" ? "Trash" : "Home")}</strong></div>
+            <div className="breadcrumbs"><button type="button" className="breadcrumb-home" onClick={() => chooseDashboardFolder("all")}>Personal workspace</button><span className="slash">/</span><strong>{active?.title || (viewMode === "trash" ? "Trash" : "Home")}</strong></div>
           </div>
+          <nav className="breadcrumb-quick-nav" aria-label="Quick workspace navigation">
+            <button type="button" className={viewMode === "docs" && filter === "all" ? "active" : ""} onClick={() => chooseDashboardFolder("all")}>All</button>
+            <button type="button" className={viewMode === "docs" && filter === "mine" ? "active" : ""} onClick={() => chooseDashboardFolder("mine")}>Mine</button>
+            <button type="button" className={viewMode === "docs" && filter === "shared" ? "active" : ""} onClick={() => chooseDashboardFolder("shared")}>Shared</button>
+            <button type="button" className={viewMode === "trash" ? "active" : ""} onClick={() => { setViewMode("trash"); setActive(null); setFilter("all"); setOpenCommentsForId(null); void refresh("trash"); }}>Trash</button>
+          </nav>
           <div className="top-actions">
             <button type="button" className="theme-toggle" data-theme={theme} onClick={toggleTheme} aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"} title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}><span className="theme-toggle-icon" aria-hidden="true">{theme === "dark" ? <Sun size={17} strokeWidth={1.8} /> : <Moon size={17} strokeWidth={1.8} />}</span></button>
-            <span className="secure-label"><span className="green-dot" /> Autosave enabled</span>
-            <button className="share-button" onClick={() => { setShareMessage(""); setPublicLink(""); setShareOpen(true); }} disabled={!active || active.role !== "owner"}><Share2 size={14} /> Share</button>
+            <span className="secure-label"><span className={signedIn ? "green-dot" : "local-dot"} /> {signedIn ? "Autosave enabled" : "Saved on this device"}</span>
+            <button className="share-button" onClick={() => { if (!signedIn || active?.local) { toast.info("Sign in to unlock sharing and collaboration."); return; } setShareMessage(""); setPublicLink(""); setShareOpen(true); }} disabled={!active || active.role !== "owner" || active.local}><Share2 size={14} /> Share</button>
             {process.env.NEXT_PUBLIC_OIDC_AUTHORIZATION_URL && (signedIn ? <button className="auth-button" onClick={signOut}>Sign out</button> : <button className="auth-button" onClick={signIn}>Sign in</button>)}
             <span className="avatar small-avatar">B</span>
           </div>
         </header>
         {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError("")} aria-label="Dismiss error"><X size={15} /></button></div>}
         {active ? (
-          <CollabEditor key={active.id} documentId={active.id} initialTitle={active.title} apiBase={API} readOnly={active.role === "viewer"} openingFromSheet={sheetTransitionId === active.id} openCommentsOnMount={openCommentsForId === active.id} onTitleChange={(title) => setDocuments((list) => list.map((d) => (d.id === active.id ? { ...d, title } : d)))} onDeleteRequest={() => { setDeleteTarget(active); setDeleteMode("trash"); }} />
+          <CollabEditor key={active.id} documentId={active.id} initialTitle={active.title} apiBase={API} localOnly={active.local === true} readOnly={active.role === "viewer"} openingFromSheet={sheetTransitionId === active.id} openCommentsOnMount={openCommentsForId === active.id && signedIn && active.local !== true} onTitleChange={(title) => {
+            setDocuments((list) => list.map((d) => (d.id === active.id ? { ...d, title } : d)));
+            if (active.local) {
+              const key = viewMode === "trash" ? LOCAL_TRASH_KEY : LOCAL_DOCUMENTS_KEY;
+              writeLocalDocuments(readLocalDocuments(key).map((item) => item.id === active.id ? { ...item, title, updated_at: new Date().toISOString() } : item), key);
+            }
+          }} onDeleteRequest={() => { setDeleteTarget(active); setDeleteMode("trash"); }} />
         ) : loading ? (
           <div className="dashboard"><div className="skeleton-row" style={{ maxWidth: 320, margin: "48px auto" }} /><div className="skeleton-row" style={{ maxWidth: 480, margin: "12px auto" }} /></div>
         ) : viewMode === "trash" ? (
@@ -692,6 +855,7 @@ export default function HomePage() {
                 <p>Restore something you still need, or remove it permanently.</p>
               </div>
               <span className="trash-page-count">{filtered.length.toString().padStart(2, "0")} <small>ITEMS</small></span>
+              {filtered.length > 0 && <button type="button" className="empty-trash-button" onClick={() => setEmptyTrashConfirm(true)} disabled={deleting}><Trash2 size={14} /> Empty trash</button>}
             </header>
             {filtered.length === 0 ? (
               <div className="trash-empty-panel">
@@ -875,7 +1039,7 @@ export default function HomePage() {
                   <span className="hub-card-copy"><span className="hub-card-kicker">DISCUSSION</span><strong>Comments</strong><small>Jump into the latest document thread.</small></span>
                   <span className="hub-card-trailing hub-action-indicator"><ArrowUpRight size={16} /></span>
                 </button>
-                <button type="button" className={"workspace-hub-card hub-calendar" + (calendarOpen ? " is-expanded" : "")} onClick={() => setCalendarOpen((open) => !open)} aria-expanded={calendarOpen} aria-controls="workspace-calendar-panel">
+                <button type="button" className={"workspace-hub-card hub-calendar" + (calendarOpen ? " is-expanded" : "")} onClick={() => { if (!signedIn) { toast.info("Sign in to use the workspace calendar."); return; } setCalendarOpen((open) => !open); }} aria-expanded={calendarOpen} aria-controls="workspace-calendar-panel" disabled={!signedIn}>
                   <span className="hub-card-icon"><CalendarDays size={19} strokeWidth={1.7} /></span>
                   <span className="hub-card-copy"><span className="hub-card-kicker">CALENDAR</span><strong>Calendar</strong><small>Browse dates and plan your week.</small></span>
                   <span className="hub-card-trailing hub-action-indicator"><ArrowUpRight size={16} className="hub-calendar-arrow" /></span>
@@ -1022,6 +1186,43 @@ export default function HomePage() {
                   <button type="submit" className="primary-button" disabled={sharing}>{sharing ? "Sharing…" : "Grant access"}</button>
                 </div>
               </form>
+            </section>
+          </div>
+        )}
+        {emptyTrashConfirm && (
+          <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget && !deleting) setEmptyTrashConfirm(false); }}>
+            <section className="share-modal danger-modal" role="dialog" aria-modal="true" aria-labelledby="empty-trash-title" aria-describedby="empty-trash-description">
+              <div className="modal-heading">
+                <div><div className="eyebrow danger-eyebrow">PERMANENT REMOVAL</div><h2 id="empty-trash-title">Empty Trash?</h2></div>
+                <button className="modal-close" onClick={() => { if (!deleting) setEmptyTrashConfirm(false); }} aria-label="Close" disabled={deleting}><X size={15} /></button>
+              </div>
+              <p className="modal-copy" id="empty-trash-description">Permanently delete every document you own in Trash, including local documents. This cannot be undone.</p>
+              <div className="hold-confirm-hint"><Trash2 size={14} strokeWidth={1.8} /><span>Press and hold for 2 seconds to confirm</span></div>
+              <div className="hold-confirm-control">
+                <HoldButton
+                  doneLabel="Trash emptied"
+                  icon={<Trash2 size={15} strokeWidth={1.9} />}
+                  doneIcon={<Check size={15} strokeWidth={2} />}
+                  backgroundColor="#26181e"
+                  fillColor="#bd4260"
+                  textColor="#f4e8ec"
+                  fillTextColor="#ffffff"
+                  size="md"
+                  radius={12}
+                  fillDirection="right"
+                  holdTime={2000}
+                  releaseTime={200}
+                  pressScale={0.98}
+                  wave
+                  waveAmplitude={5}
+                  glow
+                  resetAfter={1200}
+                  disabled={deleting}
+                  onHold={() => void emptyTrashNow()}
+                  className="delete-hold-button"
+                >Hold to empty trash</HoldButton>
+              </div>
+              <div className="modal-actions"><button type="button" className="secondary-button" onClick={() => { if (!deleting) setEmptyTrashConfirm(false); }} disabled={deleting}>Cancel</button></div>
             </section>
           </div>
         )}
