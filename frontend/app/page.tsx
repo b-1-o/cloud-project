@@ -10,7 +10,7 @@ import { Toaster, toast } from "sonner";
 import { CommandPalette, type CommandItem } from "@/components/command-palette";
 import Folder from "@/components/react-bits/Folder";
 import HoldButton from "@/components/HoldButton";
-import { ArrowRight, ArrowUpRight, Check, Cloud, Code2, Command, FileText, LayoutTemplate, NotebookPen, Plus, Sparkles, Target, Users, Wifi, Clock3, Files, ShieldCheck, Star, Trash2, FolderOpen, Pencil, Inbox, MessageCircle, CalendarDays, ListChecks, BarChart3, Sun, Moon, Activity, Menu, Share2, X } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, CheckCircle2, Cloud, Code2, Command, FileText, HardDrive, House, LayoutTemplate, LogIn, LogOut, NotebookPen, Plus, Sparkles, Target, Users, Wifi, Clock3, Files, ShieldCheck, Star, Trash2, FolderOpen, Pencil, Inbox, MessageCircle, CalendarDays, ListChecks, BarChart3, Sun, Moon, Activity, Menu, Share2, UserRound, MoreHorizontal, X } from "lucide-react";
 
 type DashboardFolder = "all" | "mine" | "shared" | "favorites";
 
@@ -117,7 +117,7 @@ export default function HomePage() {
   const [renameValue, setRenameValue] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("light");
-  const [themeReveal, setThemeReveal] = useState<{ x: number; y: number; tone: "light" | "dark" } | null>(null);
+
   const [favorites, setFavorites] = useState<string[]>([]);
   const [publicLink, setPublicLink] = useState("");
   const [publicBusy, setPublicBusy] = useState(false);
@@ -130,7 +130,7 @@ export default function HomePage() {
   const [openCommentsForId, setOpenCommentsForId] = useState<string | null>(null);
   const [sheetTransitionId, setSheetTransitionId] = useState<string | null>(null);
   const contextRef = useRef<HTMLDivElement>(null);
-  const themeTransitionTimerRef = useRef<number | null>(null);
+
   const renameInputRef = useRef<HTMLInputElement>(null);
   const pendingDocId = useRef<string | null>(null);
   const pendingRestore = useRef<{ id: string; title: string } | null>(null);
@@ -181,35 +181,17 @@ export default function HomePage() {
     }
   }
 
-  function toggleTheme(event?: React.MouseEvent<HTMLButtonElement>) {
+  function toggleTheme() {
     const next = theme === "dark" ? "light" : "dark";
-    const root = document.documentElement;
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    if (themeTransitionTimerRef.current !== null) {
-      window.clearTimeout(themeTransitionTimerRef.current);
-      themeTransitionTimerRef.current = null;
-    }
-    if (!reduceMotion) {
-      const rect = event?.currentTarget.getBoundingClientRect();
-      setThemeReveal({
-        x: rect ? rect.left + rect.width / 2 : window.innerWidth - 40,
-        y: rect ? rect.top + rect.height / 2 : 36,
-        tone: next,
-      });
-      root.classList.add("theme-color-transition");
-    } else {
-      setThemeReveal(null);
-    }
+    // Keep the theme switch state-only: no giant full-screen overlay, timer,
+    // or forced CSS transition pass across every element.
     setTheme(next);
-    localStorage.setItem("collab-theme", next);
-    root.classList.toggle("dark", next === "dark");
-
-    themeTransitionTimerRef.current = window.setTimeout(() => {
-      root.classList.remove("theme-color-transition");
-      setThemeReveal(null);
-      themeTransitionTimerRef.current = null;
-    }, reduceMotion ? 0 : 620);
+    try {
+      localStorage.setItem("collab-theme", next);
+    } catch {
+      // The theme still switches when storage is unavailable.
+    }
+    document.documentElement.classList.toggle("dark", next === "dark");
   }
 
   const refresh = useCallback(async (mode?: "docs" | "trash", allowRemote = signedIn) => {
@@ -682,6 +664,9 @@ export default function HomePage() {
     dashboardFolder === "favorites" ? "Favorites" : "Recent documents";
   const folderColor = theme === "dark" ? "#d29aab" : "#713046";
   const workspaceView = viewMode === "trash" ? "trash" : filter === "mine" ? "mine" : filter === "shared" ? "shared" : dashboardFolder === "favorites" ? "favorites" : "all";
+  const mainViewDocuments = workspaceView === "favorites"
+    ? filtered.filter((doc) => favorites.includes(doc.id))
+    : sidebarDocuments;
   const collectionFolders = useMemo(() => {
     const makeItems = (list: DocumentItem[]) =>
       list.slice(0, 6).map((doc) => ({
@@ -781,14 +766,14 @@ export default function HomePage() {
   return (
     <main className="shell">
       <Toaster position="bottom-right" richColors closeButton />
-      {themeReveal && <div className={"theme-reveal theme-reveal-" + themeReveal.tone} style={{ "--theme-x": themeReveal.x + "px", "--theme-y": themeReveal.y + "px" } as CSSProperties} aria-hidden="true" />}
+
       {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} aria-hidden />}
       <aside className={"sidebar" + (sidebarOpen ? " sidebar-open" : "")}>
         <a className="brand" href="/" aria-label="Collab Docs home" onClick={() => { pendingDocId.current = null; setActive(null); window.scrollTo({ top: 0, behavior: "auto" }); }}>
           <span className="brand-mark">C</span><span>collab<span className="brand-light">docs</span></span>
         </a>
         <div className="sidebar-label">WORKSPACE</div>
-        <div className="workspace-pill"><span className="workspace-dot" /> Personal workspace</div>
+        <div className="workspace-pill"><FolderOpen size={14} strokeWidth={1.8} aria-hidden="true" /><span>Personal workspace</span></div>
         <div className="search-wrap"><input className="search-input" type="search" placeholder="Search documents…" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search documents" /></div>
         <div className="sort-row">
           <button type="button" className={sortBy === "updated" ? "sort-btn active" : "sort-btn"} onClick={() => setSortBy("updated")}>Recent</button>
@@ -837,20 +822,21 @@ export default function HomePage() {
         <header className="topbar">
           <div className="topbar-left">
             <button type="button" className="menu-toggle" aria-label="Toggle sidebar" onClick={() => setSidebarOpen((o) => !o)}><Menu size={17} strokeWidth={1.8} /></button>
-            <div className="breadcrumbs"><button type="button" className="breadcrumb-home" onClick={() => chooseDashboardFolder("all")}>Personal workspace</button><span className="slash">/</span><strong>{active?.title || (viewMode === "trash" ? "Trash" : "Home")}</strong></div>
+            <div className="breadcrumbs">
+              <button type="button" className="breadcrumb-home" onClick={() => chooseDashboardFolder("all")}><FolderOpen size={14} strokeWidth={1.8} aria-hidden="true" /><span>Personal workspace</span></button>
+              <span className="slash">/</span>
+              <strong className="breadcrumb-current">
+                {active ? <FileText size={14} strokeWidth={1.8} aria-hidden="true" /> : viewMode === "trash" ? <Trash2 size={14} strokeWidth={1.8} aria-hidden="true" /> : <House size={14} strokeWidth={1.8} aria-hidden="true" />}
+                <span>{active?.title || (viewMode === "trash" ? "Trash" : "Home")}</span>
+              </strong>
+            </div>
           </div>
-          <nav className="breadcrumb-quick-nav" aria-label="Quick workspace navigation">
-            <button type="button" aria-label="Workspace All" className={viewMode === "docs" && filter === "all" ? "active" : ""} onClick={() => chooseDashboardFolder("all")}>All</button>
-            <button type="button" aria-label="Workspace Mine" className={viewMode === "docs" && filter === "mine" ? "active" : ""} onClick={() => chooseDashboardFolder("mine")}>Mine</button>
-            <button type="button" aria-label="Workspace Shared" className={viewMode === "docs" && filter === "shared" ? "active" : ""} onClick={() => chooseDashboardFolder("shared")}>Shared</button>
-            <button type="button" aria-label="Workspace Trash" className={viewMode === "trash" ? "active" : ""} onClick={showTrash}>Trash</button>
-          </nav>
           <div className="top-actions">
             <button type="button" className="theme-toggle" data-theme={theme} onClick={toggleTheme} aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"} title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}><span className="theme-toggle-icon" aria-hidden="true">{theme === "dark" ? <Sun size={17} strokeWidth={1.8} /> : <Moon size={17} strokeWidth={1.8} />}</span></button>
-            <span className="secure-label"><span className={signedIn ? "green-dot" : "local-dot"} /> {signedIn ? "Autosave enabled" : "Saved on this device"}</span>
-            <button className="share-button" onClick={() => { if (!signedIn || active?.local) { toast.info("Sign in to unlock sharing and collaboration."); return; } setShareMessage(""); setPublicLink(""); setShareOpen(true); }} disabled={!active || active.role !== "owner" || active.local}><Share2 size={14} /> Share</button>
-            {process.env.NEXT_PUBLIC_OIDC_AUTHORIZATION_URL && (signedIn ? <button className="auth-button" onClick={signOut}>Sign out</button> : <button className="auth-button" onClick={signIn}>Sign in</button>)}
-            <span className="avatar small-avatar">B</span>
+            <span className="secure-label">{signedIn ? <CheckCircle2 size={14} strokeWidth={1.9} aria-hidden="true" /> : <HardDrive size={14} strokeWidth={1.9} aria-hidden="true" />}<span>{signedIn ? "Autosave enabled" : "Saved on this device"}</span></span>
+            <button className="share-button" onClick={() => { if (!signedIn || active?.local) { toast.info("Sign in to unlock sharing and collaboration."); return; } setShareMessage(""); setPublicLink(""); setShareOpen(true); }} disabled={!active || active.role !== "owner" || active.local}><Share2 size={14} strokeWidth={1.9} /> <span>Share</span></button>
+            {process.env.NEXT_PUBLIC_OIDC_AUTHORIZATION_URL && (signedIn ? <button className="auth-button" onClick={signOut}><LogOut size={14} strokeWidth={1.9} aria-hidden="true" /><span>Sign out</span></button> : <button className="auth-button" onClick={signIn}><LogIn size={14} strokeWidth={1.9} aria-hidden="true" /><span>Sign in</span></button>)}
+            <span className="avatar small-avatar" title="Account" aria-label="Account"><UserRound size={14} strokeWidth={1.8} aria-hidden="true" /></span>
           </div>
         </header>
         {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError("")} aria-label="Dismiss error"><X size={15} /></button></div>}
@@ -1010,6 +996,40 @@ export default function HomePage() {
               <span><Cloud size={14} strokeWidth={1.7} /> Your work stays available offline</span>
               <span><Command size={13} strokeWidth={1.8} /> Press <kbd>⌘ K</kbd> for quick actions</span>
             </footer>
+          </div>
+        ) : workspaceView !== "all" ? (
+          <div className="filtered-documents page-transition" data-view={workspaceView}>
+            <header className="filtered-documents-header">
+              <div className="filtered-documents-heading">
+                <div className="eyebrow">{workspaceView === "mine" ? "YOUR SPACE / OWNED" : workspaceView === "shared" ? "COLLAB / SHARED" : "LIBRARY / SAVED"}</div>
+                <h1>{workspaceView === "mine" ? "Your documents" : workspaceView === "shared" ? "Shared with you" : "Favorites"}<span>.</span></h1>
+                <p>{workspaceView === "mine" ? "Documents you own and manage." : workspaceView === "shared" ? "Documents shared with you by collaborators." : "The documents you marked as favorites."}</p>
+              </div>
+              {workspaceView === "mine" && <button type="button" className="primary-button filtered-new-document" onClick={() => void createDocument()} disabled={creating}><Plus size={15} strokeWidth={1.9} /><span>{creating ? "Creating…" : "New document"}</span></button>}
+              <span className="filtered-documents-count">{String(mainViewDocuments.length).padStart(2, "0")} <small>{mainViewDocuments.length === 1 ? "DOCUMENT" : "DOCUMENTS"}</small></span>
+            </header>
+            {mainViewDocuments.length === 0 ? (
+              <div className="filtered-documents-empty">
+                <span className="filtered-empty-icon">{workspaceView === "shared" ? <Users size={21} strokeWidth={1.7} /> : workspaceView === "favorites" ? <Star size={21} strokeWidth={1.7} /> : <FileText size={21} strokeWidth={1.7} />}</span>
+                <h2>{search.trim() ? "No matching documents" : workspaceView === "mine" ? "No documents yet" : workspaceView === "shared" ? "Nothing shared with you" : "No favorites yet"}</h2>
+                <p>{search.trim() ? "Try a different search term." : workspaceView === "mine" ? "Create a document to start your library." : workspaceView === "shared" ? "Documents shared by teammates will appear here." : "Mark a document with the star icon to keep it close."}</p>
+                {search.trim() && <button type="button" className="secondary-button" onClick={() => setSearch("")}>Clear search</button>}
+                {workspaceView === "mine" && !search.trim() && <button type="button" className="primary-button" onClick={() => void createDocument()} disabled={creating}><Plus size={15} /> New document</button>}
+              </div>
+            ) : (
+              <div className="filtered-documents-list">
+                {mainViewDocuments.map((doc, index) => (
+                  <article className="filtered-document-row" key={doc.id} style={{ "--row-index": index } as CSSProperties}>
+                    <button type="button" className="filtered-document-main" onClick={() => openDocument(doc)} onDoubleClick={() => startRename(doc)}>
+                      <span className="filtered-document-icon"><FileText size={17} strokeWidth={1.7} /></span>
+                      <span className="filtered-document-copy"><strong>{doc.title}</strong><small>Updated {relativeTime(doc.updated_at)}</small></span>
+                      {doc.role === "viewer" && <span className="role-badge">View only</span>}
+                    </button>
+                    <button type="button" className="filtered-document-more" aria-label={"Actions for " + doc.title} onClick={(event) => openContextMenu(event, doc)}><MoreHorizontal size={17} strokeWidth={1.8} /></button>
+                  </article>
+                ))}
+              </div>
+            )}
           </div>
         ) : filter === "all" && (documents.length === 0 || filtered.length === 0) ? (
           <div className="empty-state compact-empty page-transition">
