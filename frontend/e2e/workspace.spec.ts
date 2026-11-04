@@ -39,7 +39,7 @@ test("creates a document and exposes the editor toolbar", async ({ page }) => {
 
 
 test("keeps Workspace Hub separate from the Recently Used home", async ({ page }) => {
-  await page.route(/\\/api\\/documents\\?.*$/, async (route) => {
+  await page.route(/\/api\/documents\?.*$/, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -80,8 +80,8 @@ test("keeps Workspace Hub separate from the Recently Used home", async ({ page }
 
 
 test("imports scanned PDFs as the original file without requiring OCR", async ({ page }) => {
-  const pdfBytes = Buffer.from("%PDF-1.4\\n% scanned test PDF\\n%%EOF", "utf8");
-  await page.route("**/api/documents**", async (route) => {
+  const pdfBytes = Buffer.from(["%PDF-1.4", "% scanned test PDF", "%%EOF"].join("\n"), "utf8");
+  await page.route(/\/api\/documents(?:\?.*)?$/, async (route) => {
     if (route.request().method() === "POST") {
       await route.fulfill({
         status: 201,
@@ -226,7 +226,7 @@ test("calendar opens a real navigable month grid", async ({ page }) => {
 
 test("calendar creates events with reminders, links, email, and a document attachment", async ({ page }) => {
   let storedEvents: Array<Record<string, unknown>> = [];
-  await page.route("**/api/documents**", async (route) => {
+  await page.route(/\/api\/documents(?:\?.*)?$/, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -300,7 +300,7 @@ test("workspace comments shortcut opens a real document comments panel", async (
 
 
 test("clicking a recently used document opens its editor", async ({ page }) => {
-  await page.route(/\\/api\\/documents\\?.*$/, async (route) => {
+  await page.route(/\/api\/documents\?.*$/, async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ documents: [{
       id: "e2e-folder-doc", title: "Design brief", updated_at: new Date().toISOString(), role: "owner",
     }] }) });
