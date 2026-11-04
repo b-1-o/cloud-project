@@ -11,7 +11,6 @@ export type ImportedDocument = {
 const MAX_FILE_SIZE = 30 * 1024 * 1024;
 const MAX_PDF_PAGES = 300;
 const MAX_IMPORTED_CONTENT_BYTES = 1_800_000;
-const MAX_IMPORTED_CONTENT_BYTES = 1_800_000;
 
 function escapeHtml(value: string): string {
   return value
