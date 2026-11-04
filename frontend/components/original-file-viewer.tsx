@@ -368,13 +368,13 @@ function PdfPage({
                       <rect x={mark.x * width} y={mark.y * height} width={mark.width * width} height={mark.height * height} rx={2} fill="#ffffff" fillOpacity=".92" stroke={mark.color} strokeWidth="1.8" />
                       {mark.checked && <path d={"M " + (mark.x * width + mark.width * width * .18) + " " + (mark.y * height + mark.height * height * .52) + " l " + (mark.width * width * .22) + " " + (mark.height * height * .2) + " l " + (mark.width * width * .43) + " " + (-mark.height * height * .44)} fill="none" stroke={mark.color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />}
                     </g>
-                  ) : (
+                  ) : mark.type === "comment" ? (
                     <g pointerEvents="none">
                       <rect x={mark.x * width} y={mark.y * height} width={mark.width * width} height={mark.height * height} rx="4" fill="#fff4c2" stroke="#d2ab36" strokeWidth="1.1" />
                       <text x={mark.x * width + 7} y={mark.y * height + 17} fill="#604b12" fontSize="12" fontWeight="600">NOTE</text>
                       <text x={mark.x * width + 7} y={mark.y * height + 33} fill="#604b12" fontSize="11">{mark.text}</text>
                     </g>
-                  )}
+                  ) : null}
                 </g>
               );
             })}
@@ -881,7 +881,7 @@ export function OriginalFileViewer({ title, fileName, mimeType, size, src, onSav
             page.drawLine({ start: { x: x + boxWidth * .16, y: y + boxHeight * .5 }, end: { x: x + boxWidth * .4, y: y + boxHeight * .25 }, thickness: 2, color: pdfColor });
             page.drawLine({ start: { x: x + boxWidth * .4, y: y + boxHeight * .25 }, end: { x: x + boxWidth * .85, y: y + boxHeight * .82 }, thickness: 2, color: pdfColor });
           }
-        } else {
+        } else if (mark.type === "comment") {
           const x = mark.x * width;
           const y = height - (mark.y + mark.height) * height;
           page.drawRectangle({
