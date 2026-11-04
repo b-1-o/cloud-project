@@ -568,6 +568,24 @@ test("theme switches smoothly between light and dark", async ({ page }) => {
 
 
 test("document paper stays white in both themes and New document labels remain readable", async ({ page }) => {
+  await page.route("**/api/documents", async (route) => {
+    if (route.request().method() === "POST") {
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({
+          document: {
+            id: "e2e-white-paper-document",
+            title: "White paper test",
+            updated_at: new Date().toISOString(),
+            role: "owner",
+          },
+        }),
+      });
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ documents: [] }) });
+  });
   await page.route(/\/api\/documents\?.*$/, async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ documents: [] }) });
   });
