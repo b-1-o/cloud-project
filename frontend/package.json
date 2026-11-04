@@ -36,7 +36,8 @@
     "jszip": "^3.10.2",
     "pdfjs-dist": "^6.5.438",
     "@tiptap/extension-image": "^2.11.5",
-    "pdf-lib": "^1.17.1"
+    "pdf-lib": "^1.17.1",
+    "@tiptap/core": "^2.11.5"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
