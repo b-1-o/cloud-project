@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Code2, Highlighter, List, ListOrdered, ListTodo, MessageCircle, Minus, Quote, Redo2, Undo2, X } from "lucide-react";
+import { Code2, Download, FileText, Highlighter, History, List, ListOrdered, ListTodo, MessageCircle, Minus, PenLine, Quote, Redo2, Search, Type, Undo2, X } from "lucide-react";
 import { BubbleMenu, EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Collaboration from "@tiptap/extension-collaboration";
@@ -11,15 +11,19 @@ import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import Link from "@tiptap/extension-link";
 import Highlight from "@tiptap/extension-highlight";
+import Image from "@tiptap/extension-image";
 import { toast } from "sonner";
 import * as Y from "yjs";
 import { getAccessToken } from "@/lib/auth";
 import { IndexeddbPersistence } from "y-indexeddb";
 import { SlashMenu } from "@/components/slash-menu";
+import { SignatureDialog } from "@/components/signature-dialog";
 
 type Props = {
   documentId: string;
   initialTitle: string;
+  initialContent?: string;
+  onInitialContentApplied?: () => void;
   apiBase: string;
   localOnly?: boolean;
   readOnly?: boolean;
@@ -52,6 +56,8 @@ function decode(value: string) {
 export function CollabEditor({
   documentId,
   initialTitle,
+  initialContent,
+  onInitialContentApplied,
   apiBase,
   localOnly = false,
   readOnly = false,
@@ -80,6 +86,8 @@ export function CollabEditor({
   const [versions, setVersions] = useState<Array<{ id: string; created_at: string; label?: string }>>([]);
   const [versionsLoading, setVersionsLoading] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
+  const [signatureOpen, setSignatureOpen] = useState(false);
+  const importedContentApplied = useRef(false);
   const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -92,6 +100,7 @@ export function CollabEditor({
         Underline,
         Link.configure({ openOnClick: false, HTMLAttributes: { class: "editor-link" } }),
         Highlight.configure({ multicolor: false }),
+        Image.configure({ inline: false, allowBase64: true }),
         Placeholder.configure({ placeholder: "Type / for commands, or start writing…" }),
         TaskList,
         TaskItem.configure({ nested: true }),
@@ -137,6 +146,13 @@ export function CollabEditor({
     },
     [doc, readOnly]
   );
+
+  useEffect(() => {
+    if (!editor || !initialContent || importedContentApplied.current || readOnly) return;
+    importedContentApplied.current = true;
+    editor.commands.setContent(initialContent);
+    onInitialContentApplied?.();
+  }, [editor, initialContent, readOnly, onInitialContentApplied]);
 
   useEffect(() => {
     if (!openingFromSheet) return;
@@ -595,13 +611,7 @@ export function CollabEditor({
             <button type="button" className="editor-more-btn" aria-label="Document menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>···</button>
             {menuOpen && (
               <div className="editor-dropdown" role="menu">
-                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); exportPdf(); }}>Export PDF…</button>
-                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); exportDocxLike(); }}>Export Word (.doc)</button>
-                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); exportHtml(); }}>Export HTML</button>
-                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); exportMarkdown(); }}>Export Markdown</button>
                 <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); copyShareLink(); }}>Copy app link</button>
-                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setCommentsOpen(true); void loadComments(); }}>Comments</button>
-                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setVersionsOpen(true); void loadVersions(); }}>Version history</button>
                 <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setFocusMode(true); }}>Focus mode</button>
                 <div className="context-divider" />
                 <button type="button" role="menuitem" className="danger-item" disabled={readOnly || !onDeleteRequest} onClick={() => { setMenuOpen(false); onDeleteRequest?.(); }}>Delete document…</button>
@@ -646,21 +656,65 @@ export function CollabEditor({
       {focusMode && (
         <button type="button" className="focus-exit" onClick={() => setFocusMode(false)}>Exit focus mode</button>
       )}
-      <div className="paper-wrap">
-        <div className={"paper paper-a4" + (openingFromSheet ? " paper-shared-transition" : "")}>
-          {editor && (
-            <BubbleMenu editor={editor} tippyOptions={{ duration: 150 }} className="bubble-menu">
-              <button type="button" className={toolClass(editor.isActive("bold"))} onClick={() => editor.chain().focus().toggleBold().run()} aria-label="Bold"><strong>B</strong></button>
-              <button type="button" className={toolClass(editor.isActive("italic"))} onClick={() => editor.chain().focus().toggleItalic().run()} aria-label="Italic"><em>I</em></button>
-              <button type="button" className={toolClass(editor.isActive("underline"))} onClick={() => editor.chain().focus().toggleUnderline().run()} aria-label="Underline"><span style={{ textDecoration: "underline" }}>U</span></button>
-              <button type="button" className={toolClass(editor.isActive("highlight"))} onClick={() => editor.chain().focus().toggleHighlight().run()} aria-label="Highlight"><Highlighter size={15} strokeWidth={1.8} /></button>
-              <button type="button" className={toolClass(editor.isActive("link"))} onClick={setLink} aria-label="Link">Link</button>
-              <button type="button" className="tool" onClick={() => { setCommentsOpen(true); void loadComments(); }} aria-label="Add comment"><MessageCircle size={14} strokeWidth={1.8} /></button>
-            </BubbleMenu>
-          )}
-          <EditorContent editor={editor} />
+      <div className="editor-content-grid">
+        <div className="editor-canvas-column">
+        <div className="paper-wrap">
+          <div className={"paper paper-a4" + (openingFromSheet ? " paper-shared-transition" : "")}>
+            {editor && (
+              <BubbleMenu editor={editor} tippyOptions={{ duration: 150 }} className="bubble-menu">
+                <button type="button" className={toolClass(editor.isActive("bold"))} onClick={() => editor.chain().focus().toggleBold().run()} aria-label="Bold"><strong>B</strong></button>
+                <button type="button" className={toolClass(editor.isActive("italic"))} onClick={() => editor.chain().focus().toggleItalic().run()} aria-label="Italic"><em>I</em></button>
+                <button type="button" className={toolClass(editor.isActive("underline"))} onClick={() => editor.chain().focus().toggleUnderline().run()} aria-label="Underline"><span style={{ textDecoration: "underline" }}>U</span></button>
+                <button type="button" className={toolClass(editor.isActive("highlight"))} onClick={() => editor.chain().focus().toggleHighlight().run()} aria-label="Highlight"><Highlighter size={15} strokeWidth={1.8} /></button>
+                <button type="button" className={toolClass(editor.isActive("link"))} onClick={setLink} aria-label="Link">Link</button>
+                <button type="button" className="tool" onClick={() => { setCommentsOpen(true); void loadComments(); }} aria-label="Add comment"><MessageCircle size={14} strokeWidth={1.8} /></button>
+              </BubbleMenu>
+            )}
+            <EditorContent editor={editor} />
+          </div>
         </div>
+  
+        </div>
+        {!focusMode && (
+          <aside className="editor-tools-panel" aria-label="Document tools">
+            <div className="editor-tools-heading">
+              <span className="eyebrow">WORKSPACE / TOOLS</span>
+              <h3>Document tools</h3>
+              <p>Editing, review and document actions stay beside your page.</p>
+            </div>
+            <section className="editor-tool-section">
+              <div className="editor-tool-section-title"><Type size={14} /> Format</div>
+              <div className="editor-tool-button-grid">
+                <button type="button" className="editor-tool-action" onClick={() => editor?.chain().focus().toggleBold().run()} disabled={readOnly}><strong>B</strong><span>Bold</span></button>
+                <button type="button" className="editor-tool-action" onClick={() => editor?.chain().focus().toggleItalic().run()} disabled={readOnly}><em>I</em><span>Italic</span></button>
+                <button type="button" className="editor-tool-action" onClick={() => editor?.chain().focus().toggleUnderline().run()} disabled={readOnly}><u>U</u><span>Underline</span></button>
+                <button type="button" className="editor-tool-action" onClick={() => editor?.chain().focus().toggleHighlight().run()} disabled={readOnly}><Highlighter size={15} /><span>Highlight</span></button>
+                <button type="button" className="editor-tool-action" onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()} disabled={readOnly}>H1<span>Heading</span></button>
+                <button type="button" className="editor-tool-action" onClick={() => editor?.chain().focus().toggleBulletList().run()} disabled={readOnly}><List size={15} /><span>Bullets</span></button>
+              </div>
+            </section>
+            <section className="editor-tool-section">
+              <div className="editor-tool-section-title"><Search size={14} /> Review</div>
+              <button type="button" className="editor-tool-row" onClick={() => setFindOpen(true)}><Search size={15} /><span>Find in document</span></button>
+              <button type="button" className="editor-tool-row" onClick={() => { setCommentsOpen(true); void loadComments(); }}><MessageCircle size={15} /><span>Comments</span></button>
+              <button type="button" className="editor-tool-row" onClick={() => { setVersionsOpen(true); void loadVersions(); }}><History size={15} /><span>Version history</span></button>
+            </section>
+            <section className="editor-tool-section">
+              <div className="editor-tool-section-title"><PenLine size={14} /> Signature</div>
+              <p className="editor-tool-note">Draw by hand and insert your signature at the current cursor position.</p>
+              <button type="button" className="editor-tool-primary" onClick={() => setSignatureOpen(true)} disabled={readOnly}><PenLine size={15} /> Draw signature</button>
+            </section>
+            <section className="editor-tool-section">
+              <div className="editor-tool-section-title"><Download size={14} /> Export</div>
+              <button type="button" className="editor-tool-row" onClick={exportPdf}><FileText size={15} /><span>Save as PDF</span></button>
+              <button type="button" className="editor-tool-row" onClick={exportDocxLike}><Download size={15} /><span>Word document (.doc)</span></button>
+              <button type="button" className="editor-tool-row" onClick={exportHtml}><Download size={15} /><span>HTML file</span></button>
+              <button type="button" className="editor-tool-row" onClick={exportMarkdown}><Download size={15} /><span>Markdown file</span></button>
+            </section>
+          </aside>
+        )}
       </div>
+      {signatureOpen && <SignatureDialog onClose={() => setSignatureOpen(false)} onInsert={(src) => { editor?.chain().focus().setImage({ src, alt: "Signature" }).run(); setSignatureOpen(false); toast.success("Signature inserted"); }} />}
       <SlashMenu editor={editor} open={slashOpen && !readOnly} query={slashQuery} position={slashPos} onClose={() => { setSlashOpen(false); setSlashQuery(""); }} />
       {findOpen && (
         <div className="find-bar" role="search">
