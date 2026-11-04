@@ -161,7 +161,7 @@ export function GmailInbox({ onImportFile }: Props) {
       const list = await gmailFetch<{ messages?: Array<{ id: string }> }>("messages?q=" + encodeURIComponent("has:attachment -in:spam -in:trash") + "&maxResults=12");
       const messages = await Promise.all((list.messages || []).map(async (item) => {
         const message = await gmailFetch<GmailMessage>("messages/" + encodeURIComponent(item.id) + "?format=full");
-        const attachments = collectAttachments(item.id, message.payload?.parts || []);
+        const attachments = message.payload ? collectAttachments(item.id, [message.payload as GmailPart]) : [];
         if (!attachments.length) return null;
         const timestamp = Number(message.internalDate || 0);
         return {
