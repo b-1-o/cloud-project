@@ -5,6 +5,7 @@ A real-time collaborative document editor built on a Cloudflare-first architectu
 ## MVP slice
 
 - Rich-text editor powered by Tiptap and Yjs.
+- Import DOCX, ODT, RTF, selectable-text PDF, HTML, Markdown, XLSX, PPTX, EPUB, TXT, CSV, TSV, JSON, XML, and YAML files into editable documents. Legacy binary `.doc` files and scanned PDFs need conversion/OCR first; complex layouts, images, and embedded objects may not be preserved.
 - Offline local edits via IndexedDB; WebSocket room synchronization through a SQLite-backed Durable Object using the WebSocket Hibernation API.
 - D1 metadata, workspace/document roles, idempotent audit events, short-lived WebSocket tickets in KV, and a Queue consumer.
 - Periodic compaction keeps the latest document snapshot in Durable Object SQLite.
