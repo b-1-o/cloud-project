@@ -32,7 +32,10 @@
     "sonner": "^2.0.3",
     "tippy.js": "^6.3.7",
     "y-indexeddb": "^9.0.12",
-    "yjs": "^13.6.27"
+    "yjs": "^13.6.27",
+    "jszip": "^3.10.2",
+    "pdfjs-dist": "^6.5.438",
+    "@tiptap/extension-image": "^2.11.5"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
