@@ -194,6 +194,7 @@ test("imports scanned PDFs as the original file without requiring OCR", async ({
   await expect.poll(async () => Number(await signatureMark.getAttribute("data-x"))).toBeGreaterThan(initialX);
 
   const resizeHandle = page.locator('.pdf-resize-handle[data-resize-handle="true"]');
+  await expect(resizeHandle).toBeVisible({ timeout: 5000 });
   const handleBox = await resizeHandle.boundingBox();
   if (!handleBox) throw new Error("Signature resize handle is not visible");
   const widthBeforeResize = Number(await signatureMark.getAttribute("data-width"));
