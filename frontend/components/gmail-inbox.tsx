@@ -239,7 +239,9 @@ export function GmailInbox({ onImportFile }: Props) {
       } else {
         throw new Error("Gmail did not return attachment data.");
       }
-      const file = new File([bytes], attachment.filename, { type: attachment.mimeType });
+      const fileBuffer = new ArrayBuffer(bytes.byteLength);
+      new Uint8Array(fileBuffer).set(bytes);
+      const file = new File([fileBuffer], attachment.filename, { type: attachment.mimeType });
       await onImportFile(file);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not import this attachment.");
