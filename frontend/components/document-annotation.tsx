@@ -239,7 +239,7 @@ export const DocumentAnnotation = Node.create({
     }
 
     return ["div", attrs, ["div", { class: "document-annotation-text" }, text || "Text"]];
-  }
+  },
 
   addNodeView() {
     return ReactNodeViewRenderer(AnnotationView);
