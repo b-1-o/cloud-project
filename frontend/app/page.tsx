@@ -6,6 +6,8 @@ import { clearAccessToken, completeOidcLogin, getAccessToken, startOidcLogin } f
 import { CollabEditor } from "@/components/collab-editor";
 import { GmailInbox } from "@/components/gmail-inbox";
 import { importDocumentFile } from "@/lib/document-import";
+import { getLocalDocumentFile, putLocalDocumentFile, deleteLocalDocumentFile } from "@/lib/document-files";
+import { OriginalFileViewer } from "@/components/original-file-viewer";
 import { WorkspaceCalendar } from "@/components/workspace-calendar";
 import { formatDistanceToNow } from "date-fns";
 import { Toaster, toast } from "sonner";
@@ -15,6 +17,8 @@ import HoldButton from "@/components/HoldButton";
 import { ArrowRight, ArrowUpRight, Check, CheckCircle2, Cloud, Code2, Command, FileText, FileUp, HardDrive, House, LayoutTemplate, LogIn, LogOut, NotebookPen, Plus, Sparkles, Target, Users, Wifi, Clock3, Files, ShieldCheck, Star, Trash2, FolderOpen, Pencil, Inbox, MessageCircle, CalendarDays, ListChecks, BarChart3, Sun, Moon, Activity, Menu, Share2, UserRound, MoreHorizontal, X } from "lucide-react";
 
 type DashboardFolder = "all" | "mine" | "shared" | "favorites";
+type WorkspacePanel = "recent" | "hub";
+type ActiveOriginalFile = { documentId: string; objectUrl: string; fileName: string; mimeType: string; size: number };
 
 type DocumentItem = {
   id: string;
@@ -102,6 +106,9 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [importedContent, setImportedContent] = useState<{ documentId: string; html: string } | null>(null);
+  const [workspacePanel, setWorkspacePanel] = useState<WorkspacePanel>("recent");
+  const [activeOriginalFile, setActiveOriginalFile] = useState<ActiveOriginalFile | null>(null);
+  const [checkingOriginalFileFor, setCheckingOriginalFileFor] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [signedIn, setSignedIn] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -151,6 +158,73 @@ export default function HomePage() {
     const next = stored === "dark" || (!stored && prefersDark) ? "dark" : "light";
     document.documentElement.classList.toggle("dark", next === "dark");
   }, []);
+
+  useEffect(() => {
+    if (!active) {
+      setActiveOriginalFile(null);
+      setCheckingOriginalFileFor(null);
+      return;
+    }
+
+    let cancelled = false;
+    let objectUrl = "";
+    setActiveOriginalFile(null);
+    setCheckingOriginalFileFor(active.id);
+
+    const loadOriginalFile = async () => {
+      try {
+        let blob: Blob | null = null;
+        let fileName = active.title;
+        let mimeType = "application/octet-stream";
+        let size = 0;
+
+        if (active.local) {
+          const stored = await getLocalDocumentFile(active.id);
+          if (stored) {
+            blob = stored.blob;
+            fileName = stored.fileName;
+            mimeType = stored.mimeType;
+            size = stored.size;
+          }
+        } else {
+          const token = await getAccessToken();
+          if (!token) throw new Error("Sign in to open this document's original file.");
+          const url = API + "/api/documents/" + encodeURIComponent(active.id) + "/file";
+          const headers = { Authorization: "Bearer " + token };
+          const head = await fetch(url, { method: "HEAD", headers });
+          if (head.status !== 404) {
+            if (!head.ok) throw new Error("Could not check the original file (" + head.status + ").");
+            const response = await fetch(url, { headers });
+            if (!response.ok) throw new Error("Could not load the original file (" + response.status + ").");
+            blob = await response.blob();
+            const encodedName = response.headers.get("X-Document-File-Name");
+            fileName = encodedName ? decodeURIComponent(encodedName) : active.title;
+            mimeType = response.headers.get("Content-Type") || blob.type || "application/octet-stream";
+            size = Number(response.headers.get("Content-Length") || blob.size);
+          }
+        }
+
+        if (cancelled) return;
+        if (blob) {
+          objectUrl = URL.createObjectURL(blob);
+          setActiveOriginalFile({ documentId: active.id, objectUrl, fileName, mimeType, size: size || blob.size });
+        }
+      } catch (cause) {
+        if (!cancelled) {
+          const message = cause instanceof Error ? cause.message : "Could not load the original file.";
+          setError(message);
+        }
+      } finally {
+        if (!cancelled) setCheckingOriginalFileFor(null);
+      }
+    };
+
+    void loadOriginalFile();
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [active?.id, active?.local]);
 
   function toggleFavorite(id: string) {
     setFavorites((prev) => {
@@ -332,6 +406,7 @@ export default function HomePage() {
 
   function showTrash() {
     clearDocumentSelection();
+    setWorkspacePanel("recent");
     setViewMode("trash");
     setFilter("all");
     setDashboardFolder("all");
@@ -341,10 +416,32 @@ export default function HomePage() {
 
   function chooseDashboardFolder(folder: DashboardFolder) {
     clearDocumentSelection();
+    setWorkspacePanel("recent");
     setDashboardFolder(folder);
     setViewMode("docs");
     setOpenCommentsForId(null);
     setFilter(folder === "mine" || folder === "shared" ? folder : "all");
+    void refresh("docs");
+  }
+
+  function showWorkspaceHub() {
+    clearDocumentSelection();
+    setWorkspacePanel("hub");
+    setViewMode("docs");
+    setFilter("all");
+    setDashboardFolder("all");
+    setOpenCommentsForId(null);
+    setSidebarOpen(false);
+  }
+
+  function showPersonalWorkspace() {
+    clearDocumentSelection();
+    setWorkspacePanel("recent");
+    setViewMode("docs");
+    setFilter("all");
+    setDashboardFolder("all");
+    setOpenCommentsForId(null);
+    setSidebarOpen(false);
     void refresh("docs");
   }
 
@@ -746,6 +843,7 @@ export default function HomePage() {
   }
 
   const openDocument = useCallback((doc: DocumentItem, comments = false, viaSheet = false) => {
+    setWorkspacePanel("recent");
     setOpenCommentsForId(comments ? doc.id : null);
     setSheetTransitionId(viaSheet ? doc.id : null);
     pendingDocId.current = doc.id;
