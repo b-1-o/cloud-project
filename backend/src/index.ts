@@ -176,6 +176,19 @@ function roomFor(env: Env, documentId: string) {
   return env.DOC_ROOMS.get(env.DOC_ROOMS.idFromName(documentId));
 }
 
+async function clearOriginalDocumentFile(env: Env, documentId: string): Promise<void> {
+  const url = new URL("https://do/__file");
+  url.searchParams.set("documentId", documentId);
+  const room = roomFor(env, documentId);
+  const existing = await room.fetch(new Request(url.toString(), { method: "HEAD" }));
+  if (existing.status === 404) return;
+  if (!existing.ok) throw new Error("Could not inspect original file before deletion (" + existing.status + ")");
+  const deleted = await room.fetch(new Request(url.toString(), { method: "DELETE" }));
+  if (!deleted.ok && deleted.status !== 404) {
+    throw new Error("Could not delete original file (" + deleted.status + ")");
+  }
+}
+
 const MAX_DOCUMENT_FILE_SIZE = 30 * 1024 * 1024;
 
 function withFileCors(request: Request, env: Env, upstream: Response): Response {
@@ -368,7 +381,16 @@ async function route(request: Request, env: Env): Promise<Response> {
   }
 
   if (parts.length === 3 && parts[1] === "documents" && parts[2] === "trash" && request.method === "DELETE") {
-    return response(request, env, await emptyTrash(env, identity.id));
+    const trash = await listDocumentsLifecycle(env, identity.id, { trash: true });
+    const result = await emptyTrash(env, identity.id);
+    await Promise.all(trash.filter((document) => document.role === "owner").map(async (document) => {
+      try {
+        await clearOriginalDocumentFile(env, document.id);
+      } catch (error) {
+        console.error(JSON.stringify({ event: "document_file.cleanup_failed", documentId: document.id, message: String(error) }));
+      }
+    }));
+    return response(request, env, result);
   }
 
   if (parts.length === 2 && parts[1] === "documents" && request.method === "POST") {
@@ -414,6 +436,11 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (parts.length === 4 && parts[1] === "documents" && parts[2] && parts[3] === "hard" && request.method === "DELETE") {
     const operationKey = request.headers.get("Idempotency-Key") || crypto.randomUUID();
     await hardDeleteDocument(env, parts[2], identity.id, operationKey);
+    try {
+      await clearOriginalDocumentFile(env, parts[2]);
+    } catch (error) {
+      console.error(JSON.stringify({ event: "document_file.cleanup_failed", documentId: parts[2], message: String(error) }));
+    }
     return response(request, env, { ok: true });
   }
 
