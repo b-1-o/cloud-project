@@ -140,7 +140,7 @@ test("regular documents support persistent annotations, editing, and resize cont
   await page.mouse.down();
   await page.mouse.move(signatureCanvasBox.x + 170, signatureCanvasBox.y + 75, { steps: 6 });
   await page.mouse.up();
-  await page.getByRole("button", { name: "Insert signature" }).click();
+  await page.getByRole("dialog", { name: "Draw your signature" }).getByRole("button", { name: "Insert signature" }).click();
   const signatureBlock = page.locator('.document-annotation-node[data-annotation-kind="signature"]');
   await expect(signatureBlock).toBeVisible();
 
