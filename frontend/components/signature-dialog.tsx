@@ -109,21 +109,7 @@ export function SignatureDialog({ onClose, onInsert }: Props) {
   function insert() {
     const canvas = canvasRef.current;
     if (!canvas || !hasInk) return;
-    const output = document.createElement("canvas");
-    output.width = WIDTH;
-    output.height = HEIGHT;
-    const context = output.getContext("2d");
-    if (!context) return;
-    const ratio = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-    const source = canvas.getContext("2d");
-    if (!source) return;
-    const image = new Image();
-    image.onload = () => {
-      context.drawImage(image, 0, 0, WIDTH, HEIGHT);
-      const data = output.toDataURL("image/png");
-      onInsert(data);
-    };
-    image.src = canvas.toDataURL("image/png");
+    onInsert(canvas.toDataURL("image/png"));
   }
 
   return (
