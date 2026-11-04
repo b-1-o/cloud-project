@@ -232,6 +232,42 @@ export default function HomePage() {
     });
   }
 
+  async function saveOriginalDocumentFile(blob: Blob): Promise<void> {
+    if (!active || !activeOriginalFile || activeOriginalFile.documentId !== active.id) {
+      throw new Error("The active document is no longer available.");
+    }
+    const fileName = activeOriginalFile.fileName;
+    const mimeType = activeOriginalFile.mimeType || "application/pdf";
+    if (active.local) {
+      await putLocalDocumentFile(active.id, new File([blob], fileName, { type: mimeType }));
+    } else {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Your sign-in expired. Sign in again before saving this PDF.");
+      const response = await fetch(API + "/api/documents/" + encodeURIComponent(active.id) + "/file", {
+        method: "PUT",
+        headers: {
+          Authorization: "Bearer " + token,
+          "Content-Type": mimeType,
+          "X-File-Name": encodeURIComponent(fileName),
+        },
+        body: blob,
+      });
+      if (!response.ok) {
+        const message = await response.text().catch(() => "");
+        throw new Error(message || "Could not save the edited PDF (" + response.status + ").");
+      }
+    }
+    const nextUrl = URL.createObjectURL(blob);
+    setActiveOriginalFile((current) => {
+      if (!current || current.documentId !== active.id) {
+        URL.revokeObjectURL(nextUrl);
+        return current;
+      }
+      if (current.objectUrl !== nextUrl) URL.revokeObjectURL(current.objectUrl);
+      return { ...current, objectUrl: nextUrl, size: blob.size };
+    });
+  }
+
   async function ensurePublicLink() {
     if (!active) return;
     if (!signedIn || active.local) {
@@ -992,6 +1028,8 @@ export default function HomePage() {
             mimeType={activeOriginalFile.mimeType}
             size={activeOriginalFile.size}
             src={activeOriginalFile.objectUrl}
+            onSave={saveOriginalDocumentFile}
+            readOnly={active.role === "viewer"}
           />
         ) : checkingOriginalFileFor === active.id ? (
           <div className="original-file-loading"><span className="status-dot connecting" /> Opening document…</div>
