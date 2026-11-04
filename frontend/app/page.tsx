@@ -551,6 +551,7 @@ export default function HomePage() {
       }
       const localTrash = readLocalDocuments(LOCAL_TRASH_KEY);
       const locallyDeleted = localTrash.length;
+      await Promise.all(localTrash.map((document) => deleteLocalDocumentFile(document.id)));
       writeLocalDocuments([], LOCAL_TRASH_KEY);
       setDocuments((current) => current.filter((doc) => !doc.local && doc.role !== "owner"));
       setEmptyTrashConfirm(false);
@@ -566,6 +567,7 @@ export default function HomePage() {
     setDeleting(true);
     try {
       if (doc.local) {
+        await deleteLocalDocumentFile(doc.id);
         writeLocalDocuments(readLocalDocuments(LOCAL_TRASH_KEY).filter((item) => item.id !== doc.id), LOCAL_TRASH_KEY);
         setDocuments((list) => list.filter((item) => item.id !== doc.id));
         setDeleteTarget(null);
