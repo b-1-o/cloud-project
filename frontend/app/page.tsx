@@ -1189,15 +1189,16 @@ export default function HomePage() {
           </div>
         ) : (
           <div className="dashboard workspace-dashboard" data-view={workspaceView}>
-            <header className="dashboard-hero">
+            {workspacePanel === "recent" && (
+              <header className="dashboard-hero">
               <div className="dashboard-intro">
                 <div className="dashboard-kicker">
                   <span className="dashboard-kicker-mark"><Sparkles size={13} strokeWidth={1.8} /></span>
-                  <span>{workspacePanel === "hub" ? "WORKSPACE / 01" : "PERSONAL WORKSPACE / RECENT"}</span>
+                  <span>PERSONAL WORKSPACE</span>
                   <span className="dashboard-kicker-rule" />
                 </div>
-                <h1 className="dashboard-title">{workspacePanel === "hub" ? "Workspace hub" : "Recently used"}<span className="dashboard-title-period">.</span></h1>
-                <p className="dashboard-sub">{workspacePanel === "hub" ? "Your next step, in one place." : "Pick up where you left off. Your latest documents, all in one place."}</p>
+                <h1 className="dashboard-title">Personal workspace<span className="dashboard-title-period">.</span></h1>
+                <p className="dashboard-sub">Your latest documents and incoming files, together in one place.</p>
               </div>
               <div className="dashboard-hero-actions">
                 <div className="workspace-status"><span className="workspace-status-dot" /> Personal workspace</div>
@@ -1208,6 +1209,7 @@ export default function HomePage() {
                 </button>
               </div>
             </header>
+            )}
 
             {workspacePanel === "hub" ? (
               <>
