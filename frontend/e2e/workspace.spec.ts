@@ -567,6 +567,43 @@ test("theme switches smoothly between light and dark", async ({ page }) => {
 });
 
 
+test("document paper stays white in both themes and New document labels remain readable", async ({ page }) => {
+  await page.route(/\/api\/documents\?.*$/, async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ documents: [] }) });
+  });
+  await page.route("**/api/documents/*/ticket", async (route) => {
+    await route.fulfill({ status: 503, contentType: "application/json", body: '{"error":"test offline"}' });
+  });
+
+  await page.goto("/");
+  const sidebarCreate = page.locator(".new-doc").first();
+  const dashboardCreate = page.locator(".dashboard-new-doc");
+  await expect(sidebarCreate).toBeVisible();
+  await expect(dashboardCreate).toBeVisible();
+
+  const lightSidebarText = await sidebarCreate.evaluate((element) => getComputedStyle(element).color);
+  const lightPrimaryText = await dashboardCreate.evaluate((element) => getComputedStyle(element).color);
+  await page.getByRole("button", { name: /toggle color theme/i }).click();
+  await expect.poll(() => page.locator("html").evaluate((element) => element.classList.contains("dark"))).toBe(true);
+
+  const darkSidebarText = await sidebarCreate.evaluate((element) => getComputedStyle(element).color);
+  const darkPrimaryText = await dashboardCreate.evaluate((element) => getComputedStyle(element).color);
+  expect(darkSidebarText).not.toBe(lightSidebarText);
+  expect(darkPrimaryText).not.toBe(lightPrimaryText);
+
+  await sidebarCreate.click();
+  await expect(page.getByRole("textbox", { name: "Document title" })).toBeVisible();
+  const paper = page.locator(".paper.paper-a4");
+  await expect(paper).toBeVisible();
+  await expect.poll(() => paper.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgb(255, 255, 255)");
+  await expect.poll(() => paper.locator(".tiptap-editor").evaluate((element) => getComputedStyle(element).color)).toBe("rgb(37, 37, 37)");
+
+  await page.getByRole("button", { name: /toggle color theme/i }).click();
+  await expect.poll(() => page.locator("html").evaluate((element) => element.classList.contains("dark"))).toBe(false);
+  await expect.poll(() => paper.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgb(255, 255, 255)");
+  await expect.poll(() => paper.locator(".tiptap-editor").evaluate((element) => getComputedStyle(element).color)).toBe("rgb(37, 37, 37)");
+});
+
 test("read-only document viewers can still post comments", async ({ page }) => {
   let postReceived = false;
   await page.route(/\/api\/documents\?.*$/, async (route) => {
