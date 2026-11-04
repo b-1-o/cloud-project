@@ -598,33 +598,72 @@ export default function HomePage() {
   async function handleImportFile(file: File | null) {
     if (!file || creating) return;
     setCreating(true);
+    let createdDocument: DocumentItem | null = null;
     try {
       const imported = await importDocumentFile(file);
-      let nextDocument: DocumentItem;
       if (!signedIn) {
-        nextDocument = createLocalDocument(imported.title);
-        writeLocalDocuments([nextDocument, ...readLocalDocuments()]);
+        createdDocument = createLocalDocument(imported.title);
+        if (imported.kind === "original-file") {
+          await putLocalDocumentFile(createdDocument.id, file);
+        }
+        writeLocalDocuments([createdDocument, ...readLocalDocuments()]);
       } else {
         const result = await request<{ document: DocumentItem }>("/api/documents", {
           method: "POST",
           headers: { "Idempotency-Key": crypto.randomUUID() },
           body: JSON.stringify({ title: imported.title }),
         });
-        nextDocument = result.document;
+        createdDocument = result.document;
+        if (imported.kind === "original-file") {
+          const token = await getAccessToken();
+          if (!token) throw new Error("Your sign-in expired. Sign in again before importing the original file.");
+          const uploaded = await fetch(API + "/api/documents/" + encodeURIComponent(createdDocument.id) + "/file", {
+            method: "PUT",
+            headers: {
+              Authorization: "Bearer " + token,
+              "Content-Type": imported.mimeType,
+              "X-File-Name": encodeURIComponent(file.name),
+            },
+            body: file,
+          });
+          if (!uploaded.ok) {
+            const message = await uploaded.text().catch(() => "");
+            throw new Error(message || "Could not store the original file (" + uploaded.status + ").");
+          }
+        }
       }
-      setDocuments((current) => [nextDocument, ...current.filter((item) => item.id !== nextDocument.id)]);
-      setImportedContent({ documentId: nextDocument.id, html: imported.html });
-      pendingDocId.current = nextDocument.id;
+
+      setDocuments((current) => [createdDocument!, ...current.filter((item) => item.id !== createdDocument!.id)]);
+      setImportedContent(imported.kind === "content" ? { documentId: createdDocument.id, html: imported.html } : null);
+      pendingDocId.current = createdDocument.id;
+      setWorkspacePanel("recent");
       setViewMode("docs");
       setFilter("all");
       setDashboardFolder("all");
-      setActive(nextDocument);
+      setActive(createdDocument);
       setError("");
       setSidebarOpen(false);
-      toast.success("Imported " + file.name, {
-        description: "The extracted content is now an editable CollabDocs document.",
+      toast.success(imported.kind === "original-file" ? "Original file imported" : "Document imported", {
+        description: imported.kind === "original-file"
+          ? file.name + " was saved without changing its contents."
+          : "The extracted content is now an editable CollabDocs document.",
       });
     } catch (cause) {
+      if (createdDocument) {
+        try {
+          if (createdDocument.local) {
+            await deleteLocalDocumentFile(createdDocument.id);
+            writeLocalDocuments(readLocalDocuments().filter((item) => item.id !== createdDocument!.id));
+          } else {
+            await request("/api/documents/" + encodeURIComponent(createdDocument.id), {
+              method: "DELETE",
+              headers: { "Idempotency-Key": crypto.randomUUID() },
+            });
+          }
+        } catch {
+          // Keep the original import error visible; a failed cleanup does not hide it.
+        }
+      }
       const message = cause instanceof Error ? cause.message : "Could not import this file";
       setError(message);
       toast.error("Import failed", { description: message });
