@@ -375,8 +375,34 @@ export async function importDocumentFile(file: File): Promise<ImportedDocument> 
   const title = titleFromFilename(file.name);
   let html = "";
 
-  if (extension === "pdf") {
-    return { kind: "original-file", title, fileName: file.name, mimeType: "application/pdf", format: "PDF" };
+  const originalMimeTypes: Record<string, string> = {
+    pdf: "application/pdf",
+    doc: "application/msword",
+    xls: "application/vnd.ms-excel",
+    ppt: "application/vnd.ms-powerpoint",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    gif: "image/gif",
+    webp: "image/webp",
+    bmp: "image/bmp",
+    tif: "image/tiff",
+    tiff: "image/tiff",
+    avif: "image/avif",
+    pages: "application/vnd.apple.pages",
+    numbers: "application/vnd.apple.numbers",
+    key: "application/vnd.apple.keynote",
+  };
+  const originalFile = (format: string) => ({
+    kind: "original-file" as const,
+    title,
+    fileName: file.name,
+    mimeType: file.type || originalMimeTypes[extension] || "application/octet-stream",
+    format,
+  });
+
+  if (extension === "pdf" || file.type === "application/pdf") {
+    return originalFile("PDF");
   } else if (["docx", "docm", "odt", "ods", "odp", "pptx", "pptm", "xlsx", "xlsm", "epub"].includes(extension)) {
     const { default: JSZipModule } = await import("jszip");
     const zip = await JSZipModule.loadAsync(await file.arrayBuffer(), { checkCRC32: true });
@@ -398,13 +424,13 @@ export async function importDocumentFile(file: File): Promise<ImportedDocument> 
     } else if (extension === "doc" && /^\s*</.test(content)) {
       html = sanitizeHtml(content);
     } else if (extension === "doc") {
-      return { kind: "original-file", title, fileName: file.name, mimeType: file.type || "application/msword", format: extension.toUpperCase() };
+      return originalFile(extension.toUpperCase());
     } else if (["txt", "csv", "tsv", "json", "xml", "log", "yaml", "yml"].includes(extension)) {
       html = extension === "txt"
         ? plainTextHtml(content)
         : "<pre><code>" + escapeHtml(content) + "</code></pre>";
     } else {
-      throw new Error("This file type is not supported yet. Try DOCX, PDF, ODT, RTF, TXT, Markdown, HTML, CSV, TSV, XLSX, PPTX or EPUB.");
+      return originalFile(extension.toUpperCase() || "FILE");
     }
   }
 
