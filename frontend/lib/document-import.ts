@@ -383,8 +383,10 @@ export async function importDocumentFile(file: File): Promise<ImportedDocument> 
       html = importRtf(content);
     } else if (extension === "doc" && /^\s*</.test(content)) {
       html = sanitizeHtml(content);
-    } else if (["txt", "csv", "tsv", "json", "xml", "log", "yaml", "yml", "doc"].includes(extension)) {
-      html = extension === "txt" || extension === "doc"
+    } else if (extension === "doc") {
+      throw new Error("This is an older binary Word .doc file. Save it as .docx or .rtf in a word processor, then import it again.");
+    } else if (["txt", "csv", "tsv", "json", "xml", "log", "yaml", "yml"].includes(extension)) {
+      html = extension === "txt"
         ? plainTextHtml(content)
         : "<pre><code>" + escapeHtml(content) + "</code></pre>";
     } else {
