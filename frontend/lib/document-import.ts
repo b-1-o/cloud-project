@@ -10,6 +10,7 @@ export type ImportedDocument = {
 
 const MAX_FILE_SIZE = 30 * 1024 * 1024;
 const MAX_PDF_PAGES = 300;
+const MAX_IMPORTED_CONTENT_BYTES = 1_800_000;
 
 function escapeHtml(value: string): string {
   return value
@@ -396,5 +397,8 @@ export async function importDocumentFile(file: File): Promise<ImportedDocument> 
 
   const safeHtml = sanitizeHtml(html);
   if (!safeHtml.trim()) throw new Error("No readable content was found in this file.");
+  if (new TextEncoder().encode(safeHtml).byteLength > MAX_IMPORTED_CONTENT_BYTES) {
+    throw new Error("The extracted text is too large for a single CollabDocs document. Split the file into smaller parts and import them separately.");
+  }
   return { title, html: safeHtml, format: extension.toUpperCase() };
 }
