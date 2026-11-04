@@ -84,7 +84,7 @@ export class DocumentRoom {
         if (bytes.byteLength > 30 * 1024 * 1024) return new Response("File exceeds the 30 MB upload limit", { status: 413 });
         const fileName = request.headers.get("x-file-name") || "document";
         const mimeType = request.headers.get("content-type") || "application/octet-stream";
-        if (fileName.length > 220 || fileName.includes("/") || fileName.includes("\\\\") || Array.from(fileName).some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)) return new Response("Invalid file name", { status: 400 });
+        if (fileName.length > 220 || fileName.includes("/") || fileName.includes("\\") || Array.from(fileName).some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)) return new Response("Invalid file name", { status: 400 });
         const chunkSize = 1024 * 1024;
         try {
           this.ctx.storage.transactionSync(() => {
