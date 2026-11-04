@@ -175,6 +175,44 @@ test("imports scanned PDFs as the original file without requiring OCR", async ({
   const pageBox = await pageLayer.boundingBox();
   if (!pageBox) throw new Error("PDF page markup layer is not visible");
   await page.mouse.click(pageBox.x + pageBox.width * 0.35, pageBox.y + pageBox.height * 0.42);
+  const signatureMark = page.locator('.pdf-mark-item[data-mark-type="image"]');
+  await expect(signatureMark).toHaveCount(1);
+  const initialX = Number(await signatureMark.getAttribute("data-x"));
+
+  const signatureBox = await signatureMark.boundingBox();
+  if (!signatureBox) throw new Error("Placed signature is not selectable");
+  await page.mouse.move(signatureBox.x + signatureBox.width / 2, signatureBox.y + signatureBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(signatureBox.x + signatureBox.width / 2 + 28, signatureBox.y + signatureBox.height / 2 + 18, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(async () => Number(await signatureMark.getAttribute("data-x"))).toBeGreaterThan(initialX);
+
+  await page.keyboard.press("Control+z");
+  await expect.poll(async () => Number(await signatureMark.getAttribute("data-x"))).toBeCloseTo(initialX, 3);
+  await page.keyboard.press("Control+Shift+z");
+  await expect.poll(async () => Number(await signatureMark.getAttribute("data-x"))).toBeGreaterThan(initialX);
+
+  const resizeHandle = page.locator('.pdf-resize-handle[data-resize-handle="true"]');
+  const handleBox = await resizeHandle.boundingBox();
+  if (!handleBox) throw new Error("Signature resize handle is not visible");
+  const widthBeforeResize = Number(await signatureMark.getAttribute("data-width"));
+  await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(handleBox.x + handleBox.width / 2 + 34, handleBox.y + handleBox.height / 2 + 24, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(async () => Number(await signatureMark.getAttribute("data-width"))).toBeGreaterThan(widthBeforeResize);
+
+  await page.getByRole("button", { name: "Add text" }).click();
+  await page.getByRole("textbox", { name: "Text to place" }).fill("Reviewed and approved");
+  await page.mouse.click(pageBox.x + pageBox.width * 0.54, pageBox.y + pageBox.height * 0.54);
+  await expect(page.locator('.pdf-mark-item[data-mark-type="text"]')).toHaveCount(1);
+
+  await page.getByRole("button", { name: "Checkbox" }).click();
+  await page.mouse.click(pageBox.x + pageBox.width * 0.62, pageBox.y + pageBox.height * 0.62);
+  const checkboxMark = page.locator('.pdf-mark-item[data-mark-type="checkbox"]');
+  await expect(checkboxMark).toHaveCount(1);
+  await page.getByRole("button", { name: "Check" }).click();
+
   const saveButton = page.getByRole("button", { name: /save pdf/i });
   await expect(saveButton).toBeEnabled();
   await saveButton.click();
