@@ -3082,3 +3082,116 @@ button.workspace-pill:focus-visible {
   .original-file-pdf-frame { min-height:calc(100vh - 245px); }
   .original-file-image-stage { padding:12px; }
 }
+
+
+/* Document editor refinement: one formatting surface and a right-edge utility rail. */
+.editor-meta {
+  width: calc(100% - 28px);
+  max-width: none;
+  margin: 10px 14px 8px;
+  gap: 10px;
+  min-height: 38px;
+}
+.editor-meta .editor-title-wrap {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+}
+.editor-meta .title-input {
+  min-height: 36px;
+  font-size: 19px;
+  font-weight: 680;
+  letter-spacing: -.45px;
+}
+.editor-meta .editor-meta-actions { flex: 0 0 auto; }
+.editor-toolbar {
+  width: calc(100% - 28px);
+  max-width: none;
+  margin: 0 14px 13px;
+  padding: 5px 7px;
+  gap: 3px;
+  border-radius: 12px;
+}
+.editor-toolbar .tool {
+  min-width: 30px;
+  min-height: 30px;
+  padding: 5px 7px;
+  justify-content: center;
+}
+.editor-toolbar .toolbar-left { gap: 2px; }
+.editor-content-grid {
+  width: calc(100% - 28px);
+  max-width: none;
+  grid-template-columns: minmax(0, 1fr) 250px;
+  gap: 24px;
+  margin: 0 14px 24px;
+}
+.editor-content-grid .paper-wrap { padding-top: 4px; }
+.editor-tools-panel {
+  position: sticky;
+  top: 10px;
+  justify-self: end;
+  width: 250px;
+  max-height: calc(100dvh - 150px);
+  gap: 19px;
+  padding: 18px 16px;
+  border-radius: 14px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.editor-tools-heading {
+  padding: 0 0 13px;
+}
+.editor-tools-heading .eyebrow {
+  margin: 0;
+  font-size: 8px;
+  letter-spacing: 1.25px;
+}
+.editor-tools-heading h3 {
+  margin: 6px 0 0;
+  font-size: 16px;
+  letter-spacing: -.35px;
+}
+.editor-tool-section { gap: 9px; }
+.editor-tool-section-title {
+  margin-bottom: 1px;
+  font-size: 11px;
+}
+.editor-tool-row {
+  min-height: 40px;
+  padding: 8px 9px;
+  font-size: 11px;
+}
+.editor-tool-primary {
+  min-height: 42px;
+  padding: 0 12px;
+  font-size: 11px;
+}
+.editor-tool-note { display: none; }
+
+@media (max-width: 1120px) and (min-width: 821px) {
+  .editor-content-grid {
+    grid-template-columns: minmax(0, 1fr) 224px;
+    gap: 14px;
+  }
+  .editor-tools-panel { width: 224px; padding: 15px 12px; }
+  .editor-content-grid .paper-a4 { padding: 54px 42px; }
+}
+@media (max-width: 820px) {
+  .editor-meta,
+  .editor-toolbar { width: calc(100% - 24px); margin-left: 12px; margin-right: 12px; }
+  .editor-content-grid {
+    width: calc(100% - 24px);
+    margin: 0 12px 20px;
+    gap: 14px;
+  }
+  .editor-tools-panel {
+    width: 100%;
+    justify-self: stretch;
+    padding: 15px;
+  }
+}
+@media (max-width: 560px) {
+  .editor-meta .title-input { font-size: 17px; }
+  .editor-toolbar { gap: 2px; }
+}
