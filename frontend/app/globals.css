@@ -1310,6 +1310,10 @@ html.dark .modal-backdrop {
   .bubble-menu {
     display: none !important;
   }
+  .editor-tools-panel { display: none !important; }
+  .editor-content-grid { display: block !important; width: 100% !important; margin: 0 !important; }
+  .editor-canvas-column { width: 100% !important; }
+  .editor-content-grid .paper-wrap { padding: 0 !important; }
   .paper,
   .paper-a4 {
     box-shadow: none !important;
