@@ -21,6 +21,7 @@ type Props = {
   documentId: string;
   initialTitle: string;
   initialContent?: string;
+  onInitialContentApplied?: () => void;
   apiBase: string;
   localOnly?: boolean;
   readOnly?: boolean;
@@ -54,6 +55,7 @@ export function CollabEditor({
   documentId,
   initialTitle,
   initialContent,
+  onInitialContentApplied,
   apiBase,
   localOnly = false,
   readOnly = false,
@@ -145,7 +147,8 @@ export function CollabEditor({
     if (!editor || !initialContent || importedContentApplied.current || readOnly) return;
     importedContentApplied.current = true;
     editor.commands.setContent(initialContent);
-  }, [editor, initialContent, readOnly]);
+    onInitialContentApplied?.();
+  }, [editor, initialContent, readOnly, onInitialContentApplied]);
 
   useEffect(() => {
     if (!openingFromSheet) return;
