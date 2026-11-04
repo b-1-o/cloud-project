@@ -905,7 +905,7 @@ export default function HomePage() {
         </header>
         {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError("")} aria-label="Dismiss error"><X size={15} /></button></div>}
         {active ? (
-          <CollabEditor key={active.id} documentId={active.id} initialTitle={active.title} initialContent={importedContent?.documentId === active.id ? importedContent.html : undefined} apiBase={API} localOnly={active.local === true} readOnly={active.role === "viewer"} openingFromSheet={sheetTransitionId === active.id} openCommentsOnMount={openCommentsForId === active.id && signedIn && active.local !== true} onTitleChange={(title) => {
+          <CollabEditor key={active.id} documentId={active.id} initialTitle={active.title} initialContent={importedContent?.documentId === active.id ? importedContent.html : undefined} onInitialContentApplied={() => setImportedContent((current) => current?.documentId === active.id ? null : current)} apiBase={API} localOnly={active.local === true} readOnly={active.role === "viewer"} openingFromSheet={sheetTransitionId === active.id} openCommentsOnMount={openCommentsForId === active.id && signedIn && active.local !== true} onTitleChange={(title) => {
             setDocuments((list) => list.map((d) => (d.id === active.id ? { ...d, title } : d)));
             if (active.local) {
               const key = viewMode === "trash" ? LOCAL_TRASH_KEY : LOCAL_DOCUMENTS_KEY;
