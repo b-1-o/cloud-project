@@ -33,7 +33,7 @@ test("creates a document and exposes the editor toolbar", async ({ page }) => {
   await expect(page.locator(".workspace-hub-section")).toHaveCount(0);
   await page.locator(".new-doc").first().click();
   await expect(page.getByRole("textbox", { name: "Document title" })).toHaveValue("Untitled document");
-  await expect(page.getByRole("button", { name: "Bold" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Bold", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Heading 1" })).toBeVisible();
 });
 
