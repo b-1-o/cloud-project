@@ -892,7 +892,7 @@ export default function HomePage() {
 
       {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} aria-hidden />}
       <aside className={"sidebar" + (sidebarOpen ? " sidebar-open" : "")}>
-        <a className="brand" href="/" aria-label="Collab Docs home" onClick={() => { pendingDocId.current = null; setActive(null); window.scrollTo({ top: 0, behavior: "auto" }); }}>
+        <a className="brand" href="/" aria-label="Collab Docs home" onClick={() => { pendingDocId.current = null; setActive(null); setWorkspacePanel("recent"); setViewMode("docs"); setFilter("all"); setDashboardFolder("all"); window.scrollTo({ top: 0, behavior: "auto" }); }}>
           <span className="brand-mark">C</span><span>collab<span className="brand-light">docs</span></span>
         </a>
         <div className="sidebar-label">WORKSPACE</div>
