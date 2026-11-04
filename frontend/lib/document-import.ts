@@ -1,6 +1,6 @@
 "use client";
 
-import JSZip from "jszip";
+import type JSZip from "jszip";
 
 export type ImportedDocument = {
   title: string;
@@ -366,7 +366,8 @@ export async function importDocumentFile(file: File): Promise<ImportedDocument> 
   if (extension === "pdf") {
     html = await importPdf(file);
   } else if (extension === "docx" || extension === "odt" || extension === "pptx" || extension === "xlsx" || extension === "epub") {
-    const zip = await JSZip.loadAsync(await file.arrayBuffer(), { checkCRC32: true });
+    const { default: JSZipModule } = await import("jszip");
+    const zip = await JSZipModule.loadAsync(await file.arrayBuffer(), { checkCRC32: true });
     if (extension === "docx") html = await importDocx(zip);
     if (extension === "odt") html = await importOdt(zip);
     if (extension === "pptx") html = await importPptx(zip);
