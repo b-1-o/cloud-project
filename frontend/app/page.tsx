@@ -1031,7 +1031,17 @@ export default function HomePage() {
           </div>
         </header>
         {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError("")} aria-label="Dismiss error"><X size={15} /></button></div>}
-        {active ? (
+        {active ? activeOriginalFile?.documentId === active.id ? (
+          <OriginalFileViewer
+            title={active.title}
+            fileName={activeOriginalFile.fileName}
+            mimeType={activeOriginalFile.mimeType}
+            size={activeOriginalFile.size}
+            src={activeOriginalFile.objectUrl}
+          />
+        ) : checkingOriginalFileFor === active.id ? (
+          <div className="original-file-loading"><span className="status-dot connecting" /> Opening document…</div>
+        ) : (
           <CollabEditor key={active.id} documentId={active.id} initialTitle={active.title} initialContent={importedContent?.documentId === active.id ? importedContent.html : undefined} onInitialContentApplied={() => setImportedContent((current) => current?.documentId === active.id ? null : current)} apiBase={API} localOnly={active.local === true} readOnly={active.role === "viewer"} openingFromSheet={sheetTransitionId === active.id} openCommentsOnMount={openCommentsForId === active.id && signedIn && active.local !== true} onTitleChange={(title) => {
             setDocuments((list) => list.map((d) => (d.id === active.id ? { ...d, title } : d)));
             if (active.local) {
