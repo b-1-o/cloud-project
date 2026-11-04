@@ -186,9 +186,9 @@ export default function HomePage() {
           }
         } else {
           const token = await getAccessToken();
-          if (!token) throw new Error("Sign in to open this document's original file.");
+          if (!token && !E2E_AUTHENTICATED) throw new Error("Sign in to open this document's original file.");
           const url = API + "/api/documents/" + encodeURIComponent(active.id) + "/file";
-          const headers = { Authorization: "Bearer " + token };
+          const headers: Record<string, string> = token ? { Authorization: "Bearer " + token } : {};
           const head = await fetch(url, { method: "HEAD", headers });
           if (head.status !== 404) {
             if (!head.ok) throw new Error("Could not check the original file (" + head.status + ").");
@@ -616,14 +616,15 @@ export default function HomePage() {
         createdDocument = result.document;
         if (imported.kind === "original-file") {
           const token = await getAccessToken();
-          if (!token) throw new Error("Your sign-in expired. Sign in again before importing the original file.");
+          if (!token && !E2E_AUTHENTICATED) throw new Error("Your sign-in expired. Sign in again before importing the original file.");
+          const fileHeaders: Record<string, string> = {
+            "Content-Type": imported.mimeType,
+            "X-File-Name": encodeURIComponent(file.name),
+          };
+          if (token) fileHeaders.Authorization = "Bearer " + token;
           const uploaded = await fetch(API + "/api/documents/" + encodeURIComponent(createdDocument.id) + "/file", {
             method: "PUT",
-            headers: {
-              Authorization: "Bearer " + token,
-              "Content-Type": imported.mimeType,
-              "X-File-Name": encodeURIComponent(file.name),
-            },
+            headers: fileHeaders,
             body: file,
           });
           if (!uploaded.ok) {
