@@ -809,10 +809,10 @@ export default function HomePage() {
       <input
         ref={importFileInputRef}
         type="file"
-        className="visually-hidden"
+        hidden
         tabIndex={-1}
         aria-label="Choose a document to import"
-        accept=".docx,.doc,.odt,.pdf,.rtf,.txt,.md,.markdown,.html,.htm,.csv,.tsv,.pptx,.xlsx,.json,.xml,.log,.yaml,.yml"
+        accept=".docx,.doc,.odt,.pdf,.rtf,.txt,.md,.markdown,.html,.htm,.csv,.tsv,.pptx,.xlsx,.epub,.json,.xml,.log,.yaml,.yml"
         onChange={(event) => {
           const file = event.currentTarget.files?.[0] || null;
           event.currentTarget.value = "";
