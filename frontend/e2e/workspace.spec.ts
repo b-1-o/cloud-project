@@ -1,5 +1,27 @@
 import { expect, test } from "@playwright/test";
 
+function createTestPdf(): Buffer {
+  const stream = "BT /F1 18 Tf 72 720 Td (Scanned test PDF) Tj ET";
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    "<< /Length " + Buffer.byteLength(stream, "ascii") + " >>\nstream\n" + stream + "\nendstream",
+  ];
+  let output = "%PDF-1.4\n";
+  const offsets: number[] = [];
+  for (let index = 0; index < objects.length; index += 1) {
+    offsets.push(Buffer.byteLength(output, "ascii"));
+    output += (index + 1) + " 0 obj\n" + objects[index] + "\nendobj\n";
+  }
+  const xrefOffset = Buffer.byteLength(output, "ascii");
+  output += "xref\n0 6\n0000000000 65535 f \n";
+  for (const offset of offsets) output += String(offset).padStart(10, "0") + " 00000 n \n";
+  output += "trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n" + xrefOffset + "\n%%EOF";
+  return Buffer.from(output, "ascii");
+}
+
 test("creates a document and exposes the editor toolbar", async ({ page }) => {
   await page.route("**/api/documents", async (route) => {
     if (route.request().method() === "POST") {
@@ -80,7 +102,7 @@ test("keeps Workspace Hub separate from the Recently Used home", async ({ page }
 
 
 test("imports scanned PDFs as the original file without requiring OCR", async ({ page }) => {
-  const pdfBytes = Buffer.from(["%PDF-1.4", "% scanned test PDF", "%%EOF"].join("\n"), "utf8");
+  const pdfBytes = createTestPdf();
   await page.route(/\/api\/documents(?:\?.*)?$/, async (route) => {
     if (route.request().method() === "POST") {
       await route.fulfill({
@@ -132,9 +154,31 @@ test("imports scanned PDFs as the original file without requiring OCR", async ({
   });
 
   await expect(page.locator(".original-file-workspace")).toBeVisible();
-  await expect(page.locator(".original-file-copy")).toContainText("scanned-contract.pdf");
-  await expect(page.locator(".original-file-pdf-frame")).toHaveAttribute("src", /^blob:/);
-  await expect(page.getByRole("link", { name: /download original/i })).toBeVisible();
+  await expect(page.locator(".pdf-page-surface")).toBeVisible();
+  await expect(page.locator(".original-file-pdf-frame")).toHaveCount(0);
+  await expect(page.locator(".pdf-page-count")).toHaveText("1 page");
+  await expect(page.getByRole("link", { name: "Download original" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Signature" }).click();
+  await expect(page.getByRole("dialog", { name: "Draw your signature" })).toBeVisible();
+  const pad = page.locator(".signature-canvas");
+  const padBox = await pad.boundingBox();
+  if (!padBox) throw new Error("Signature canvas is not visible");
+  await page.mouse.move(padBox.x + 65, padBox.y + 145);
+  await page.mouse.down();
+  await page.mouse.move(padBox.x + 180, padBox.y + 85, { steps: 8 });
+  await page.mouse.move(padBox.x + 285, padBox.y + 150, { steps: 8 });
+  await page.mouse.up();
+  await page.getByRole("button", { name: "Insert signature" }).click();
+
+  const pageLayer = page.locator(".pdf-markup-layer").first();
+  const pageBox = await pageLayer.boundingBox();
+  if (!pageBox) throw new Error("PDF page markup layer is not visible");
+  await page.mouse.click(pageBox.x + pageBox.width * 0.35, pageBox.y + pageBox.height * 0.42);
+  const saveButton = page.getByRole("button", { name: /save pdf/i });
+  await expect(saveButton).toBeEnabled();
+  await saveButton.click();
+  await expect(page.locator(".pdf-saved-status")).toBeVisible();
 });
 
 
