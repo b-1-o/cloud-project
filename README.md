@@ -1,6 +1,6 @@
 # Collab Docs
 
-A real-time collaborative document editor built on a Cloudflare-first architecture. This repository is an MVP scaffold; deployment, production identity, and external observability are not claimed as complete until verified.
+A real-time document workspace built on a Cloudflare-first architecture. CollabDocs brings document editing, collaboration, workspace activity, review tools, hand-drawn signatures, and file imports into one place. Production integrations still require the account-side setup described below.
 
 ## MVP slice
 
