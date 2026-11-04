@@ -64,11 +64,95 @@ export class DocumentRoom {
     this.ctx.storage.sql.exec(
       "CREATE TABLE IF NOT EXISTS event_outbox (event_id TEXT PRIMARY KEY, payload_json TEXT NOT NULL, created_at INTEGER NOT NULL);"
     );
+    this.ctx.storage.sql.exec(
+      "CREATE TABLE IF NOT EXISTS document_file_meta (id INTEGER PRIMARY KEY CHECK (id = 1), file_name TEXT NOT NULL, mime_type TEXT NOT NULL, byte_size INTEGER NOT NULL, updated_at TEXT NOT NULL);"
+    );
+    this.ctx.storage.sql.exec(
+      "CREATE TABLE IF NOT EXISTS document_file_chunks (chunk_index INTEGER PRIMARY KEY, chunk_data BLOB NOT NULL);"
+    );
   }
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const docId = url.searchParams.get("documentId") || "";
+
+    if (url.pathname === "/__file") {
+      if (!docId) return new Response("Document id is required", { status: 400 });
+      if (request.method === "PUT") {
+        const bytes = new Uint8Array(await request.arrayBuffer());
+        if (bytes.byteLength === 0) return new Response("File is empty", { status: 400 });
+        if (bytes.byteLength > 30 * 1024 * 1024) return new Response("File exceeds the 30 MB upload limit", { status: 413 });
+        const fileName = request.headers.get("x-file-name") || "document";
+        const mimeType = request.headers.get("content-type") || "application/octet-stream";
+        if (fileName.length > 220 || /[\\/\\x00-\\x1f\\x7f]/.test(fileName)) return new Response("Invalid file name", { status: 400 });
+        const chunkSize = 1024 * 1024;
+        try {
+          this.ctx.storage.transactionSync(() => {
+            this.ctx.storage.sql.exec("DELETE FROM document_file_chunks");
+            for (let offset = 0, chunkIndex = 0; offset < bytes.byteLength; offset += chunkSize, chunkIndex += 1) {
+              const chunk = bytes.slice(offset, Math.min(offset + chunkSize, bytes.byteLength));
+              this.ctx.storage.sql.exec(
+                "INSERT INTO document_file_chunks (chunk_index, chunk_data) VALUES (?, ?)",
+                chunkIndex,
+                chunk
+              );
+            }
+            this.ctx.storage.sql.exec(
+              "INSERT INTO document_file_meta (id, file_name, mime_type, byte_size, updated_at) VALUES (1, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET file_name = excluded.file_name, mime_type = excluded.mime_type, byte_size = excluded.byte_size, updated_at = excluded.updated_at",
+              fileName,
+              mimeType,
+              bytes.byteLength,
+              new Date().toISOString()
+            );
+          });
+        } catch (error) {
+          console.error(JSON.stringify({ event: "document_file.write_failed", documentId: docId, message: String(error) }));
+          return new Response("Could not store the original file", { status: 507 });
+        }
+        return new Response(null, { status: 204 });
+      }
+
+      if (request.method === "HEAD" || request.method === "GET") {
+        const metadata = this.ctx.storage.sql.exec(
+          "SELECT file_name, mime_type, byte_size, updated_at FROM document_file_meta WHERE id = 1"
+        ).toArray() as Array<{ file_name: string; mime_type: string; byte_size: number; updated_at: string }>;
+        const file = metadata[0];
+        if (!file) return new Response("No original file is attached to this document", { status: 404 });
+        const headers = new Headers({
+          "Content-Type": file.mime_type,
+          "Content-Length": String(file.byte_size),
+          "Content-Disposition": "inline; filename*=UTF-8''" + encodeURIComponent(file.file_name),
+          "X-Document-File-Name": encodeURIComponent(file.file_name),
+          "X-Document-File-Updated": file.updated_at,
+          "Cache-Control": "private, no-store",
+          "Accept-Ranges": "none",
+        });
+        if (request.method === "HEAD") return new Response(null, { status: 200, headers });
+        const chunks = this.ctx.storage.sql.exec(
+          "SELECT chunk_data FROM document_file_chunks ORDER BY chunk_index ASC"
+        ).toArray() as Array<{ chunk_data: ArrayBuffer | ArrayBufferView }>;
+        const output = new Uint8Array(file.byte_size);
+        let offset = 0;
+        for (const row of chunks) {
+          const chunk = asBytes(row.chunk_data);
+          output.set(chunk, offset);
+          offset += chunk.byteLength;
+        }
+        if (offset !== file.byte_size) {
+          return new Response("Stored file is incomplete", { status: 500 });
+        }
+        return new Response(output, { status: 200, headers });
+      }
+
+      if (request.method === "DELETE") {
+        this.ctx.storage.transactionSync(() => {
+          this.ctx.storage.sql.exec("DELETE FROM document_file_chunks");
+          this.ctx.storage.sql.exec("DELETE FROM document_file_meta WHERE id = 1");
+        });
+        return new Response(null, { status: 204 });
+      }
+      return new Response("Method not allowed", { status: 405 });
+    }
 
     if (url.pathname === "/__snapshot" && request.method === "GET") {
       const document = await this.loadDocument();
