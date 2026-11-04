@@ -82,6 +82,7 @@ export function CollabEditor({
   const [slashPos, setSlashPos] = useState<{ top: number; left: number } | null>(null);
   const [findOpen, setFindOpen] = useState(false);
   const [findQuery, setFindQuery] = useState("");
+  const [replaceQuery, setReplaceQuery] = useState("");
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [versions, setVersions] = useState<Array<{ id: string; created_at: string; label?: string }>>([]);
   const [versionsLoading, setVersionsLoading] = useState(false);
@@ -592,6 +593,29 @@ export function CollabEditor({
     }
   }
 
+  function replaceAllMatches() {
+    if (!editor || !findQuery) return;
+    const matches: Array<{ from: number; to: number }> = [];
+    editor.state.doc.descendants((node, position) => {
+      if (!node.isText || !node.text) return;
+      let index = node.text.indexOf(findQuery);
+      while (index >= 0) {
+        matches.push({ from: position + index, to: position + index + findQuery.length });
+        index = node.text.indexOf(findQuery, index + Math.max(1, findQuery.length));
+      }
+    });
+    if (!matches.length) {
+      toast.message("No matches to replace");
+      return;
+    }
+    const transaction = editor.state.tr;
+    for (const match of matches.reverse()) {
+      transaction.insertText(replaceQuery, match.from, match.to);
+    }
+    editor.view.dispatch(transaction);
+    toast.success("Replaced " + matches.length + (matches.length === 1 ? " match" : " matches"));
+  }
+
   function toolClass(active: boolean) {
     return active ? "tool active-tool" : "tool";
   }
@@ -691,11 +715,16 @@ export function CollabEditor({
                 <button type="button" className="editor-tool-action" onClick={() => editor?.chain().focus().toggleHighlight().run()} disabled={readOnly}><Highlighter size={15} /><span>Highlight</span></button>
                 <button type="button" className="editor-tool-action" onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()} disabled={readOnly}>H1<span>Heading</span></button>
                 <button type="button" className="editor-tool-action" onClick={() => editor?.chain().focus().toggleBulletList().run()} disabled={readOnly}><List size={15} /><span>Bullets</span></button>
+                <button type="button" className="editor-tool-action" onClick={() => editor?.chain().focus().toggleOrderedList().run()} disabled={readOnly}><ListOrdered size={15} /><span>Numbered</span></button>
+                <button type="button" className="editor-tool-action" onClick={() => editor?.chain().focus().toggleStrike().run()} disabled={readOnly}><span style={{ textDecoration: "line-through", fontSize: 14 }}>S</span><span>Strike</span></button>
+                <button type="button" className="editor-tool-action" onClick={setLink} disabled={readOnly}>Link<span>Link</span></button>
+                <button type="button" className="editor-tool-action" onClick={() => editor?.chain().focus().toggleBlockquote().run()} disabled={readOnly}><Quote size={15} /><span>Quote</span></button>
+                <button type="button" className="editor-tool-action" onClick={() => editor?.chain().focus().toggleCodeBlock().run()} disabled={readOnly}><Code2 size={15} /><span>Code block</span></button>
               </div>
             </section>
             <section className="editor-tool-section">
               <div className="editor-tool-section-title"><Search size={14} /> Review</div>
-              <button type="button" className="editor-tool-row" onClick={() => setFindOpen(true)}><Search size={15} /><span>Find in document</span></button>
+              <button type="button" className="editor-tool-row" onClick={() => setFindOpen(true)}><Search size={15} /><span>Find and replace</span></button>
               <button type="button" className="editor-tool-row" onClick={() => { setCommentsOpen(true); void loadComments(); }}><MessageCircle size={15} /><span>Comments</span></button>
               <button type="button" className="editor-tool-row" onClick={() => { setVersionsOpen(true); void loadVersions(); }}><History size={15} /><span>Version history</span></button>
             </section>
@@ -718,8 +747,10 @@ export function CollabEditor({
       <SlashMenu editor={editor} open={slashOpen && !readOnly} query={slashQuery} position={slashPos} onClose={() => { setSlashOpen(false); setSlashQuery(""); }} />
       {findOpen && (
         <div className="find-bar" role="search">
-          <input value={findQuery} onChange={(e) => setFindQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") runFind(); if (e.key === "Escape") setFindOpen(false); }} placeholder="Find in document…" aria-label="Find in document" autoFocus />
-          <button type="button" className="secondary-button" onClick={runFind}>Find</button>
+          <input value={findQuery} onChange={(e) => setFindQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") runFind(); if (e.key === "Escape") setFindOpen(false); }} placeholder="Find text…" aria-label="Find in document" autoFocus />
+          <input value={replaceQuery} onChange={(e) => setReplaceQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") replaceAllMatches(); if (e.key === "Escape") setFindOpen(false); }} placeholder="Replace with…" aria-label="Replacement text" />
+          <button type="button" className="secondary-button" onClick={runFind}>Find next</button>
+          <button type="button" className="secondary-button" onClick={replaceAllMatches} disabled={readOnly}>Replace all</button>
           <button type="button" className="secondary-button" onClick={() => setFindOpen(false)}>Close</button>
         </div>
       )}
