@@ -38,24 +38,8 @@ test("creates a document and exposes the editor toolbar", async ({ page }) => {
 });
 
 
-test("shows live workspace statistics and working smart folders", async ({ page }) => {
-  await page.route(/\/api\/documents\?.*$/, async (route) => {
-    if (route.request().method() === "POST") {
-      await route.fulfill({
-        status: 201,
-        contentType: "application/json",
-        body: JSON.stringify({
-          document: {
-            id: "e2e-dashboard-doc",
-            title: "Product notes",
-            updated_at: new Date().toISOString(),
-            role: "owner",
-          },
-        }),
-      });
-      return;
-    }
-
+test("keeps Workspace Hub separate from the Recently Used home", async ({ page }) => {
+  await page.route(/\\/api\\/documents\\?.*$/, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -77,38 +61,74 @@ test("shows live workspace statistics and working smart folders", async ({ page 
   await expect(page.getByRole("heading", { name: /recently used/i })).toBeVisible();
   await expect(page.locator(".workspace-hub-section")).toHaveCount(0);
   await expect(page.locator(".dashboard-recent-item").filter({ hasText: "Product notes" })).toHaveCount(1);
+  await expect(page.locator(".gmail-inbox-panel")).toBeVisible();
 
   await page.locator(".workspace-hub-nav").click();
   await expect(page.getByRole("heading", { name: /workspace hub/i })).toBeVisible();
   await expect(page.locator(".workspace-hub-section")).toBeVisible();
+  await expect(page.locator(".workspace-hub-card")).toHaveCount(5);
   await expect(page.locator(".workspace-stats-sidebar")).toBeVisible();
   await expect(page.locator(".workspace-stats-sidebar")).toContainText("Workspace pulse");
+  await expect(page.locator(".dashboard-recent")).toHaveCount(0);
+  await expect(page.locator(".gmail-inbox-panel")).toHaveCount(0);
 
   await page.locator(".personal-workspace-nav").click();
   await expect(page.getByRole("heading", { name: /recently used/i })).toBeVisible();
-  await expect(page.getByRole("button", { name: /all documents/i })).toBeVisible();
-  await expect(page.getByRole("button", { name: /favorites/i })).toBeVisible();
-  await expect(page.locator(".smart-folder-card .folder-root")).toHaveCount(4);
-  await expect(page.getByRole("heading", { name: /quick actions/i })).toBeVisible();
-  await expect(page.locator(".smart-folder-card .folder-doc-text").filter({ hasText: "Product notes" })).toHaveCount(2);
-
-  await page.getByRole("button", { name: /favorites folder/i }).click();
-  await expect(page.getByRole("heading", { name: /recently used/i })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /quick actions/i })).toBeVisible();
-  await expect(page.locator(".smart-folder-card .folder-root[data-open]")).toHaveCount(1);
-
-  await page.locator(".workspace-action-card").filter({ hasText: "Templates" }).click();
-  await expect(page.getByRole("dialog")).toContainText("Start from a template");
-  await expect(page.locator(".template-option-icon svg")).toHaveCount(4);
+  await expect(page.locator(".dashboard-recent-item").filter({ hasText: "Product notes" })).toHaveCount(1);
+  await expect(page.locator(".workspace-hub-section")).toHaveCount(0);
 });
 
 
 test("imports scanned PDFs as the original file without requiring OCR", async ({ page }) => {
+  const pdfBytes = Buffer.from("%PDF-1.4\\n% scanned test PDF\\n%%EOF", "utf8");
+  await page.route("**/api/documents**", async (route) => {
+    if (route.request().method() === "POST") {
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({ document: {
+          id: "e2e-scanned-pdf",
+          title: "scanned-contract",
+          updated_at: new Date().toISOString(),
+          role: "owner",
+        } }),
+      });
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ documents: [] }) });
+  });
+  await page.route("**/api/documents/e2e-scanned-pdf/file", async (route) => {
+    if (route.request().method() === "PUT") {
+      expect(route.request().headers()["content-type"]).toBe("application/pdf");
+      await route.fulfill({ status: 204, body: "" });
+      return;
+    }
+    if (route.request().method() === "HEAD") {
+      await route.fulfill({
+        status: 200,
+        headers: {
+          "content-type": "application/pdf",
+          "content-length": String(pdfBytes.byteLength),
+          "x-document-file-name": encodeURIComponent("scanned-contract.pdf"),
+        },
+      });
+      return;
+    }
+    if (route.request().method() === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/pdf", body: pdfBytes });
+      return;
+    }
+    await route.fallback();
+  });
+  await page.route("**/api/documents/*/ticket", async (route) => {
+    await route.fulfill({ status: 503, contentType: "application/json", body: '{"error":"test offline"}' });
+  });
+
   await page.goto("/");
   await page.locator('input[type="file"][aria-label="Choose a document to import"]').setInputFiles({
     name: "scanned-contract.pdf",
     mimeType: "application/pdf",
-    buffer: Buffer.from("%PDF-1.4\\n% scanned test PDF\\n%%EOF", "utf8"),
+    buffer: pdfBytes,
   });
 
   await expect(page.locator(".original-file-workspace")).toBeVisible();
@@ -116,6 +136,7 @@ test("imports scanned PDFs as the original file without requiring OCR", async ({
   await expect(page.locator(".original-file-pdf-frame")).toHaveAttribute("src", /^blob:/);
   await expect(page.getByRole("link", { name: /download original/i })).toBeVisible();
 });
+
 
 test("requires a continuous hold before moving a document to trash", async ({ page }) => {
   let deleteRequested = false;
@@ -278,8 +299,8 @@ test("workspace comments shortcut opens a real document comments panel", async (
 
 
 
-test("clicking a sheet opens its document without navigating on folder open", async ({ page }) => {
-  await page.route(/\/api\/documents\?.*$/, async (route) => {
+test("clicking a recently used document opens its editor", async ({ page }) => {
+  await page.route(/\\/api\\/documents\\?.*$/, async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ documents: [{
       id: "e2e-folder-doc", title: "Design brief", updated_at: new Date().toISOString(), role: "owner",
     }] }) });
@@ -288,13 +309,11 @@ test("clicking a sheet opens its document without navigating on folder open", as
     await route.fulfill({ status: 503, contentType: "application/json", body: '{"error":"test offline"}' });
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "All documents folder" }).click();
-  await expect(page.getByRole("heading", { name: /recently used/i })).toBeVisible();
-  await expect(page.locator(".smart-folder-card .folder-root[data-open]")).toHaveCount(1);
-  await expect(page.getByRole("textbox", { name: "Document title" })).toHaveCount(0);
-  await page.locator(".smart-folder-card .folder-root[data-open] .folder-item").first().click();
+  await expect(page.locator(".dashboard-recent-item").filter({ hasText: "Design brief" })).toBeVisible();
+  await page.locator(".dashboard-recent-item").filter({ hasText: "Design brief" }).click();
   await expect(page.getByRole("textbox", { name: "Document title" })).toHaveValue("Design brief");
 });
+
 
 test("workspace breadcrumbs and quick navigation leave the active document", async ({ page }) => {
   await page.route(/\/api\/documents\?.*$/, async (route) => {
