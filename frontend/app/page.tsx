@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { flushSync } from "react-dom";
 import { clearAccessToken, completeOidcLogin, getAccessToken, startOidcLogin } from "@/lib/auth";
 import { CollabEditor } from "@/components/collab-editor";
 import { GmailInbox } from "@/components/gmail-inbox";
@@ -12,7 +11,6 @@ import { WorkspaceCalendar } from "@/components/workspace-calendar";
 import { formatDistanceToNow } from "date-fns";
 import { Toaster, toast } from "sonner";
 import { CommandPalette, type CommandItem } from "@/components/command-palette";
-import Folder from "@/components/react-bits/Folder";
 import HoldButton from "@/components/HoldButton";
 import { ArrowRight, ArrowUpRight, Check, CheckCircle2, Cloud, Code2, Command, FileText, FileUp, HardDrive, House, LayoutTemplate, LogIn, LogOut, NotebookPen, Plus, Sparkles, Target, Users, Wifi, Clock3, Files, ShieldCheck, Star, Trash2, FolderOpen, Pencil, Inbox, MessageCircle, CalendarDays, ListChecks, BarChart3, Sun, Moon, Activity, Menu, Share2, UserRound, MoreHorizontal, X } from "lucide-react";
 
@@ -834,33 +832,11 @@ export default function HomePage() {
   const ownedDocumentCount = documents.filter((doc) => doc.role === "owner").length;
   const sharedDocumentCount = documents.filter((doc) => Boolean(doc.role) && doc.role !== "owner").length;
   const favoriteDocumentCount = favorites.filter((id) => documents.some((doc) => doc.id === id)).length;
-  const activeFolderLabel =
-    dashboardFolder === "mine" ? "Owned by you" :
-    dashboardFolder === "shared" ? "Shared with you" :
-    dashboardFolder === "favorites" ? "Favorites" : "Recent documents";
-  const folderColor = "#b45d80";
   const workspaceView = viewMode === "trash" ? "trash" : filter === "mine" ? "mine" : filter === "shared" ? "shared" : dashboardFolder === "favorites" ? "favorites" : "all";
   const mainViewDocuments = workspaceView === "favorites"
     ? filtered.filter((doc) => favorites.includes(doc.id))
     : sidebarDocuments;
-  const collectionFolders = useMemo(() => {
-    const makeItems = (list: DocumentItem[]) =>
-      list.slice(0, 6).map((doc) => ({
-        id: doc.id,
-        title: doc.title,
-        description: doc.title,
-      }));
-    const mine = filtered.filter((doc) => doc.role === "owner");
-    const shared = filtered.filter((doc) => Boolean(doc.role) && doc.role !== "owner");
-    const saved = filtered.filter((doc) => favorites.includes(doc.id));
 
-    return [
-      { id: "all" as const, label: "All documents", description: "Everything in your library", count: documents.length, color: folderColor, items: makeItems(filtered) },
-      { id: "mine" as const, label: "Owned by you", description: "Documents you manage", count: ownedDocumentCount, color: folderColor, items: makeItems(mine) },
-      { id: "shared" as const, label: "Shared with you", description: "Work with your team", count: sharedDocumentCount, color: folderColor, items: makeItems(shared) },
-      { id: "favorites" as const, label: "Favorites", description: "Your saved documents", count: favoriteDocumentCount, color: folderColor, items: makeItems(saved) },
-    ];
-  }, [documents, filtered, favorites, ownedDocumentCount, sharedDocumentCount, favoriteDocumentCount, folderColor]);
 
   function openCommentsHub() {
     if (!signedIn) {
@@ -893,52 +869,7 @@ export default function HomePage() {
     setSidebarOpen(false);
   }, []);
 
-  const handleSmartFolderItemClick = useCallback((item: unknown) => {
-    const itemId = (item as { id?: string } | null)?.id;
-    if (!itemId) return;
-    const selected = documents.find((doc) => doc.id === itemId);
-    if (!selected) return;
 
-    const source = Array.from(document.querySelectorAll<HTMLElement>("[data-folder-document-id]"))
-      .find((element) => element.dataset.folderDocumentId === selected.id);
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const transitionDocument = document as Document & {
-      startViewTransition?: (update: () => void) => { finished: Promise<void> };
-    };
-    if (!source || reduceMotion || !transitionDocument.startViewTransition) {
-      openDocument(selected);
-      return;
-    }
-
-    source.style.setProperty("view-transition-name", "collab-document-sheet");
-    const clearSourceName = () => source.style.removeProperty("view-transition-name");
-    try {
-      const transition = transitionDocument.startViewTransition(() => {
-        flushSync(() => openDocument(selected, false, true));
-        const mainPanel = document.querySelector<HTMLElement>(".main-panel");
-        if (mainPanel) {
-          mainPanel.scrollTop = 0;
-          mainPanel.scrollLeft = 0;
-        }
-        const paperWrap = document.querySelector<HTMLElement>(".paper-wrap");
-        if (paperWrap) {
-          paperWrap.scrollTop = 0;
-          paperWrap.scrollLeft = 0;
-        }
-        window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-      });
-      void transition.finished.then(() => {
-        clearSourceName();
-        setSheetTransitionId((id) => id === selected.id ? null : id);
-      }, () => {
-        clearSourceName();
-        setSheetTransitionId((id) => id === selected.id ? null : id);
-      });
-    } catch {
-      clearSourceName();
-      openDocument(selected);
-    }
-  }, [documents, openDocument]);
 
   return (
     <main className="shell">
@@ -1371,90 +1302,6 @@ export default function HomePage() {
 <GmailInbox onImportFile={handleImportFile} />
               </>
             )}
-            {workspacePanel === "recent" && (
-              <>
-            <section className="dashboard-collections" aria-labelledby="collections-title">
-              <div className="dashboard-section-heading">
-                <div>
-                  <div className="eyebrow">YOUR LIBRARY / 02</div>
-                  <h2 id="collections-title">Smart folders</h2>
-                  <p>Jump straight to the work you need.</p>
-                </div>
-                <span className="dashboard-count-badge">{documents.length} {documents.length === 1 ? "document" : "documents"}</span>
-              </div>
-              <div className="collection-folder-grid">
-                {collectionFolders.map((folder) => (
-                  <article
-                    key={folder.id}
-                    className={"smart-folder-card" + (dashboardFolder === folder.id ? " is-active" : "")}
-                    style={{ "--smart-folder-accent": "var(--accent)" } as CSSProperties}
-                  >
-                    <div className="smart-folder-meta">
-                      <span className="smart-folder-title">{folder.label}</span>
-                      <span className="smart-folder-count" aria-label={folder.count + " documents"}>
-                        <strong>{String(folder.count).padStart(2, "0")}</strong>
-                        <span>DOCS</span>
-                      </span>
-                    </div>
-                    <div className="smart-folder-visual">
-                      <Folder
-                        mode="flap"
-                        variant="solid"
-                        layout="stack"
-                        label={folder.label}
-                        color={folder.color}
-                        paperColor="#f4f5f8"
-                        size={0.78}
-                        theme="light"
-                        frost={0}
-                        intro={false}
-                        tilt={0.28}
-                        speed={0.95}
-                        bounce={0.34}
-                        items={folder.items}
-                        draggable={false}
-                        zoomOnClick={false}
-                        onItemClick={handleSmartFolderItemClick}
-                      />
-                    </div>
-                    <div className="smart-folder-footer">
-                      <span>{folder.description}</span>
-                      <span className="smart-folder-open" aria-hidden="true"><ArrowUpRight size={14} strokeWidth={1.8} /></span>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </section>
-
-            <section className="workspace-quick-actions" aria-labelledby="quick-actions-title">
-              <div className="dashboard-section-heading workspace-quick-actions-heading">
-                <div>
-                  <div className="eyebrow">WORKFLOW / 03</div>
-                  <h2 id="quick-actions-title">Quick actions</h2>
-                  <p>Start something new or jump straight to a command.</p>
-                </div>
-              </div>
-              <div className="workspace-action-grid">
-                <button type="button" className="workspace-action-card" onClick={() => void createDocument()} disabled={creating}>
-                  <span className="workspace-action-icon"><Plus size={18} strokeWidth={1.8} /></span>
-                  <span className="workspace-action-copy"><strong>New document</strong><small>Start with a clean page.</small></span>
-                  <ArrowUpRight size={16} className="workspace-action-arrow" />
-                </button>
-                <button type="button" className="workspace-action-card" onClick={() => setTemplateOpen(true)}>
-                  <span className="workspace-action-icon"><LayoutTemplate size={18} strokeWidth={1.7} /></span>
-                  <span className="workspace-action-copy"><strong>Templates</strong><small>Start from a proven structure.</small></span>
-                  <ArrowUpRight size={16} className="workspace-action-arrow" />
-                </button>
-                <button type="button" className="workspace-action-card" onClick={() => setCmdOpen(true)}>
-                  <span className="workspace-action-icon"><Command size={18} strokeWidth={1.7} /></span>
-                  <span className="workspace-action-copy"><strong>Command palette</strong><small>Search documents and run actions.</small></span>
-                  <span className="workspace-action-shortcut"><kbd>Ctrl K</kbd><kbd>⌘ K</kbd></span>
-                </button>
-              </div>
-            </section>
-              </>
-            )}
-
             <footer className="dashboard-footer">
               <span><FolderOpen size={14} strokeWidth={1.7} /> Open a folder, then select a document sheet</span>
               <span><Command size={13} strokeWidth={1.8} /> Command palette <kbd>Ctrl / ⌘ K</kbd></span>
