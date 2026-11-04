@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Node, mergeAttributes } from "@tiptap/core";
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
 import { GripVertical, Trash2 } from "lucide-react";
@@ -16,6 +16,10 @@ function AnnotationView({ node, updateAttributes, deleteNode, selected, editor }
   const displayHeight = previewSize?.height ?? height;
   const editable = editor.isEditable;
   const text = String(node.attrs.text || "");
+  const resizeHandlers = useRef<{
+    move: (event: ReactPointerEvent<HTMLButtonElement>) => void;
+    end: (event: ReactPointerEvent<HTMLButtonElement>) => void;
+  }>({ move: () => {}, end: () => {} });
 
   function startResize(event: ReactPointerEvent<HTMLButtonElement>) {
     if (!editable) return;
@@ -42,14 +46,6 @@ function AnnotationView({ node, updateAttributes, deleteNode, selected, editor }
     };
     resizeHandlers.current = { move: updatePreview, end: finish };
   }
-
-  const resizeHandlers = useMemo(
-    () => ({
-      move: (_event: ReactPointerEvent<HTMLButtonElement>) => {},
-      end: (_event: ReactPointerEvent<HTMLButtonElement>) => {},
-    }),
-    [],
-  );
 
   function annotationBody() {
     if (kind === "signature" || kind === "draw" || kind === "highlight" || kind === "image") {
@@ -152,9 +148,9 @@ function AnnotationView({ node, updateAttributes, deleteNode, selected, editor }
           aria-label="Resize annotation"
           title="Drag to resize"
           onPointerDown={startResize}
-          onPointerMove={(event) => resizeHandlers.move(event)}
-          onPointerUp={(event) => resizeHandlers.end(event)}
-          onPointerCancel={(event) => resizeHandlers.end(event)}
+          onPointerMove={(event) => resizeHandlers.current.move(event)}
+          onPointerUp={(event) => resizeHandlers.current.end(event)}
+          onPointerCancel={(event) => resizeHandlers.current.end(event)}
         />
       )}
     </NodeViewWrapper>
