@@ -17,7 +17,10 @@ concurrency:
   cancel-in-progress: false
 jobs:
   deploy-worker:
-    if: ${{ vars.CLOUDFLARE_DEPLOY_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' || contains(toJSON(github.event.commits.*.modified), 'backend/') || contains(toJSON(github.event.commits.*.added), 'backend/') || contains(toJSON(github.event.commits.*.removed), 'backend/')) }}
+    # The workflow-level path filter already limits pushes to app changes. Avoid the
+    # nested commit-payload check: it silently skipped Worker deploys and left the
+    # production API behind the Pages frontend.
+    if: ${{ vars.CLOUDFLARE_DEPLOY_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
