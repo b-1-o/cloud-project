@@ -240,32 +240,23 @@ export default function HomePage() {
     const mimeType = activeOriginalFile.mimeType || "application/pdf";
     if (active.local) {
       await putLocalDocumentFile(active.id, new File([blob], fileName, { type: mimeType }));
-    } else {
-      const token = await getAccessToken();
-      if (!token) throw new Error("Your sign-in expired. Sign in again before saving this PDF.");
-      const response = await fetch(API + "/api/documents/" + encodeURIComponent(active.id) + "/file", {
-        method: "PUT",
-        headers: {
-          Authorization: "Bearer " + token,
-          "Content-Type": mimeType,
-          "X-File-Name": encodeURIComponent(fileName),
-        },
-        body: blob,
-      });
-      if (!response.ok) {
-        const message = await response.text().catch(() => "");
-        throw new Error(message || "Could not save the edited PDF (" + response.status + ").");
-      }
+      return;
     }
-    const nextUrl = URL.createObjectURL(blob);
-    setActiveOriginalFile((current) => {
-      if (!current || current.documentId !== active.id) {
-        URL.revokeObjectURL(nextUrl);
-        return current;
-      }
-      if (current.objectUrl !== nextUrl) URL.revokeObjectURL(current.objectUrl);
-      return { ...current, objectUrl: nextUrl, size: blob.size };
+    const token = await getAccessToken();
+    if (!token) throw new Error("Your sign-in expired. Sign in again before saving this PDF.");
+    const response = await fetch(API + "/api/documents/" + encodeURIComponent(active.id) + "/file", {
+      method: "PUT",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": mimeType,
+        "X-File-Name": encodeURIComponent(fileName),
+      },
+      body: blob,
     });
+    if (!response.ok) {
+      const message = await response.text().catch(() => "");
+      throw new Error(message || "Could not save the edited PDF (" + response.status + ").");
+    }
   }
 
   async function ensurePublicLink() {
