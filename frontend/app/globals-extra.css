@@ -3988,3 +3988,36 @@ html.dark {
 .share-button svg {
   color: var(--button-foreground) !important;
 }
+
+
+/* Explicit light/dark foregrounds prevent legacy button rules from flattening contrast. */
+.new-doc,
+.new-doc span,
+.new-doc svg { color: #252525 !important; }
+html.dark .new-doc,
+html.dark .new-doc span,
+html.dark .new-doc svg { color: #ededed !important; }
+.primary-button,
+.primary-button span,
+.primary-button svg,
+.share-button,
+.share-button span,
+.share-button svg,
+.dashboard-new-doc,
+.dashboard-new-doc span,
+.dashboard-new-doc svg,
+.filtered-new-document,
+.filtered-new-document span,
+.filtered-new-document svg { color: #ffffff !important; }
+html.dark .primary-button,
+html.dark .primary-button span,
+html.dark .primary-button svg,
+html.dark .share-button,
+html.dark .share-button span,
+html.dark .share-button svg,
+html.dark .dashboard-new-doc,
+html.dark .dashboard-new-doc span,
+html.dark .dashboard-new-doc svg,
+html.dark .filtered-new-document,
+html.dark .filtered-new-document span,
+html.dark .filtered-new-document svg { color: #191919 !important; }
