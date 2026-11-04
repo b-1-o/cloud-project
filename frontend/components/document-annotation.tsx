@@ -186,24 +186,60 @@ export const DocumentAnnotation = Node.create({
   },
 
   renderHTML({ HTMLAttributes, node }) {
-    return [
-      "div",
-      mergeAttributes(HTMLAttributes, {
-        "data-document-annotation": "true",
-        "data-kind": node.attrs.kind,
-        "data-src": node.attrs.dataUrl,
-        "data-text": node.attrs.text,
-        "data-shape": node.attrs.shape,
-        "data-color": node.attrs.color,
-        "data-width": node.attrs.width,
-        "data-height": node.attrs.height,
-        "data-checked": String(Boolean(node.attrs.checked)),
-        "data-mime-type": node.attrs.mimeType,
-        style: "width:" + node.attrs.width + "px;max-width:100%;min-height:" + node.attrs.height + "px",
-      }),
-      node.attrs.text || "",
-    ];
-  },
+    const width = Number(node.attrs.width) || 300;
+    const height = Number(node.attrs.height) || 100;
+    const kind = String(node.attrs.kind || "text");
+    const text = String(node.attrs.text || "");
+    const attrs = mergeAttributes(HTMLAttributes, {
+      "data-document-annotation": "true",
+      "data-kind": kind,
+      "data-src": node.attrs.dataUrl,
+      "data-text": text,
+      "data-shape": node.attrs.shape,
+      "data-color": node.attrs.color,
+      "data-width": width,
+      "data-height": height,
+      "data-checked": String(Boolean(node.attrs.checked)),
+      "data-mime-type": node.attrs.mimeType,
+      class: "document-annotation-export",
+      style: "width:" + width + "px;height:" + height + "px;max-width:100%",
+    });
+
+    if (kind === "signature" || kind === "draw" || kind === "highlight" || kind === "image") {
+      return ["div", attrs, ["img", {
+        src: String(node.attrs.dataUrl || ""),
+        alt: kind === "signature" ? "Signature" : kind === "image" ? "Inserted image" : kind === "highlight" ? "Highlight annotation" : "Drawing annotation",
+        style: "display:block;width:100%;height:100%;object-fit:contain",
+      }]];
+    }
+
+    if (kind === "checkbox") {
+      return ["div", attrs, ["label", { class: "document-annotation-checkbox" },
+        ["input", { type: "checkbox", ...(node.attrs.checked ? { checked: "checked" } : {}) }],
+        ["span", {}, text || "Checklist item"],
+      ]];
+    }
+
+    if (kind === "shape") {
+      const shape = String(node.attrs.shape || "rectangle");
+      const color = String(node.attrs.color || "#555555");
+      const shapeElement = shape === "ellipse"
+        ? ["ellipse", { cx: "160", cy: "70", rx: "145", ry: "58", fill: "none", stroke: color, "stroke-width": "2.5" }]
+        : shape === "line"
+          ? ["line", { x1: "10", y1: "70", x2: "310", y2: "70", stroke: color, "stroke-width": "2.5" }]
+          : ["rect", { x: "8", y: "8", width: "304", height: "124", rx: "4", fill: "none", stroke: color, "stroke-width": "2.5" }];
+      return ["div", attrs, ["svg", { viewBox: "0 0 320 140", preserveAspectRatio: "none", width: "100%", height: "100%" }, shapeElement]];
+    }
+
+    if (kind === "comment") {
+      return ["div", attrs, ["div", { class: "document-annotation-note" },
+        ["span", { class: "document-annotation-note-label" }, "NOTE"],
+        ["p", {}, text || "Comment"],
+      ]];
+    }
+
+    return ["div", attrs, ["div", { class: "document-annotation-text" }, text || "Text"]];
+  }
 
   addNodeView() {
     return ReactNodeViewRenderer(AnnotationView);
