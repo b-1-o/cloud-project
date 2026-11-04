@@ -286,7 +286,7 @@ async function importPdf(file: File): Promise<string> {
   const task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
   const pdf = await task.promise;
   if (pdf.numPages > MAX_PDF_PAGES) {
-    await pdf.destroy();
+    await task.destroy();
     throw new Error("This PDF has more than " + MAX_PDF_PAGES + " pages. Split it into smaller files and import them separately.");
   }
 
@@ -301,7 +301,7 @@ async function importPdf(file: File): Promise<string> {
       }
     }
   } finally {
-    await pdf.destroy();
+    await task.destroy();
   }
   if (!pages.length) {
     throw new Error("No selectable text was found in this PDF. Scanned PDFs need OCR before they can be edited.");
