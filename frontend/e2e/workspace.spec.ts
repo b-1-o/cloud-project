@@ -212,6 +212,7 @@ test("imports scanned PDFs as the original file without requiring OCR", async ({
   await expect(page.locator('.pdf-mark-item[data-mark-type="text"]')).toHaveCount(1);
 
   await page.getByRole("button", { name: "Checkbox" }).click();
+  await expect(page.locator(".pdf-tool-hint")).toContainText("Click on the page to insert a checkbox", { timeout: 10000 });
   const checkboxPageBox = await pageLayer.boundingBox();
   if (!checkboxPageBox) throw new Error("PDF page is not visible for checkbox placement");
   await page.mouse.click(checkboxPageBox.x + checkboxPageBox.width * 0.62, checkboxPageBox.y + checkboxPageBox.height * 0.62);
