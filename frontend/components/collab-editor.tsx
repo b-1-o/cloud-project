@@ -798,9 +798,11 @@ export function CollabEditor({
               <button type="button" className="editor-tool-row" onClick={() => { setVersionsOpen(true); void loadVersions(); }}><History size={15} /><span>Version history</span></button>
             </section>
             <section className="editor-tool-section">
-              <div className="editor-tool-section-title"><PenLine size={14} /> Signature</div>
-              <p className="editor-tool-note">Draw by hand and insert your signature at the current cursor position.</p>
+              <div className="editor-tool-section-title"><PenLine size={14} /> Annotations</div>
+              <p className="editor-tool-note">Add movable, resizable signatures, drawings, highlights, images, text, notes, shapes and checkboxes to the document.</p>
               <button type="button" className="editor-tool-primary" onClick={() => setSignatureOpen(true)} disabled={readOnly}><PenLine size={15} /> Draw signature</button>
+              <button type="button" className="editor-tool-row" onClick={() => setDrawingMode("draw")} disabled={readOnly}><PenLine size={15} /><span>Draw on document</span></button>
+              <button type="button" className="editor-tool-row" onClick={() => openAnnotationText("comment")} disabled={readOnly}><MessageSquare size={15} /><span>Add a note</span></button>
             </section>
             <section className="editor-tool-section">
               <div className="editor-tool-section-title"><Download size={14} /> Export</div>
