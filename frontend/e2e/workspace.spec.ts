@@ -60,6 +60,111 @@ test("creates a document and exposes the editor toolbar", async ({ page }) => {
 });
 
 
+test("regular documents support persistent annotations, editing, and resize controls", async ({ page }) => {
+  await page.route("**/api/documents", async (route) => {
+    if (route.request().method() === "POST") {
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({
+          document: {
+            id: "e2e-annotation-document",
+            title: "Annotation document",
+            updated_at: new Date().toISOString(),
+            role: "owner",
+          },
+        }),
+      });
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ documents: [] }) });
+  });
+  await page.route("**/api/documents/*/ticket", async (route) => {
+    await route.fulfill({ status: 503, contentType: "application/json", body: '{"error":"test offline"}' });
+  });
+
+  await page.goto("/");
+  await page.locator(".new-doc").first().click();
+  await expect(page.getByRole("textbox", { name: "Document title" })).toHaveValue("Annotation document");
+
+  await page.getByRole("button", { name: "Insert checkbox" }).click();
+  const checkbox = page.locator('.document-annotation-node[data-annotation-kind="checkbox"]');
+  await expect(checkbox).toBeVisible();
+  await checkbox.locator('input[type="checkbox"]').check();
+  await expect(checkbox.locator('input[type="checkbox"]')).toBeChecked();
+
+  await page.getByRole("button", { name: "Insert text annotation" }).click();
+  await page.getByRole("textbox", { name: "New annotation text" }).fill("A movable text block");
+  await page.getByRole("button", { name: "Insert", exact: true }).click();
+  const textBlock = page.locator('.document-annotation-node[data-annotation-kind="text"]');
+  await expect(textBlock).toContainText("A movable text block");
+
+  await page.getByRole("button", { name: "Insert rectangle" }).click();
+  await expect(page.locator('.document-annotation-node[data-annotation-kind="shape"]')).toHaveCount(1);
+
+  await page.getByRole("button", { name: "Insert comment note" }).click();
+  await page.getByRole("textbox", { name: "New note text" }).fill("Review this section");
+  await page.getByRole("button", { name: "Insert", exact: true }).click();
+  await expect(page.locator('.document-annotation-node[data-annotation-kind="comment"]')).toContainText("Review this section");
+
+  await page.getByRole("button", { name: "Draw annotation" }).click();
+  await expect(page.getByRole("dialog", { name: "Draw on the document" })).toBeVisible();
+  const drawingCanvas = page.locator('.annotation-drawing-pad canvas');
+  const drawingBox = await drawingCanvas.boundingBox();
+  if (!drawingBox) throw new Error("Document drawing canvas is not visible");
+  await page.mouse.move(drawingBox.x + 30, drawingBox.y + 40);
+  await page.mouse.down();
+  await page.mouse.move(drawingBox.x + 180, drawingBox.y + 100, { steps: 6 });
+  await page.mouse.up();
+  await page.getByRole("button", { name: "Insert drawing" }).click();
+  await expect(page.locator('.document-annotation-node[data-annotation-kind="draw"]')).toBeVisible();
+
+  await page.getByRole("button", { name: "Highlight annotation" }).click();
+  await expect(page.getByRole("dialog", { name: "Highlight a passage" })).toBeVisible();
+  const highlightCanvas = page.locator('.annotation-drawing-pad canvas');
+  const highlightBox = await highlightCanvas.boundingBox();
+  if (!highlightBox) throw new Error("Highlight canvas is not visible");
+  await page.mouse.move(highlightBox.x + 30, highlightBox.y + 80);
+  await page.mouse.down();
+  await page.mouse.move(highlightBox.x + 240, highlightBox.y + 90, { steps: 6 });
+  await page.mouse.up();
+  await page.getByRole("button", { name: "Insert highlight" }).click();
+  await expect(page.locator('.document-annotation-node[data-annotation-kind="highlight"]')).toBeVisible();
+
+  await page.getByRole("button", { name: "Insert signature" }).click();
+  await expect(page.getByRole("dialog", { name: "Draw your signature" })).toBeVisible();
+  const signatureCanvas = page.locator(".signature-canvas");
+  const signatureCanvasBox = await signatureCanvas.boundingBox();
+  if (!signatureCanvasBox) throw new Error("Signature canvas is not visible");
+  await page.mouse.move(signatureCanvasBox.x + 45, signatureCanvasBox.y + 120);
+  await page.mouse.down();
+  await page.mouse.move(signatureCanvasBox.x + 170, signatureCanvasBox.y + 75, { steps: 6 });
+  await page.mouse.up();
+  await page.getByRole("button", { name: "Insert signature" }).click();
+  const signatureBlock = page.locator('.document-annotation-node[data-annotation-kind="signature"]');
+  await expect(signatureBlock).toBeVisible();
+
+  await signatureBlock.click();
+  const resizeHandle = signatureBlock.locator(".document-annotation-resize");
+  await expect(resizeHandle).toBeVisible();
+  const initialWidth = Number(await signatureBlock.getAttribute("data-annotation-width"));
+  const resizeBox = await resizeHandle.boundingBox();
+  if (!resizeBox) throw new Error("Document annotation resize handle is not visible");
+  await page.mouse.move(resizeBox.x + resizeBox.width / 2, resizeBox.y + resizeBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(resizeBox.x + resizeBox.width / 2 + 32, resizeBox.y + resizeBox.height / 2 + 22, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(async () => Number(await signatureBlock.getAttribute("data-annotation-width"))).toBeGreaterThan(initialWidth);
+
+  await page.getByRole("button", { name: "Insert image annotation" }).click();
+  await page.locator('input[type="file"][accept="image/png,image/jpeg"]').setInputFiles({
+    name: "tiny.png",
+    mimeType: "image/png",
+    buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a3b8AAAAASUVORK5CYII=", "base64"),
+  });
+  await expect(page.locator('.document-annotation-node[data-annotation-kind="image"]')).toBeVisible();
+});
+
 test("keeps Workspace Hub separate from the Recently Used home", async ({ page }) => {
   await page.route(/\/api\/documents\?.*$/, async (route) => {
     await route.fulfill({
