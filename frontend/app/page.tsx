@@ -4,13 +4,14 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { flushSync } from "react-dom";
 import { clearAccessToken, completeOidcLogin, getAccessToken, startOidcLogin } from "@/lib/auth";
 import { CollabEditor } from "@/components/collab-editor";
+import { importDocumentFile } from "@/lib/document-import";
 import { WorkspaceCalendar } from "@/components/workspace-calendar";
 import { formatDistanceToNow } from "date-fns";
 import { Toaster, toast } from "sonner";
 import { CommandPalette, type CommandItem } from "@/components/command-palette";
 import Folder from "@/components/react-bits/Folder";
 import HoldButton from "@/components/HoldButton";
-import { ArrowRight, ArrowUpRight, Check, CheckCircle2, Cloud, Code2, Command, FileText, HardDrive, House, LayoutTemplate, LogIn, LogOut, NotebookPen, Plus, Sparkles, Target, Users, Wifi, Clock3, Files, ShieldCheck, Star, Trash2, FolderOpen, Pencil, Inbox, MessageCircle, CalendarDays, ListChecks, BarChart3, Sun, Moon, Activity, Menu, Share2, UserRound, MoreHorizontal, X } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, CheckCircle2, Cloud, Code2, Command, FileText, FileUp, HardDrive, House, LayoutTemplate, LogIn, LogOut, NotebookPen, Plus, Sparkles, Target, Users, Wifi, Clock3, Files, ShieldCheck, Star, Trash2, FolderOpen, Pencil, Inbox, MessageCircle, CalendarDays, ListChecks, BarChart3, Sun, Moon, Activity, Menu, Share2, UserRound, MoreHorizontal, X } from "lucide-react";
 
 type DashboardFolder = "all" | "mine" | "shared" | "favorites";
 
@@ -99,6 +100,7 @@ export default function HomePage() {
   const [active, setActive] = useState<DocumentItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [importedContent, setImportedContent] = useState<{ documentId: string; html: string } | null>(null);
   const [error, setError] = useState("");
   const [signedIn, setSignedIn] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -129,6 +131,7 @@ export default function HomePage() {
   const [openCommentsForId, setOpenCommentsForId] = useState<string | null>(null);
   const [sheetTransitionId, setSheetTransitionId] = useState<string | null>(null);
   const contextRef = useRef<HTMLDivElement>(null);
+  const importFileInputRef = useRef<HTMLInputElement>(null);
 
   const renameInputRef = useRef<HTMLInputElement>(null);
   const pendingDocId = useRef<string | null>(null);
@@ -494,6 +497,45 @@ export default function HomePage() {
     }
   }
 
+  async function handleImportFile(file: File | null) {
+    if (!file || creating) return;
+    setCreating(true);
+    try {
+      const imported = await importDocumentFile(file);
+      let nextDocument: DocumentItem;
+      if (!signedIn) {
+        nextDocument = createLocalDocument(imported.title);
+        writeLocalDocuments([nextDocument, ...readLocalDocuments()]);
+      } else {
+        const result = await request<{ document: DocumentItem }>("/api/documents", {
+          method: "POST",
+          headers: { "Idempotency-Key": crypto.randomUUID() },
+          body: JSON.stringify({ title: imported.title }),
+        });
+        nextDocument = result.document;
+      }
+
+      setDocuments((current) => [nextDocument, ...current.filter((item) => item.id !== nextDocument.id)]);
+      setImportedContent({ documentId: nextDocument.id, html: imported.html });
+      pendingDocId.current = nextDocument.id;
+      setViewMode("docs");
+      setFilter("all");
+      setDashboardFolder("all");
+      setActive(nextDocument);
+      setError("");
+      setSidebarOpen(false);
+      toast.success("Imported " + file.name, {
+        description: "The file is now an editable CollabDocs document.",
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not import this file";
+      setError(message);
+      toast.error("Import failed", { description: message });
+    } finally {
+      setCreating(false);
+    }
+  }
+
   async function createFromTemplate(title: string) {
     setCreating(true);
     setTemplateOpen(false);
@@ -764,6 +806,19 @@ export default function HomePage() {
   return (
     <main className="shell">
       <Toaster position="bottom-right" richColors closeButton />
+      <input
+        ref={importFileInputRef}
+        type="file"
+        className="visually-hidden"
+        tabIndex={-1}
+        aria-label="Choose a document to import"
+        accept=".docx,.doc,.odt,.pdf,.rtf,.txt,.md,.markdown,.html,.htm,.csv,.tsv,.pptx,.xlsx,.json,.xml,.log,.yaml,.yml"
+        onChange={(event) => {
+          const file = event.currentTarget.files?.[0] || null;
+          event.currentTarget.value = "";
+          void handleImportFile(file);
+        }}
+      />
 
       {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} aria-hidden />}
       <aside className={"sidebar" + (sidebarOpen ? " sidebar-open" : "")}>
@@ -785,6 +840,17 @@ export default function HomePage() {
         </div>
         <div className="sidebar-label docs-label">{viewMode === "trash" ? "TRASH" : "YOUR DOCUMENTS"}</div>
         <button className="new-doc" onClick={createDocument} disabled={creating || viewMode === "trash"}><span>＋</span> New document</button>
+        <button
+          type="button"
+          className="templates-launch"
+          onClick={() => importFileInputRef.current?.click()}
+          disabled={creating || viewMode === "trash"}
+          aria-label="Import a document file"
+        >
+          <span className="templates-launch-icon" aria-hidden="true"><FileUp size={17} strokeWidth={1.8} /></span>
+          <span className="templates-launch-copy"><strong>{creating ? "Importing…" : "Import a file"}</strong><small>DOCX, PDF, ODT and more</small></span>
+          <span className="templates-launch-trailing"><ArrowUpRight size={14} /></span>
+        </button>
         <button type="button" className="templates-launch" onClick={() => setTemplateOpen(true)} disabled={creating || viewMode === "trash"}>
           <span className="templates-launch-icon" aria-hidden="true"><LayoutTemplate size={17} strokeWidth={1.8} /></span>
           <span className="templates-launch-copy"><strong>Templates</strong><small>Start with a structure</small></span>
@@ -839,7 +905,7 @@ export default function HomePage() {
         </header>
         {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError("")} aria-label="Dismiss error"><X size={15} /></button></div>}
         {active ? (
-          <CollabEditor key={active.id} documentId={active.id} initialTitle={active.title} apiBase={API} localOnly={active.local === true} readOnly={active.role === "viewer"} openingFromSheet={sheetTransitionId === active.id} openCommentsOnMount={openCommentsForId === active.id && signedIn && active.local !== true} onTitleChange={(title) => {
+          <CollabEditor key={active.id} documentId={active.id} initialTitle={active.title} initialContent={importedContent?.documentId === active.id ? importedContent.html : undefined} apiBase={API} localOnly={active.local === true} readOnly={active.role === "viewer"} openingFromSheet={sheetTransitionId === active.id} openCommentsOnMount={openCommentsForId === active.id && signedIn && active.local !== true} onTitleChange={(title) => {
             setDocuments((list) => list.map((d) => (d.id === active.id ? { ...d, title } : d)));
             if (active.local) {
               const key = viewMode === "trash" ? LOCAL_TRASH_KEY : LOCAL_DOCUMENTS_KEY;
