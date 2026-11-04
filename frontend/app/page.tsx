@@ -4,13 +4,15 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { flushSync } from "react-dom";
 import { clearAccessToken, completeOidcLogin, getAccessToken, startOidcLogin } from "@/lib/auth";
 import { CollabEditor } from "@/components/collab-editor";
+import { GmailInbox } from "@/components/gmail-inbox";
+import { importDocumentFile } from "@/lib/document-import";
 import { WorkspaceCalendar } from "@/components/workspace-calendar";
 import { formatDistanceToNow } from "date-fns";
 import { Toaster, toast } from "sonner";
 import { CommandPalette, type CommandItem } from "@/components/command-palette";
 import Folder from "@/components/react-bits/Folder";
 import HoldButton from "@/components/HoldButton";
-import { ArrowRight, ArrowUpRight, Check, CheckCircle2, Cloud, Code2, Command, FileText, HardDrive, House, LayoutTemplate, LogIn, LogOut, NotebookPen, Plus, Sparkles, Target, Users, Wifi, Clock3, Files, ShieldCheck, Star, Trash2, FolderOpen, Pencil, Inbox, MessageCircle, CalendarDays, ListChecks, BarChart3, Sun, Moon, Activity, Menu, Share2, UserRound, MoreHorizontal, X } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, CheckCircle2, Cloud, Code2, Command, FileText, FileUp, HardDrive, House, LayoutTemplate, LogIn, LogOut, NotebookPen, Plus, Sparkles, Target, Users, Wifi, Clock3, Files, ShieldCheck, Star, Trash2, FolderOpen, Pencil, Inbox, MessageCircle, CalendarDays, ListChecks, BarChart3, Sun, Moon, Activity, Menu, Share2, UserRound, MoreHorizontal, X } from "lucide-react";
 
 type DashboardFolder = "all" | "mine" | "shared" | "favorites";
 
@@ -99,6 +101,7 @@ export default function HomePage() {
   const [active, setActive] = useState<DocumentItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [importedContent, setImportedContent] = useState<{ documentId: string; html: string } | null>(null);
   const [error, setError] = useState("");
   const [signedIn, setSignedIn] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -129,6 +132,7 @@ export default function HomePage() {
   const [openCommentsForId, setOpenCommentsForId] = useState<string | null>(null);
   const [sheetTransitionId, setSheetTransitionId] = useState<string | null>(null);
   const contextRef = useRef<HTMLDivElement>(null);
+  const importFileInputRef = useRef<HTMLInputElement>(null);
 
   const renameInputRef = useRef<HTMLInputElement>(null);
   const pendingDocId = useRef<string | null>(null);
@@ -494,6 +498,44 @@ export default function HomePage() {
     }
   }
 
+  async function handleImportFile(file: File | null) {
+    if (!file || creating) return;
+    setCreating(true);
+    try {
+      const imported = await importDocumentFile(file);
+      let nextDocument: DocumentItem;
+      if (!signedIn) {
+        nextDocument = createLocalDocument(imported.title);
+        writeLocalDocuments([nextDocument, ...readLocalDocuments()]);
+      } else {
+        const result = await request<{ document: DocumentItem }>("/api/documents", {
+          method: "POST",
+          headers: { "Idempotency-Key": crypto.randomUUID() },
+          body: JSON.stringify({ title: imported.title }),
+        });
+        nextDocument = result.document;
+      }
+      setDocuments((current) => [nextDocument, ...current.filter((item) => item.id !== nextDocument.id)]);
+      setImportedContent({ documentId: nextDocument.id, html: imported.html });
+      pendingDocId.current = nextDocument.id;
+      setViewMode("docs");
+      setFilter("all");
+      setDashboardFolder("all");
+      setActive(nextDocument);
+      setError("");
+      setSidebarOpen(false);
+      toast.success("Imported " + file.name, {
+        description: "The extracted content is now an editable CollabDocs document.",
+      });
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "Could not import this file";
+      setError(message);
+      toast.error("Import failed", { description: message });
+    } finally {
+      setCreating(false);
+    }
+  }
+
   async function createFromTemplate(title: string) {
     setCreating(true);
     setTemplateOpen(false);
@@ -636,7 +678,7 @@ export default function HomePage() {
     setContextMenu(null); setRenamingId(doc.id); setRenameValue(doc.title);
   }
 
-  const isFirstRunEmpty = !loading && viewMode === "docs" && filter === "all" && !search.trim() && documents.length === 0;
+  const isFirstRunEmpty = false;
 
   const commandItems: CommandItem[] = [
     { id: "new", label: "New document", hint: "Create blank", run: () => void createDocument() },
@@ -764,6 +806,19 @@ export default function HomePage() {
   return (
     <main className="shell">
       <Toaster position="bottom-right" richColors closeButton />
+      <input
+        ref={importFileInputRef}
+        type="file"
+        hidden
+        tabIndex={-1}
+        aria-label="Choose a document to import"
+        accept="*/*"
+        onChange={(event) => {
+          const file = event.currentTarget.files?.[0] || null;
+          event.currentTarget.value = "";
+          void handleImportFile(file);
+        }}
+      />
 
       {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} aria-hidden />}
       <aside className={"sidebar" + (sidebarOpen ? " sidebar-open" : "")}>
@@ -785,6 +840,7 @@ export default function HomePage() {
         </div>
         <div className="sidebar-label docs-label">{viewMode === "trash" ? "TRASH" : "YOUR DOCUMENTS"}</div>
         <button className="new-doc" onClick={createDocument} disabled={creating || viewMode === "trash"}><span>＋</span> New document</button>
+        <button className="new-doc import-doc-button" onClick={() => importFileInputRef.current?.click()} disabled={creating || viewMode === "trash"}><FileUp size={15} /> {creating ? "Importing…" : "Import document"}</button>
         <button type="button" className="templates-launch" onClick={() => setTemplateOpen(true)} disabled={creating || viewMode === "trash"}>
           <span className="templates-launch-icon" aria-hidden="true"><LayoutTemplate size={17} strokeWidth={1.8} /></span>
           <span className="templates-launch-copy"><strong>Templates</strong><small>Start with a structure</small></span>
@@ -839,7 +895,7 @@ export default function HomePage() {
         </header>
         {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError("")} aria-label="Dismiss error"><X size={15} /></button></div>}
         {active ? (
-          <CollabEditor key={active.id} documentId={active.id} initialTitle={active.title} apiBase={API} localOnly={active.local === true} readOnly={active.role === "viewer"} openingFromSheet={sheetTransitionId === active.id} openCommentsOnMount={openCommentsForId === active.id && signedIn && active.local !== true} onTitleChange={(title) => {
+          <CollabEditor key={active.id} documentId={active.id} initialTitle={active.title} initialContent={importedContent?.documentId === active.id ? importedContent.html : undefined} onInitialContentApplied={() => setImportedContent((current) => current?.documentId === active.id ? null : current)} apiBase={API} localOnly={active.local === true} readOnly={active.role === "viewer"} openingFromSheet={sheetTransitionId === active.id} openCommentsOnMount={openCommentsForId === active.id && signedIn && active.local !== true} onTitleChange={(title) => {
             setDocuments((list) => list.map((d) => (d.id === active.id ? { ...d, title } : d)));
             if (active.local) {
               const key = viewMode === "trash" ? LOCAL_TRASH_KEY : LOCAL_DOCUMENTS_KEY;
@@ -1029,7 +1085,7 @@ export default function HomePage() {
               </div>
             )}
           </div>
-        ) : filter === "all" && (documents.length === 0 || filtered.length === 0) ? (
+        ) : filter === "all" && documents.length > 0 && filtered.length === 0 ? (
           <div className="empty-state compact-empty page-transition">
             <div className="eyebrow">{search.trim() ? "SEARCH / NO RESULTS" : "DOCUMENTS"}</div>
             <h1>{search.trim() ? "No matches" : "No documents"}</h1>
@@ -1045,8 +1101,8 @@ export default function HomePage() {
                   <span>WORKSPACE / OVERVIEW</span>
                   <span className="dashboard-kicker-rule" />
                 </div>
-                <h1 className="dashboard-title">Welcome back<span className="dashboard-title-period">.</span></h1>
-                <p className="dashboard-sub">Everything you’re working on, gathered in one quiet space.</p>
+                <h1 className="dashboard-title">Your workspace<span className="dashboard-title-period">.</span></h1>
+                <p className="dashboard-sub">Your next step, in one place. Everything you need to keep moving.</p>
               </div>
               <div className="dashboard-hero-actions">
                 <div className="workspace-status"><span className="workspace-status-dot" /> Personal workspace</div>
@@ -1115,6 +1171,37 @@ export default function HomePage() {
                   <button type="button" className="workspace-stats-library-link" onClick={() => chooseDashboardFolder("all")}>View document library <ArrowUpRight size={14} /></button>
                 </aside>
               </div>
+            </section>
+
+            <GmailInbox onImportFile={handleImportFile} />
+
+            <section className="dashboard-recent" aria-labelledby="dashboard-recent-title">
+              <div className="dashboard-section-heading">
+                <div>
+                  <div className="eyebrow">RECENT / CONTINUE</div>
+                  <h2 id="dashboard-recent-title">Recently used</h2>
+                  <p>Pick up where you left off.</p>
+                </div>
+                <button type="button" className="workspace-stats-library-link" onClick={() => chooseDashboardFolder("all")}>Open library <ArrowUpRight size={14} /></button>
+              </div>
+              {documents.length === 0 ? (
+                <div className="dashboard-recent-empty">
+                  <FileText size={18} />
+                  <span>Your latest documents will appear here.</span>
+                  <button type="button" onClick={() => void createDocument()} disabled={creating}>Create your first document</button>
+                </div>
+              ) : (
+                <div className="dashboard-recent-list">
+                  {[...documents].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 6).map((doc, index) => (
+                    <button type="button" className="dashboard-recent-item" key={doc.id} onClick={() => openDocument(doc)}>
+                      <span className="dashboard-recent-index">{String(index + 1).padStart(2, "0")}</span>
+                      <span className="dashboard-recent-icon"><FileText size={16} /></span>
+                      <span className="dashboard-recent-copy"><strong>{doc.title}</strong><small>{doc.role === "owner" ? "Owned by you" : "Shared with you"} · Updated {relativeTime(doc.updated_at)}</small></span>
+                      <ArrowUpRight size={15} />
+                    </button>
+                  ))}
+                </div>
+              )}
             </section>
 
             <section className="dashboard-collections" aria-labelledby="collections-title">
