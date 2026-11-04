@@ -3935,3 +3935,56 @@ html.dark .document-annotation-resize { background: #c8c8c8; border-color: #1919
   .annotation-dialog { padding: 14px; }
   .document-annotation-entry { flex-wrap: wrap; }
 }
+
+
+/* Paper and primary actions keep deliberate contrast in both color schemes. */
+:root {
+  --button-foreground: #ffffff;
+}
+html.dark {
+  --button-foreground: #191919;
+}
+.paper,
+.paper.paper-a4,
+.paper-a4 {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  color: #252525 !important;
+  border: 1px solid #e6e6e6 !important;
+  border-radius: 3px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.045), 0 12px 36px rgba(0,0,0,.075) !important;
+}
+.paper .tiptap-editor,
+.paper .tiptap-editor p,
+.paper .tiptap-editor h1,
+.paper .tiptap-editor h2,
+.paper .tiptap-editor h3,
+.paper .tiptap-editor li {
+  color: #252525 !important;
+}
+.paper .tiptap-editor a,
+.paper .tiptap-editor .editor-link { color: #444444 !important; }
+.paper .tiptap-editor mark { background: #dedede !important; color: #252525 !important; }
+.paper .tiptap-editor pre { background: #f0f0ef !important; color: #252525 !important; }
+.paper .tiptap-editor blockquote { color: #666666 !important; border-left-color: #bdbdbd !important; }
+.document-annotation-node { color: #252525; }
+.new-doc,
+.new-doc span,
+.new-doc svg {
+  color: var(--text) !important;
+}
+.primary-button,
+.share-button,
+.dashboard-new-doc,
+.filtered-new-document,
+.primary-button span,
+.dashboard-new-doc span,
+.filtered-new-document span {
+  color: var(--button-foreground) !important;
+}
+.primary-button svg,
+.dashboard-new-doc svg,
+.filtered-new-document svg,
+.share-button svg {
+  color: var(--button-foreground) !important;
+}
