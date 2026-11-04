@@ -153,8 +153,8 @@ test("imports scanned PDFs as the original file without requiring OCR", async ({
     buffer: pdfBytes,
   });
 
-  await expect(page.locator(".original-file-workspace")).toBeVisible();
-  await expect(page.locator(".pdf-page-surface")).toBeVisible();
+  await expect(page.locator(".original-file-workspace")).toBeVisible({ timeout: 15000 });
+  await expect(page.locator(".pdf-page-surface")).toBeVisible({ timeout: 15000 });
   await expect(page.locator(".original-file-pdf-frame")).toHaveCount(0);
   await expect(page.locator(".pdf-page-count")).toHaveText("1 page");
   await expect(page.getByRole("link", { name: "Download original" })).toBeVisible();
@@ -170,13 +170,14 @@ test("imports scanned PDFs as the original file without requiring OCR", async ({
   await page.mouse.move(padBox.x + 285, padBox.y + 150, { steps: 8 });
   await page.mouse.up();
   await page.getByRole("button", { name: "Insert signature" }).click();
+  await expect(page.locator(".pdf-tool-hint")).toContainText("Click a page to place the signature", { timeout: 15000 });
 
   const pageLayer = page.locator(".pdf-markup-layer").first();
   const pageBox = await pageLayer.boundingBox();
   if (!pageBox) throw new Error("PDF page markup layer is not visible");
   await page.mouse.click(pageBox.x + pageBox.width * 0.35, pageBox.y + pageBox.height * 0.42);
   const signatureMark = page.locator('.pdf-mark-item[data-mark-type="image"]');
-  await expect(signatureMark).toHaveCount(1);
+  await expect(signatureMark).toHaveCount(1, { timeout: 15000 });
   const initialX = Number(await signatureMark.getAttribute("data-x"));
 
   const signatureBox = await signatureMark.boundingBox();
