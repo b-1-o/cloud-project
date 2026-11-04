@@ -601,7 +601,13 @@ export default function HomePage() {
     let createdDocument: DocumentItem | null = null;
     try {
       const imported = await importDocumentFile(file);
-      if (!signedIn) {
+      const accessToken = signedIn ? await getAccessToken() : null;
+      // E2E auth simulates the UI session but does not mint OAuth tokens.
+      // In that case, exercise the local IndexedDB import path instead of
+      // weakening the real authenticated upload requirement.
+      const saveLocally = !signedIn || (E2E_AUTHENTICATED && !accessToken);
+
+      if (saveLocally) {
         createdDocument = createLocalDocument(imported.title);
         if (imported.kind === "original-file") {
           await putLocalDocumentFile(createdDocument.id, file);
@@ -615,13 +621,12 @@ export default function HomePage() {
         });
         createdDocument = result.document;
         if (imported.kind === "original-file") {
-          const token = await getAccessToken();
-          if (!token && !E2E_AUTHENTICATED) throw new Error("Your sign-in expired. Sign in again before importing the original file.");
+          if (!accessToken) throw new Error("Your sign-in expired. Sign in again before importing the original file.");
           const fileHeaders: Record<string, string> = {
+            Authorization: "Bearer " + accessToken,
             "Content-Type": imported.mimeType,
             "X-File-Name": encodeURIComponent(file.name),
           };
-          if (token) fileHeaders.Authorization = "Bearer " + token;
           const uploaded = await fetch(API + "/api/documents/" + encodeURIComponent(createdDocument.id) + "/file", {
             method: "PUT",
             headers: fileHeaders,
