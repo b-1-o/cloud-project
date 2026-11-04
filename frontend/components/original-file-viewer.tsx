@@ -4,16 +4,10 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPoi
 import {
   ArrowDownToLine,
   Check,
-  ChevronDown,
   FileText,
-  Minus,
   PenLine,
-  Plus,
-  Redo2,
-  RotateCcw,
   Save,
   Type,
-  Undo2,
   X,
   ZoomIn,
   ZoomOut,
@@ -32,10 +26,11 @@ type Props = {
 };
 
 type Point = { x: number; y: number };
-type PdfMark =
-  | { id: string; type: "draw"; page: number; points: Point[] }
-  | { id: string; type: "text"; page: number; x: number; y: number; text: string }
-  | { id: string; type: "signature"; page: number; x: number; y: number; dataUrl: string };
+type NewPdfMark =
+  | { type: "draw"; page: number; points: Point[] }
+  | { type: "text"; page: number; x: number; y: number; text: string }
+  | { type: "signature"; page: number; x: number; y: number; dataUrl: string };
+type PdfMark = NewPdfMark & { id: string };
 type PdfTool = "select" | "draw" | "text" | "signature";
 
 function dataUrlToBytes(dataUrl: string): Uint8Array {
@@ -248,8 +243,9 @@ export function OriginalFileViewer({ title, fileName, mimeType, size, src, onSav
         const response = await fetch(sourceUrl);
         if (!response.ok) throw new Error("The PDF file could not be read.");
         const bytes = await response.arrayBuffer();
-        loadingTask = pdfjs.getDocument({ data: new Uint8Array(bytes) }) as typeof loadingTask;
-        const document = await loadingTask.promise;
+        const task = pdfjs.getDocument({ data: new Uint8Array(bytes) });
+        loadingTask = task;
+        const document = await task.promise;
         if (cancelled) {
           await document.destroy();
           return;
@@ -273,7 +269,7 @@ export function OriginalFileViewer({ title, fileName, mimeType, size, src, onSav
     if (localUrlRef.current) URL.revokeObjectURL(localUrlRef.current);
   }, []);
 
-  const addMark = useCallback((mark: Omit<PdfMark, "id">) => {
+  const addMark = useCallback((mark: NewPdfMark) => {
     nextMarkId.current += 1;
     setMarks((current) => [...current, { ...mark, id: "mark-" + nextMarkId.current } as PdfMark]);
     setSaved(false);
