@@ -48,7 +48,7 @@ function response(request: Request, env: Env, value: unknown, status = 200): Res
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
     "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "GET,POST,PATCH,DELETE,OPTIONS",
+    "Access-Control-Allow-Methods": "GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type,Authorization,Idempotency-Key,X-File-Name",
     "Access-Control-Expose-Headers": "Content-Disposition,Content-Length,X-Document-File-Name,X-Document-File-Updated",
     "Vary": "Origin"
@@ -195,7 +195,7 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: {
       "Access-Control-Allow-Origin": env.FRONTEND_ORIGIN || "*",
-      "Access-Control-Allow-Methods": "GET,POST,PATCH,DELETE,OPTIONS",
+      "Access-Control-Allow-Methods": "GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type,Authorization,Idempotency-Key,X-File-Name",
       "Access-Control-Expose-Headers": "Content-Disposition,Content-Length,X-Document-File-Name,X-Document-File-Updated",
       "Access-Control-Max-Age": "86400",
