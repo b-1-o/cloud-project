@@ -259,10 +259,13 @@ async function route(request: Request, env: Env): Promise<Response> {
 
       let fileName = request.headers.get("X-File-Name") || "document";
       try { fileName = decodeURIComponent(fileName); } catch { throw new HttpError(400, "Invalid file name"); }
-      fileName = fileName.split(/[\\\\/]/).pop()?.replace(/[\\x00-\\x1f\\x7f]/g, "_").trim() || "document";
+      fileName = fileName.replaceAll("\\", "/").split("/").pop()?.trim() || "document";
+      fileName = Array.from(fileName).map((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127 ? "_" : character).join("");
       if (fileName.length > 220) throw new HttpError(400, "File name is too long");
       const incomingType = request.headers.get("Content-Type") || "application/octet-stream";
-      const mimeType = /^[a-zA-Z0-9.+-]+\\/[a-zA-Z0-9.+-]+$/.test(incomingType) ? incomingType : "application/octet-stream";
+      const mediaType = incomingType.split(";")[0].trim();
+      const mimeParts = mediaType.split("/");
+      const mimeType = mimeParts.length === 2 && mimeParts.every((part) => /^[a-zA-Z0-9.+-]+$/.test(part)) ? mediaType : "application/octet-stream";
       headers.set("Content-Type", mimeType);
       headers.set("X-File-Name", fileName);
       const upstream = await roomFor(env, documentId).fetch(new Request(internalUrl.toString(), {
