@@ -49,7 +49,8 @@ function response(request: Request, env: Env, value: unknown, status = 200): Res
     "Cache-Control": "no-store",
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET,POST,PATCH,DELETE,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type,Authorization,Idempotency-Key",
+    "Access-Control-Allow-Headers": "Content-Type,Authorization,Idempotency-Key,X-File-Name",
+    "Access-Control-Expose-Headers": "Content-Disposition,Content-Length,X-Document-File-Name,X-Document-File-Updated",
     "Vary": "Origin"
   });
   return new Response(JSON.stringify(value), { status, headers });
@@ -175,6 +176,19 @@ function roomFor(env: Env, documentId: string) {
   return env.DOC_ROOMS.get(env.DOC_ROOMS.idFromName(documentId));
 }
 
+const MAX_DOCUMENT_FILE_SIZE = 30 * 1024 * 1024;
+
+function withFileCors(request: Request, env: Env, upstream: Response): Response {
+  const headers = new Headers(upstream.headers);
+  headers.set("Access-Control-Allow-Origin", env.FRONTEND_ORIGIN || "*");
+  headers.set("Access-Control-Allow-Methods", "GET,HEAD,PUT,DELETE,OPTIONS");
+  headers.set("Access-Control-Allow-Headers", "Content-Type,Authorization,Idempotency-Key,X-File-Name");
+  headers.set("Access-Control-Expose-Headers", "Content-Disposition,Content-Length,X-Document-File-Name,X-Document-File-Updated");
+  headers.set("Cache-Control", "private, no-store");
+  headers.set("Vary", "Origin");
+  return new Response(upstream.body, { status: upstream.status, statusText: upstream.statusText, headers });
+}
+
 async function route(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const parts = url.pathname.split("/").filter(Boolean);
@@ -182,7 +196,8 @@ async function route(request: Request, env: Env): Promise<Response> {
     return new Response(null, { status: 204, headers: {
       "Access-Control-Allow-Origin": env.FRONTEND_ORIGIN || "*",
       "Access-Control-Allow-Methods": "GET,POST,PATCH,DELETE,OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type,Authorization,Idempotency-Key",
+      "Access-Control-Allow-Headers": "Content-Type,Authorization,Idempotency-Key,X-File-Name",
+      "Access-Control-Expose-Headers": "Content-Disposition,Content-Length,X-Document-File-Name,X-Document-File-Updated",
       "Access-Control-Max-Age": "86400",
       "Vary": "Origin"
     }});
@@ -219,6 +234,53 @@ async function route(request: Request, env: Env): Promise<Response> {
 
   const identity = await authenticate(request, env);
   await ensureIdentity(env, identity);
+
+  if (parts.length === 4 && parts[1] === "documents" && parts[2] && parts[3] === "file" &&
+      ["GET", "HEAD", "PUT", "DELETE"].includes(request.method)) {
+    const documentId = parts[2];
+    const role = await roleForDocument(env, documentId, identity.id);
+    if (!role) throw new HttpError(404, "Document not found");
+    if ((request.method === "GET" || request.method === "HEAD") && !canRead(role)) {
+      throw new HttpError(403, "You do not have access to this document");
+    }
+    if ((request.method === "PUT" || request.method === "DELETE") && !canEdit(role)) {
+      throw new HttpError(403, "You cannot change this document");
+    }
+
+    const internalUrl = new URL("https://do/__file");
+    internalUrl.searchParams.set("documentId", documentId);
+    const headers = new Headers();
+    if (request.method === "PUT") {
+      const declaredLength = Number(request.headers.get("Content-Length") || 0);
+      if (declaredLength > MAX_DOCUMENT_FILE_SIZE) throw new HttpError(413, "Files must be 30 MB or smaller");
+      const bytes = await request.arrayBuffer();
+      if (bytes.byteLength === 0) throw new HttpError(400, "The file is empty");
+      if (bytes.byteLength > MAX_DOCUMENT_FILE_SIZE) throw new HttpError(413, "Files must be 30 MB or smaller");
+
+      let fileName = request.headers.get("X-File-Name") || "document";
+      try { fileName = decodeURIComponent(fileName); } catch { throw new HttpError(400, "Invalid file name"); }
+      fileName = fileName.split(/[\\\\/]/).pop()?.replace(/[\\x00-\\x1f\\x7f]/g, "_").trim() || "document";
+      if (fileName.length > 220) throw new HttpError(400, "File name is too long");
+      const incomingType = request.headers.get("Content-Type") || "application/octet-stream";
+      const mimeType = /^[a-zA-Z0-9.+-]+\\/[a-zA-Z0-9.+-]+$/.test(incomingType) ? incomingType : "application/octet-stream";
+      headers.set("Content-Type", mimeType);
+      headers.set("X-File-Name", fileName);
+      const upstream = await roomFor(env, documentId).fetch(new Request(internalUrl.toString(), {
+        method: "PUT",
+        headers,
+        body: bytes
+      }));
+      if (!upstream.ok) throw new HttpError(upstream.status, await upstream.text().catch(() => "Could not store the original file"));
+      await env.DB.prepare("UPDATE documents SET updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(documentId).run();
+      return withFileCors(request, env, upstream);
+    }
+
+    const upstream = await roomFor(env, documentId).fetch(new Request(internalUrl.toString(), { method: request.method }));
+    if (request.method === "DELETE" && upstream.ok) {
+      await env.DB.prepare("UPDATE documents SET updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(documentId).run();
+    }
+    return withFileCors(request, env, upstream);
+  }
 
   if (parts.length === 3 && parts[1] === "calendar" && parts[2] === "events" && request.method === "GET") {
     const fromRaw = url.searchParams.get("from");
