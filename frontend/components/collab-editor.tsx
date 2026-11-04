@@ -107,7 +107,7 @@ export function CollabEditor({
         Collaboration.configure({ document: doc }),
       ],
       editorProps: {
-        attributes: { class: "tiptap-editor", "aria-label": "Document editor" },
+        attributes: { class: "tiptap-editor", "aria-label": "Document editor", spellcheck: "true" },
         handleKeyDown: (_view, event) => {
           if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "f") {
             event.preventDefault();
@@ -707,7 +707,7 @@ export function CollabEditor({
             <section className="editor-tool-section">
               <div className="editor-tool-section-title"><Download size={14} /> Export</div>
               <button type="button" className="editor-tool-row" onClick={exportPdf}><FileText size={15} /><span>Save as PDF</span></button>
-              <button type="button" className="editor-tool-row" onClick={exportDocxLike}><Download size={15} /><span>Word document (.doc)</span></button>
+              <button type="button" className="editor-tool-row" onClick={exportDocxLike}><Download size={15} /><span>Word-compatible file (.doc)</span></button>
               <button type="button" className="editor-tool-row" onClick={exportHtml}><Download size={15} /><span>HTML file</span></button>
               <button type="button" className="editor-tool-row" onClick={exportMarkdown}><Download size={15} /><span>Markdown file</span></button>
             </section>
