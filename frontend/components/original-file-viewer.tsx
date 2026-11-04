@@ -106,7 +106,7 @@ function PdfPage({
         context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
         context.fillStyle = "#ffffff";
         context.fillRect(0, 0, viewport.width, viewport.height);
-        renderTask = page.render({ canvasContext: context, viewport });
+        renderTask = page.render({ canvas, canvasContext: context, viewport });
         await renderTask.promise;
       } catch (error) {
         if (!cancelled && !(error instanceof Error && error.name === "RenderingCancelledException")) {
@@ -247,7 +247,7 @@ export function OriginalFileViewer({ title, fileName, mimeType, size, src, onSav
         loadingTask = task;
         const document = await task.promise;
         if (cancelled) {
-          await document.destroy();
+          await task.destroy();
           return;
         }
         setPdf(document);
