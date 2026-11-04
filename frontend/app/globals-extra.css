@@ -2970,3 +2970,115 @@ html.dark .theme-moon-icon {
 .privacy-content section h2 svg { color:var(--accent); }
 .privacy-content section p { max-width:72ch; margin:9px 0; color:var(--text-muted); font-size:12px; line-height:1.8; }
 .privacy-disclaimer { margin-top:32px; padding:13px 15px; border:1px solid var(--glass-border-soft); border-radius:12px; background:var(--glass-1); color:var(--text-muted); font-size:10px; line-height:1.65; }
+
+
+/* Sidebar navigation: Workspace Hub is a separate destination, not the home canvas. */
+button.workspace-pill {
+  width:100%;
+  border:1px solid transparent;
+  color:var(--text);
+  font:inherit;
+  text-align:left;
+  cursor:pointer;
+  transition:background .18s ease,border-color .18s ease,color .18s ease,transform .18s ease;
+}
+button.workspace-pill:hover {
+  border-color:var(--glass-border-soft);
+  background:var(--glass-2);
+}
+button.workspace-pill:focus-visible {
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+}
+.workspace-hub-nav {
+  justify-content:flex-start;
+  margin-bottom:5px;
+  background:linear-gradient(120deg,color-mix(in srgb,var(--accent) 13%,var(--glass-2)),var(--glass-1));
+}
+.workspace-hub-nav.is-active {
+  border-color:color-mix(in srgb,var(--accent) 35%,var(--glass-border-soft));
+  background:var(--accent-soft);
+  color:var(--text);
+}
+.workspace-hub-nav-index {
+  margin-left:auto;
+  color:var(--accent);
+  font-size:9px;
+  font-weight:760;
+  letter-spacing:.9px;
+}
+.personal-workspace-nav {
+  margin-bottom:12px;
+  border-color:var(--glass-border-soft) !important;
+  background:var(--glass-1);
+  color:var(--text-muted);
+}
+.personal-workspace-nav.is-active {
+  border-color:color-mix(in srgb,var(--accent) 30%,var(--glass-border-soft)) !important;
+  background:var(--glass-2);
+  color:var(--text);
+}
+
+/* Original binary documents stay as files; the viewer does not rewrite their source bytes. */
+.original-file-workspace {
+  display:flex;
+  min-height:calc(100vh - 92px);
+  flex-direction:column;
+  gap:14px;
+  padding:20px clamp(14px,2vw,28px) 28px;
+  animation:workspaceSectionEnter .3s cubic-bezier(.22,1,.36,1) both;
+}
+.original-file-toolbar {
+  display:flex;
+  min-width:0;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:12px 14px;
+  border:1px solid var(--glass-border-soft);
+  border-radius:15px;
+  background:var(--glass-2);
+  box-shadow:inset 0 1px 0 var(--glass-highlight),var(--shadow);
+  backdrop-filter:var(--blur-2);
+  -webkit-backdrop-filter:var(--blur-2);
+}
+.original-file-heading { display:flex; min-width:0; align-items:center; gap:11px; }
+.original-file-icon {
+  display:grid; flex:0 0 38px; width:38px; height:38px; place-items:center;
+  border:1px solid var(--glass-border-soft); border-radius:11px;
+  background:var(--accent-soft); color:var(--accent);
+}
+.original-file-copy { display:flex; min-width:0; flex-direction:column; gap:4px; }
+.original-file-copy strong { overflow:hidden; color:var(--text); font-size:12px; font-weight:720; text-overflow:ellipsis; white-space:nowrap; }
+.original-file-copy small { overflow:hidden; color:var(--text-muted); font-size:9px; text-overflow:ellipsis; white-space:nowrap; }
+.original-file-actions { display:flex; flex:0 0 auto; align-items:center; justify-content:flex-end; gap:7px; flex-wrap:wrap; }
+.original-file-action {
+  display:inline-flex; min-height:34px; align-items:center; justify-content:center; gap:7px;
+  padding:0 10px; border:1px solid var(--glass-border-soft); border-radius:9px;
+  background:var(--glass-1); color:var(--text-muted); font-size:9px; font-weight:680;
+  text-decoration:none; cursor:pointer;
+}
+.original-file-action:hover { border-color:var(--glass-border); background:var(--glass-2); color:var(--text); }
+.original-file-action svg { flex:0 0 auto; color:var(--accent); }
+.original-file-stage {
+  display:flex; min-height:0; flex:1; overflow:hidden;
+  border:1px solid var(--glass-border-soft); border-radius:15px;
+  background:color-mix(in srgb,var(--glass-1) 88%,#777);
+  box-shadow:inset 0 1px 0 var(--glass-highlight),var(--shadow);
+}
+.original-file-pdf-frame { display:block; width:100%; min-height:calc(100vh - 205px); flex:1; border:0; background:#353535; }
+.original-file-image-stage { display:grid; width:100%; min-height:60vh; place-items:center; overflow:auto; padding:25px; }
+.original-file-image-stage img { display:block; max-width:100%; max-height:calc(100vh - 250px); object-fit:contain; border-radius:6px; box-shadow:0 10px 38px rgba(0,0,0,.18); }
+.original-file-unsupported { display:flex; width:min(100%,520px); min-height:360px; flex-direction:column; align-items:center; justify-content:center; gap:12px; margin:auto; padding:35px; text-align:center; }
+.original-file-unsupported>span { display:grid; width:54px; height:54px; place-items:center; border:1px solid var(--glass-border-soft); border-radius:16px; background:var(--accent-soft); color:var(--accent); }
+.original-file-unsupported h2 { margin:0; color:var(--text); font-size:17px; letter-spacing:-.4px; }
+.original-file-unsupported p { max-width:42ch; margin:0 0 6px; color:var(--text-muted); font-size:11px; line-height:1.7; }
+.original-file-unsupported .primary-button { display:inline-flex; align-items:center; gap:8px; }
+.original-file-loading { display:flex; min-height:45vh; align-items:center; justify-content:center; gap:10px; color:var(--text-muted); font-size:12px; }
+@media (max-width:720px) {
+  .original-file-workspace { min-height:calc(100vh - 72px); padding:12px 10px 18px; }
+  .original-file-toolbar { align-items:flex-start; flex-direction:column; }
+  .original-file-actions { width:100%; justify-content:flex-start; }
+  .original-file-pdf-frame { min-height:calc(100vh - 245px); }
+  .original-file-image-stage { padding:12px; }
+}
