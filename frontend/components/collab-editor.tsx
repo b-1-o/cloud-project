@@ -20,6 +20,7 @@ import { SlashMenu } from "@/components/slash-menu";
 type Props = {
   documentId: string;
   initialTitle: string;
+  initialContent?: string;
   apiBase: string;
   localOnly?: boolean;
   readOnly?: boolean;
@@ -52,6 +53,7 @@ function decode(value: string) {
 export function CollabEditor({
   documentId,
   initialTitle,
+  initialContent,
   apiBase,
   localOnly = false,
   readOnly = false,
@@ -81,6 +83,7 @@ export function CollabEditor({
   const [versionsLoading, setVersionsLoading] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const importedContentApplied = useRef(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const editor = useEditor(
@@ -137,6 +140,12 @@ export function CollabEditor({
     },
     [doc, readOnly]
   );
+
+  useEffect(() => {
+    if (!editor || !initialContent || importedContentApplied.current || readOnly) return;
+    importedContentApplied.current = true;
+    editor.commands.setContent(initialContent);
+  }, [editor, initialContent, readOnly]);
 
   useEffect(() => {
     if (!openingFromSheet) return;
