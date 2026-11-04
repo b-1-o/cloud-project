@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Code2, Download, FileText, Highlighter, History, List, ListOrdered, ListTodo, MessageCircle, Minus, PenLine, Quote, Redo2, Search, Type, Undo2, X } from "lucide-react";
+import { CheckSquare, Circle, Code2, Download, Eraser, FileText, Highlighter, History, ImagePlus, List, ListOrdered, ListTodo, MessageCircle, MessageSquare, Minus, PenLine, Quote, Redo2, Search, Square, Type, Undo2, X } from "lucide-react";
 import { BubbleMenu, EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Collaboration from "@tiptap/extension-collaboration";
@@ -18,6 +18,8 @@ import { getAccessToken } from "@/lib/auth";
 import { IndexeddbPersistence } from "y-indexeddb";
 import { SlashMenu } from "@/components/slash-menu";
 import { SignatureDialog } from "@/components/signature-dialog";
+import { DocumentAnnotation } from "@/components/document-annotation";
+import { AnnotationDrawingDialog } from "@/components/annotation-drawing-dialog";
 
 type Props = {
   documentId: string;
@@ -88,6 +90,10 @@ export function CollabEditor({
   const [versionsLoading, setVersionsLoading] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [signatureOpen, setSignatureOpen] = useState(false);
+  const [drawingMode, setDrawingMode] = useState<"draw" | "highlight" | null>(null);
+  const [annotationTextKind, setAnnotationTextKind] = useState<"text" | "comment" | null>(null);
+  const [annotationText, setAnnotationText] = useState("");
+  const annotationImageInput = useRef<HTMLInputElement>(null);
   const importedContentApplied = useRef(false);
   const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -102,6 +108,7 @@ export function CollabEditor({
         Link.configure({ openOnClick: false, HTMLAttributes: { class: "editor-link" } }),
         Highlight.configure({ multicolor: false }),
         Image.configure({ inline: false, allowBase64: true }),
+        DocumentAnnotation,
         Placeholder.configure({ placeholder: "Type / for commands, or start writing…" }),
         TaskList,
         TaskItem.configure({ nested: true }),
@@ -395,6 +402,54 @@ export function CollabEditor({
     }, 350);
   }
 
+  function insertAnnotation(attrs: Record<string, string | number | boolean>) {
+    if (!editor || readOnly) return;
+    editor.chain().focus().insertContent({ type: "documentAnnotation", attrs }).run();
+  }
+
+  function openAnnotationText(kind: "text" | "comment") {
+    if (readOnly) return;
+    setAnnotationTextKind(kind);
+    setAnnotationText("");
+  }
+
+  function insertAnnotationText() {
+    const text = annotationText.trim();
+    if (!text || !annotationTextKind) return;
+    insertAnnotation({
+      kind: annotationTextKind,
+      text,
+      width: annotationTextKind === "comment" ? 340 : 320,
+      height: annotationTextKind === "comment" ? 136 : 64,
+      color: "#444444",
+    });
+    setAnnotationText("");
+    setAnnotationTextKind(null);
+    toast.success(annotationTextKind === "comment" ? "Note inserted" : "Text inserted");
+  }
+
+  function handleAnnotationImage(file?: File) {
+    if (!file) return;
+    if (file.type !== "image/png" && file.type !== "image/jpeg") {
+      toast.error("Choose a PNG or JPEG image.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== "string") return;
+      insertAnnotation({
+        kind: "image",
+        dataUrl: reader.result,
+        mimeType: file.type,
+        width: 360,
+        height: 240,
+      });
+      toast.success("Image inserted");
+    };
+    reader.onerror = () => toast.error("The selected image could not be read.");
+    reader.readAsDataURL(file);
+  }
+
   function safeName() {
     return (title || "document").replace(/[^\w\s-]/g, "").trim() || "document";
   }
@@ -675,6 +730,39 @@ export function CollabEditor({
           </div>
         </div>
       )}
+      {!focusMode && (
+        <div className="editor-annotation-toolbar" role="toolbar" aria-label="Document annotations">
+          <div className="editor-annotation-group">
+            <span className="editor-annotation-label">ANNOTATE</span>
+            <button type="button" className="annotation-tool-button" onClick={() => setDrawingMode("draw")} disabled={readOnly} aria-label="Draw annotation" title="Freehand drawing"><PenLine size={15} /><span>Draw</span></button>
+            <button type="button" className="annotation-tool-button" onClick={() => setDrawingMode("highlight")} disabled={readOnly} aria-label="Highlight annotation" title="Freehand highlight"><Highlighter size={15} /><span>Highlight</span></button>
+            <button type="button" className="annotation-tool-button" onClick={() => setSignatureOpen(true)} disabled={readOnly} aria-label="Insert signature" title="Create and insert a signature"><PenLine size={15} /><span>Signature</span></button>
+            <button type="button" className="annotation-tool-button" onClick={() => openAnnotationText("text")} disabled={readOnly} aria-label="Insert text annotation" title="Insert movable text"><Type size={15} /><span>Text</span></button>
+            <button type="button" className="annotation-tool-button" onClick={() => insertAnnotation({ kind: "checkbox", checked: false, text: "Checklist item", width: 300, height: 48, color: "#444444" })} disabled={readOnly} aria-label="Insert checkbox" title="Insert checkbox"><CheckSquare size={15} /><span>Checkbox</span></button>
+            <button type="button" className="annotation-tool-button" onClick={() => insertAnnotation({ kind: "shape", shape: "rectangle", width: 280, height: 120, color: "#555555" })} disabled={readOnly} aria-label="Insert rectangle" title="Insert rectangle"><Square size={15} /><span>Rectangle</span></button>
+            <button type="button" className="annotation-tool-button" onClick={() => insertAnnotation({ kind: "shape", shape: "ellipse", width: 260, height: 120, color: "#555555" })} disabled={readOnly} aria-label="Insert ellipse" title="Insert ellipse"><Circle size={15} /><span>Ellipse</span></button>
+            <button type="button" className="annotation-tool-button" onClick={() => insertAnnotation({ kind: "shape", shape: "line", width: 280, height: 56, color: "#555555" })} disabled={readOnly} aria-label="Insert line" title="Insert line"><Minus size={15} /><span>Line</span></button>
+            <button type="button" className="annotation-tool-button" onClick={() => openAnnotationText("comment")} disabled={readOnly} aria-label="Insert comment note" title="Insert sticky note"><MessageSquare size={15} /><span>Note</span></button>
+            <button type="button" className="annotation-tool-button" onClick={() => annotationImageInput.current?.click()} disabled={readOnly} aria-label="Insert image annotation" title="Insert image"><ImagePlus size={15} /><span>Image</span></button>
+            <button type="button" className="annotation-tool-button is-danger" onClick={() => editor?.chain().focus().deleteSelection().run()} disabled={readOnly || !editor?.isActive("documentAnnotation")} aria-label="Delete selected annotation" title="Delete selected annotation"><Eraser size={15} /><span>Delete</span></button>
+            <input ref={annotationImageInput} type="file" accept="image/png,image/jpeg" hidden onChange={(event) => { handleAnnotationImage(event.target.files?.[0]); event.currentTarget.value = ""; }} />
+          </div>
+        </div>
+      )}
+      {annotationTextKind && !focusMode && (
+        <form className="document-annotation-entry" onSubmit={(event) => { event.preventDefault(); insertAnnotationText(); }}>
+          <input
+            autoFocus
+            aria-label={annotationTextKind === "comment" ? "New note text" : "New annotation text"}
+            placeholder={annotationTextKind === "comment" ? "Write a note for this document…" : "Type the text to insert…"}
+            value={annotationText}
+            onChange={(event) => setAnnotationText(event.target.value)}
+            onKeyDown={(event) => { if (event.key === "Escape") setAnnotationTextKind(null); }}
+          />
+          <button type="submit" className="annotation-entry-insert" disabled={!annotationText.trim()}>Insert</button>
+          <button type="button" className="annotation-entry-cancel" onClick={() => setAnnotationTextKind(null)}>Cancel</button>
+        </form>
+      )}
       {focusMode && (
         <button type="button" className="focus-exit" onClick={() => setFocusMode(false)}>Exit focus mode</button>
       )}
@@ -724,7 +812,8 @@ export function CollabEditor({
           </aside>
         )}
       </div>
-      {signatureOpen && <SignatureDialog onClose={() => setSignatureOpen(false)} onInsert={(src) => { editor?.chain().focus().setImage({ src, alt: "Signature" }).run(); setSignatureOpen(false); toast.success("Signature inserted"); }} />}
+      {signatureOpen && <SignatureDialog onClose={() => setSignatureOpen(false)} onInsert={(src) => { insertAnnotation({ kind: "signature", dataUrl: src, mimeType: "image/png", width: 320, height: 108 }); setSignatureOpen(false); toast.success("Signature inserted"); }} />}
+      {drawingMode && <AnnotationDrawingDialog mode={drawingMode} onClose={() => setDrawingMode(null)} onInsert={(src) => { insertAnnotation({ kind: drawingMode, dataUrl: src, mimeType: "image/png", width: drawingMode === "highlight" ? 460 : 320, height: drawingMode === "highlight" ? 172 : 120 }); setDrawingMode(null); toast.success(drawingMode === "highlight" ? "Highlight inserted" : "Drawing inserted"); }} />}
       <SlashMenu editor={editor} open={slashOpen && !readOnly} query={slashQuery} position={slashPos} onClose={() => { setSlashOpen(false); setSlashQuery(""); }} />
       {findOpen && (
         <div className="find-bar" role="search">
