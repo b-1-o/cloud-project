@@ -41,6 +41,33 @@ JWTs are verified against configured remote JWKS, issuer, and audience. Producti
 
 The local demo identity is not suitable for public deployments. Configure the OIDC provider using docs/AUTH.md before inviting external users. Free plans have quotas and limits that can change. Targets such as availability >= 99.5%, API p95 < 300 ms, sync lag < 500 ms, and error rate < 1% are SLO intentions, not measured results. A Grafana dashboard exists, but custom metrics are not yet being exported. No Sentry project, measured load-test result, or published application deployment is claimed until verified.
 
+
+## Workspace product features
+
+- The Workspace Hub is the default home view, including shared documents, discussion, calendar, project briefs, recent edits, a live library summary, and a recently used list.
+- The document inspector stays visible beside the page with formatting, review, signature, and export controls.
+- Import runs in the browser and creates a new editable document without replacing an existing one. Supported content extraction includes DOCX/DOCM, ODT/ODS/ODP, XLSX/XLSM, PPTX/PPTM, RTF, selectable-text PDF, HTML, Markdown, EPUB, TXT, CSV, TSV, JSON, XML, LOG, YAML, and YML. Imports are limited to 30 MB and 1.8 MB of extracted content per document.
+- Imported documents are editable text/rich-text representations. The importer does not preserve every page layout, image, chart, formula, animation, font, or embedded object. Scanned PDFs need OCR; legacy binary DOC/XLS/PPT and Apple iWork formats need conversion before import. This is not yet a native-fidelity replacement for Word, Excel, PowerPoint, or a PDF annotation suite.
+- Hand-drawn signatures can be inserted at the current editor cursor. A touch screen or stylus supports direct drawing; a standard laptop trackpad uses the browser's press-and-drag pointer input.
+
+## Gmail attachment inbox
+
+The optional **New from Gmail** panel uses Google's browser Identity Services token client and the Gmail API. It requests only `https://www.googleapis.com/auth/gmail.readonly`, lists recent messages with attachments, and downloads an attachment only after the user selects it. Access tokens are held in page memory and are not sent to the CollabDocs Worker. Imported text then follows the normal document storage and collaboration path. Disconnecting clears the in-page token; reloading the page requires reconnecting.
+
+To configure the integration:
+
+1. Create a Google Cloud project and enable the Gmail API.
+2. Create an OAuth Client ID for a Web application.
+3. Add the CollabDocs site origin and your local development origin (for example, `http://localhost:3000`) to Authorized JavaScript origins.
+4. Configure the OAuth consent screen and add your own account as a test user while developing.
+5. Set `NEXT_PUBLIC_GOOGLE_CLIENT_ID` in the frontend environment and the Cloudflare Pages build environment, then rebuild the frontend.
+
+Google classifies `gmail.readonly` as a restricted scope. Public release may require Google's restricted-scope verification and, depending on how Gmail-derived content is handled, additional security review. Do not advertise Gmail integration as production-ready until the relevant Google review and privacy requirements are completed. See Google's [Gmail API scope guide](https://developers.google.com/workspace/gmail/api/auth/scopes) and [restricted-scope verification requirements](https://developers.google.com/identity/protocols/oauth2/production-readiness/restricted-scope-verification).
+
+## Privacy
+
+See [the CollabDocs privacy notice](/privacy) for details about local documents, workspace storage, Gmail access, and imported files.
+
 ## Trade-offs
 
 Yjs CRDTs handle concurrent and offline edits without a central transform pipeline, at the cost of extra metadata and compaction needs. Durable Objects coordinate each room without a separate Redis cluster. D1 owns product metadata; Neon is optional analytics only. The current portfolio setup keeps the latest compacted snapshot in Durable Object SQLite. KV is a short-lived cache, not an authorization source.
