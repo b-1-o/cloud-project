@@ -29,8 +29,9 @@ test("creates a document and exposes the editor toolbar", async ({ page }) => {
   });
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /make room for\s+good ideas/i })).toBeVisible();
-  await page.getByRole("button", { name: /create document/i }).click();
+  await expect(page.getByRole("heading", { name: /recently used/i })).toBeVisible();
+  await expect(page.locator(".workspace-hub-section")).toHaveCount(0);
+  await page.locator(".new-doc").first().click();
   await expect(page.getByRole("textbox", { name: "Document title" })).toHaveValue("Untitled document");
   await expect(page.getByRole("button", { name: "Bold" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Heading 1" })).toBeVisible();
@@ -73,24 +74,47 @@ test("shows live workspace statistics and working smart folders", async ({ page 
   });
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /recently used/i })).toBeVisible();
+  await expect(page.locator(".workspace-hub-section")).toHaveCount(0);
+  await expect(page.locator(".dashboard-recent-item").filter({ hasText: "Product notes" })).toHaveCount(1);
+
+  await page.locator(".workspace-hub-nav").click();
   await expect(page.getByRole("heading", { name: /workspace hub/i })).toBeVisible();
+  await expect(page.locator(".workspace-hub-section")).toBeVisible();
+  await expect(page.locator(".workspace-stats-sidebar")).toBeVisible();
+  await expect(page.locator(".workspace-stats-sidebar")).toContainText("Workspace pulse");
+
+  await page.locator(".personal-workspace-nav").click();
+  await expect(page.getByRole("heading", { name: /recently used/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /all documents/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /favorites/i })).toBeVisible();
   await expect(page.locator(".smart-folder-card .folder-root")).toHaveCount(4);
   await expect(page.getByRole("heading", { name: /quick actions/i })).toBeVisible();
-  await expect(page.locator(".workspace-stats-sidebar")).toBeVisible();
-  await expect(page.locator(".workspace-stats-sidebar")).toContainText("Workspace pulse");
   await expect(page.locator(".smart-folder-card .folder-doc-text").filter({ hasText: "Product notes" })).toHaveCount(2);
 
   await page.getByRole("button", { name: /favorites folder/i }).click();
-  await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /recently used/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: /quick actions/i })).toBeVisible();
   await expect(page.locator(".smart-folder-card .folder-root[data-open]")).toHaveCount(1);
 
   await page.locator(".workspace-action-card").filter({ hasText: "Templates" }).click();
   await expect(page.getByRole("dialog")).toContainText("Start from a template");
   await expect(page.locator(".template-option-icon svg")).toHaveCount(4);
+});
+
+
+test("imports scanned PDFs as the original file without requiring OCR", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('input[type="file"][aria-label="Choose a document to import"]').setInputFiles({
+    name: "scanned-contract.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.4\\n% scanned test PDF\\n%%EOF", "utf8"),
+  });
+
+  await expect(page.locator(".original-file-workspace")).toBeVisible();
+  await expect(page.locator(".original-file-copy")).toContainText("scanned-contract.pdf");
+  await expect(page.locator(".original-file-pdf-frame")).toHaveAttribute("src", /^blob:/);
+  await expect(page.getByRole("link", { name: /download original/i })).toBeVisible();
 });
 
 test("requires a continuous hold before moving a document to trash", async ({ page }) => {
@@ -168,6 +192,7 @@ test("calendar opens a real navigable month grid", async ({ page }) => {
   });
 
   await page.goto("/");
+  await page.locator(".workspace-hub-nav").click();
   await page.locator(".workspace-hub-card.hub-calendar").click();
   await expect(page.locator(".workspace-calendar-grid")).toBeVisible();
   await expect(page.locator(".workspace-calendar-day")).toHaveCount(42);
@@ -212,6 +237,7 @@ test("calendar creates events with reminders, links, email, and a document attac
   });
 
   await page.goto("/");
+  await page.locator(".workspace-hub-nav").click();
   await page.locator(".workspace-hub-card.hub-calendar").click();
   await page.getByRole("button", { name: /new event/i }).click();
   await page.getByRole("textbox", { name: "Event title" }).fill("Planning session");
@@ -244,6 +270,7 @@ test("workspace comments shortcut opens a real document comments panel", async (
   });
 
   await page.goto("/");
+  await page.locator(".workspace-hub-nav").click();
   await page.getByTestId("workspace-hub-comments").click();
   await expect(page.getByRole("complementary", { name: "Comments" })).toBeVisible();
   await expect(page.getByText("No comments yet.")).toBeVisible();
@@ -262,7 +289,7 @@ test("clicking a sheet opens its document without navigating on folder open", as
   });
   await page.goto("/");
   await page.getByRole("button", { name: "All documents folder" }).click();
-  await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /recently used/i })).toBeVisible();
   await expect(page.locator(".smart-folder-card .folder-root[data-open]")).toHaveCount(1);
   await expect(page.getByRole("textbox", { name: "Document title" })).toHaveCount(0);
   await page.locator(".smart-folder-card .folder-root[data-open] .folder-item").first().click();
@@ -287,11 +314,11 @@ test("workspace breadcrumbs and quick navigation leave the active document", asy
   });
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /recently used/i })).toBeVisible();
   await page.locator(".document-item").filter({ hasText: "Navigation test document" }).locator(".document-link").click();
   await expect(page.getByRole("textbox", { name: "Document title" })).toHaveValue("Navigation test document");
   await page.locator(".workspace-nav").getByRole("button", { name: "All" }).click();
-  await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /recently used/i })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Document title" })).toHaveCount(0);
   await expect(page).not.toHaveURL(/doc=e2e-navigation-doc/);
 });
@@ -358,6 +385,7 @@ test("read-only document viewers can still post comments", async ({ page }) => {
   });
 
   await page.goto("/");
+  await page.locator(".workspace-hub-nav").click();
   await page.getByTestId("workspace-hub-comments").click();
   await expect(page.getByRole("complementary", { name: "Comments" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Comment text" })).toBeVisible();
