@@ -141,7 +141,7 @@ export class DocumentRoom {
         if (offset !== file.byte_size) {
           return new Response("Stored file is incomplete", { status: 500 });
         }
-        return new Response(output, { status: 200, headers });
+        return new Response(output.buffer, { status: 200, headers });
       }
 
       if (request.method === "DELETE") {
