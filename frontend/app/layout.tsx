@@ -3,8 +3,8 @@ import "./globals.css";
 import "./globals-extra.css";
 
 export const metadata: Metadata = {
-  title: "Collab Docs",
-  description: "Documents that stay in sync.",
+  title: "CollabDocs — Workspace",
+  description: "Your workspace for documents, collaboration, review, and signatures.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
