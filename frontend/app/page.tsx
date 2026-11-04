@@ -963,7 +963,22 @@ export default function HomePage() {
           <span className="brand-mark">C</span><span>collab<span className="brand-light">docs</span></span>
         </a>
         <div className="sidebar-label">WORKSPACE</div>
-        <div className="workspace-pill"><FolderOpen size={14} strokeWidth={1.8} aria-hidden="true" /><span>Personal workspace</span></div>
+        <button
+          type="button"
+          className={"workspace-pill workspace-hub-nav" + (workspacePanel === "hub" && !active ? " is-active" : "")}
+          onClick={showWorkspaceHub}
+          aria-current={workspacePanel === "hub" && !active ? "page" : undefined}
+        >
+          <Activity size={14} strokeWidth={1.8} aria-hidden="true" /><span>Workspace hub</span><span className="workspace-hub-nav-index">01</span>
+        </button>
+        <button
+          type="button"
+          className={"workspace-pill personal-workspace-nav" + (workspacePanel === "recent" && !active ? " is-active" : "")}
+          onClick={showPersonalWorkspace}
+          aria-current={workspacePanel === "recent" && !active ? "page" : undefined}
+        >
+          <FolderOpen size={14} strokeWidth={1.8} aria-hidden="true" /><span>Personal workspace</span>
+        </button>
         <div className="search-wrap"><input className="search-input" type="search" placeholder="Search documents…" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search documents" /></div>
         <div className="sort-row">
           <button type="button" className={sortBy === "updated" ? "sort-btn active" : "sort-btn"} onClick={() => setSortBy("updated")}>Recent</button>
@@ -975,7 +990,7 @@ export default function HomePage() {
           <button type="button" aria-current={filter === "shared" && viewMode === "docs" ? "page" : undefined} className={filter === "shared" && viewMode === "docs" ? "sort-btn workspace-route-button active" : "sort-btn workspace-route-button"} onClick={() => chooseDashboardFolder("shared")}><Users size={13} aria-hidden="true" /><span>Shared</span></button>
           <button type="button" aria-current={viewMode === "trash" ? "page" : undefined} className={viewMode === "trash" ? "sort-btn workspace-route-button active" : "sort-btn workspace-route-button"} onClick={showTrash}><Trash2 size={13} aria-hidden="true" /><span>Trash</span></button>
         </div>
-        <div className="sidebar-label docs-label">{viewMode === "trash" ? "TRASH" : "YOUR DOCUMENTS"}</div>
+        <div className="sidebar-label docs-label">{viewMode === "trash" ? "TRASH" : "PERSONAL WORKSPACE"}</div>
         <button className="new-doc" onClick={createDocument} disabled={creating || viewMode === "trash"}><span>＋</span> New document</button>
         <button className="new-doc import-doc-button" onClick={() => importFileInputRef.current?.click()} disabled={creating || viewMode === "trash"}><FileUp size={15} /> {creating ? "Importing…" : "Import document"}</button>
         <button type="button" className="templates-launch" onClick={() => setTemplateOpen(true)} disabled={creating || viewMode === "trash"}>
@@ -1018,7 +1033,7 @@ export default function HomePage() {
               <span className="slash">/</span>
               <strong className="breadcrumb-current">
                 {active ? <FileText size={14} strokeWidth={1.8} aria-hidden="true" /> : viewMode === "trash" ? <Trash2 size={14} strokeWidth={1.8} aria-hidden="true" /> : <House size={14} strokeWidth={1.8} aria-hidden="true" />}
-                <span>{active?.title || (viewMode === "trash" ? "Trash" : "Home")}</span>
+                <span>{active?.title || (viewMode === "trash" ? "Trash" : workspacePanel === "hub" ? "Workspace hub" : "Recently used")}</span>
               </strong>
             </div>
           </div>
@@ -1245,11 +1260,11 @@ export default function HomePage() {
               <div className="dashboard-intro">
                 <div className="dashboard-kicker">
                   <span className="dashboard-kicker-mark"><Sparkles size={13} strokeWidth={1.8} /></span>
-                  <span>WORKSPACE / OVERVIEW</span>
+                  <span>{workspacePanel === "hub" ? "WORKSPACE / 01" : "PERSONAL WORKSPACE / RECENT"}</span>
                   <span className="dashboard-kicker-rule" />
                 </div>
-                <h1 className="dashboard-title">Your workspace<span className="dashboard-title-period">.</span></h1>
-                <p className="dashboard-sub">Your next step, in one place. Everything you need to keep moving.</p>
+                <h1 className="dashboard-title">{workspacePanel === "hub" ? "Workspace hub" : "Recently used"}<span className="dashboard-title-period">.</span></h1>
+                <p className="dashboard-sub">{workspacePanel === "hub" ? "Your next step, in one place." : "Pick up where you left off. Your latest documents, all in one place."}</p>
               </div>
               <div className="dashboard-hero-actions">
                 <div className="workspace-status"><span className="workspace-status-dot" /> Personal workspace</div>
@@ -1261,6 +1276,8 @@ export default function HomePage() {
               </div>
             </header>
 
+            {workspacePanel === "hub" ? (
+              <>
             <section className="workspace-hub-section" aria-labelledby="workspace-hub-title">
               <div className="dashboard-section-heading workspace-hub-heading">
                 <div><div className="eyebrow">WORKSPACE / 01</div><h2 id="workspace-hub-title">Workspace hub</h2><p>Your next step, in one place.</p></div>
@@ -1319,9 +1336,9 @@ export default function HomePage() {
                 </aside>
               </div>
             </section>
-
-            <GmailInbox onImportFile={handleImportFile} />
-
+              </>
+            ) : (
+              <>
             <section className="dashboard-recent" aria-labelledby="dashboard-recent-title">
               <div className="dashboard-section-heading">
                 <div>
@@ -1351,6 +1368,11 @@ export default function HomePage() {
               )}
             </section>
 
+<GmailInbox onImportFile={handleImportFile} />
+              </>
+            )}
+            {workspacePanel === "recent" && (
+              <>
             <section className="dashboard-collections" aria-labelledby="collections-title">
               <div className="dashboard-section-heading">
                 <div>
@@ -1430,6 +1452,8 @@ export default function HomePage() {
                 </button>
               </div>
             </section>
+              </>
+            )}
 
             <footer className="dashboard-footer">
               <span><FolderOpen size={14} strokeWidth={1.7} /> Open a folder, then select a document sheet</span>
