@@ -2,11 +2,9 @@
 
 import type JSZip from "jszip";
 
-export type ImportedDocument = {
-  title: string;
-  html: string;
-  format: string;
-};
+export type ImportedDocument =
+  | { kind: "content"; title: string; html: string; format: string }
+  | { kind: "original-file"; title: string; fileName: string; mimeType: string; format: string };
 
 const MAX_FILE_SIZE = 30 * 1024 * 1024;
 const MAX_PDF_PAGES = 300;
@@ -322,38 +320,6 @@ async function importXlsx(zip: JSZip): Promise<string> {
   return sheets.join("") || "<p>No readable cell values were found in this workbook.</p>";
 }
 
-async function importPdf(file: File): Promise<string> {
-  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-    "pdfjs-dist/legacy/build/pdf.worker.min.mjs",
-    import.meta.url,
-  ).toString();
-  const task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
-  const pdf = await task.promise;
-  if (pdf.numPages > MAX_PDF_PAGES) {
-    await task.destroy();
-    throw new Error("This PDF has more than " + MAX_PDF_PAGES + " pages. Split it into smaller files and import them separately.");
-  }
-
-  const pages: string[] = [];
-  try {
-    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-      const page = await pdf.getPage(pageNumber);
-      const content = await page.getTextContent();
-      const text = content.items.map((item) => ("str" in item ? item.str : "")).join(" ").replace(/\s+/g, " ").trim();
-      if (text) {
-        pages.push("<h2>Page " + pageNumber + "</h2><p>" + escapeHtml(text) + "</p>");
-      }
-    }
-  } finally {
-    await task.destroy();
-  }
-  if (!pages.length) {
-    throw new Error("No selectable text was found in this PDF. Scanned PDFs need OCR before they can be edited.");
-  }
-  return pages.join("");
-}
-
 function importRtf(value: string): string {
   let text = value
     .replace(/\\'[0-9a-f]{2}/gi, (match) => String.fromCharCode(parseInt(match.slice(2), 16)))
@@ -410,7 +376,7 @@ export async function importDocumentFile(file: File): Promise<ImportedDocument> 
   let html = "";
 
   if (extension === "pdf") {
-    html = await importPdf(file);
+    return { kind: "original-file", title, fileName: file.name, mimeType: "application/pdf", format: "PDF" };
   } else if (["docx", "docm", "odt", "ods", "odp", "pptx", "pptm", "xlsx", "xlsm", "epub"].includes(extension)) {
     const { default: JSZipModule } = await import("jszip");
     const zip = await JSZipModule.loadAsync(await file.arrayBuffer(), { checkCRC32: true });
@@ -432,7 +398,7 @@ export async function importDocumentFile(file: File): Promise<ImportedDocument> 
     } else if (extension === "doc" && /^\s*</.test(content)) {
       html = sanitizeHtml(content);
     } else if (extension === "doc") {
-      throw new Error("This is an older binary Word .doc file. Save it as .docx or .rtf in a word processor, then import it again.");
+      return { kind: "original-file", title, fileName: file.name, mimeType: file.type || "application/msword", format: extension.toUpperCase() };
     } else if (["txt", "csv", "tsv", "json", "xml", "log", "yaml", "yml"].includes(extension)) {
       html = extension === "txt"
         ? plainTextHtml(content)
@@ -447,5 +413,5 @@ export async function importDocumentFile(file: File): Promise<ImportedDocument> 
   if (new TextEncoder().encode(safeHtml).byteLength > MAX_IMPORTED_CONTENT_BYTES) {
     throw new Error("The extracted text is too large for a single CollabDocs document. Split the file into smaller parts and import them separately.");
   }
-  return { title, html: safeHtml, format: extension.toUpperCase() };
+  return { kind: "content", title, html: safeHtml, format: extension.toUpperCase() };
 }
