@@ -626,9 +626,7 @@ export function CollabEditor({
     <div className={"editor-layout" + (focusMode ? " focus-mode" : "")}>
       {!focusMode && (
         <div className="editor-meta">
-          <div className="doc-badge">DOC</div>
           <div className="editor-title-wrap">
-            <div className="editor-subtitle">DOCUMENT</div>
             <input className="title-input" aria-label="Document title" value={title} maxLength={120} readOnly={readOnly} onChange={(e) => changeTitle(e.target.value)} />
           </div>
           <div className="editor-meta-actions" ref={menuRef}>
@@ -662,8 +660,8 @@ export function CollabEditor({
             <button type="button" className={toolClass(editor?.isActive("heading", { level: 2 }) ?? false)} onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()} disabled={readOnly} aria-label="Heading 2">H2</button>
             <button type="button" className={toolClass(editor?.isActive("heading", { level: 3 }) ?? false)} onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()} disabled={readOnly} aria-label="Heading 3">H3</button>
             <span className="tool-divider" />
-            <button type="button" className={toolClass(editor?.isActive("bulletList") ?? false)} onClick={() => editor?.chain().focus().toggleBulletList().run()} disabled={readOnly} aria-label="Bullet list"><List size={15} strokeWidth={1.8} />List</button>
-            <button type="button" className={toolClass(editor?.isActive("orderedList") ?? false)} onClick={() => editor?.chain().focus().toggleOrderedList().run()} disabled={readOnly} aria-label="Ordered list"><ListOrdered size={15} strokeWidth={1.8} />List</button>
+            <button type="button" className={toolClass(editor?.isActive("bulletList") ?? false)} onClick={() => editor?.chain().focus().toggleBulletList().run()} disabled={readOnly} aria-label="Bullet list" title="Bulleted list"><List size={15} strokeWidth={1.8} /></button>
+            <button type="button" className={toolClass(editor?.isActive("orderedList") ?? false)} onClick={() => editor?.chain().focus().toggleOrderedList().run()} disabled={readOnly} aria-label="Ordered list" title="Numbered list"><ListOrdered size={15} strokeWidth={1.8} /></button>
             <button type="button" className={toolClass(editor?.isActive("taskList") ?? false)} onClick={() => editor?.chain().focus().toggleTaskList().run()} disabled={readOnly} aria-label="Checklist"><ListTodo size={15} strokeWidth={1.8} /></button>
             <button type="button" className={toolClass(editor?.isActive("blockquote") ?? false)} onClick={() => editor?.chain().focus().toggleBlockquote().run()} disabled={readOnly} aria-label="Quote"><Quote size={15} strokeWidth={1.8} /></button>
             <button type="button" className={toolClass(editor?.isActive("codeBlock") ?? false)} onClick={() => editor?.chain().focus().toggleCodeBlock().run()} disabled={readOnly} aria-label="Code block">Code</button>
@@ -702,26 +700,9 @@ export function CollabEditor({
         {!focusMode && (
           <aside className="editor-tools-panel" aria-label="Document tools">
             <div className="editor-tools-heading">
-              <span className="eyebrow">WORKSPACE / TOOLS</span>
+              <span className="eyebrow">TOOLS</span>
               <h3>Document tools</h3>
-              <p>Editing, review and document actions stay beside your page.</p>
             </div>
-            <section className="editor-tool-section">
-              <div className="editor-tool-section-title"><Type size={14} /> Format</div>
-              <div className="editor-tool-button-grid">
-                <button type="button" className="editor-tool-action" onClick={() => editor?.chain().focus().toggleBold().run()} disabled={readOnly}><strong>B</strong><span>Bold</span></button>
-                <button type="button" className="editor-tool-action" onClick={() => editor?.chain().focus().toggleItalic().run()} disabled={readOnly}><em>I</em><span>Italic</span></button>
-                <button type="button" className="editor-tool-action" onClick={() => editor?.chain().focus().toggleUnderline().run()} disabled={readOnly}><u>U</u><span>Underline</span></button>
-                <button type="button" className="editor-tool-action" onClick={() => editor?.chain().focus().toggleHighlight().run()} disabled={readOnly}><Highlighter size={15} /><span>Highlight</span></button>
-                <button type="button" className="editor-tool-action" onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()} disabled={readOnly}>H1<span>Heading</span></button>
-                <button type="button" className="editor-tool-action" onClick={() => editor?.chain().focus().toggleBulletList().run()} disabled={readOnly}><List size={15} /><span>Bullets</span></button>
-                <button type="button" className="editor-tool-action" onClick={() => editor?.chain().focus().toggleOrderedList().run()} disabled={readOnly}><ListOrdered size={15} /><span>Numbered</span></button>
-                <button type="button" className="editor-tool-action" onClick={() => editor?.chain().focus().toggleStrike().run()} disabled={readOnly}><span style={{ textDecoration: "line-through", fontSize: 14 }}>S</span><span>Strike</span></button>
-                <button type="button" className="editor-tool-action" onClick={setLink} disabled={readOnly}>Link<span>Link</span></button>
-                <button type="button" className="editor-tool-action" onClick={() => editor?.chain().focus().toggleBlockquote().run()} disabled={readOnly}><Quote size={15} /><span>Quote</span></button>
-                <button type="button" className="editor-tool-action" onClick={() => editor?.chain().focus().toggleCodeBlock().run()} disabled={readOnly}><Code2 size={15} /><span>Code block</span></button>
-              </div>
-            </section>
             <section className="editor-tool-section">
               <div className="editor-tool-section-title"><Search size={14} /> Review</div>
               <button type="button" className="editor-tool-row" onClick={() => setFindOpen(true)}><Search size={15} /><span>Find and replace</span></button>
