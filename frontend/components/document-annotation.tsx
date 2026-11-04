@@ -123,6 +123,8 @@ function AnnotationView({ node, updateAttributes, deleteNode, selected, editor }
     <NodeViewWrapper
       className={"document-annotation-node" + (selected ? " is-selected" : "") + " is-" + kind}
       data-annotation-kind={kind}
+      data-annotation-width={width}
+      data-annotation-height={height}
       draggable={editable}
       data-drag-handle=""
       contentEditable={false}
