@@ -544,7 +544,7 @@ export function OriginalFileViewer({ title, fileName, mimeType, size, src, onSav
     const restored = cloneMarks(previous);
     marksRef.current = restored;
     setMarks(restored);
-    setSelectedMarkId(null);
+    setSelectedMarkId((current) => current && restored.some((mark) => mark.id === current) ? current : null);
     setHistoryTick((value) => value + 1);
     setSaved(false);
   }, []);
