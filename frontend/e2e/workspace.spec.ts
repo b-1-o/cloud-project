@@ -593,21 +593,20 @@ test("document paper stays white in both themes and New document labels remain r
     await route.fulfill({ status: 503, contentType: "application/json", body: '{"error":"test offline"}' });
   });
 
+  await page.addInitScript(() => localStorage.setItem("collab-theme", "light"));
   await page.goto("/");
   const sidebarCreate = page.locator(".new-doc").first();
   const dashboardCreate = page.locator(".dashboard-new-doc");
   await expect(sidebarCreate).toBeVisible();
   await expect(dashboardCreate).toBeVisible();
 
-  const lightSidebarText = await sidebarCreate.evaluate((element) => getComputedStyle(element).color);
-  const lightPrimaryText = await dashboardCreate.evaluate((element) => getComputedStyle(element).color);
+  await expect(sidebarCreate).toHaveCSS("color", "rgb(37, 37, 37)");
+  await expect(dashboardCreate).toHaveCSS("color", "rgb(255, 255, 255)");
   await page.getByRole("button", { name: /toggle color theme/i }).click();
   await expect.poll(() => page.locator("html").evaluate((element) => element.classList.contains("dark"))).toBe(true);
 
-  const darkSidebarText = await sidebarCreate.evaluate((element) => getComputedStyle(element).color);
-  const darkPrimaryText = await dashboardCreate.evaluate((element) => getComputedStyle(element).color);
-  expect(darkSidebarText).not.toBe(lightSidebarText);
-  expect(darkPrimaryText).not.toBe(lightPrimaryText);
+  await expect(sidebarCreate).toHaveCSS("color", "rgb(237, 237, 237)");
+  await expect(dashboardCreate).toHaveCSS("color", "rgb(25, 25, 25)");
 
   await sidebarCreate.click();
   await expect(page.getByRole("textbox", { name: "Document title" })).toBeVisible();
