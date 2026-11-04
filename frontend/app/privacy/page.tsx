@@ -32,7 +32,7 @@ export default function PrivacyPage() {
 
         <section>
           <h2><LockKeyhole size={17} /> Imported files and security</h2>
-          <p>Scanned PDFs are not converted to text and do not require OCR to import. CollabDocs keeps the original PDF bytes and opens the file in the browser PDF viewer. DOCX and supported text formats may be converted into editable rich text; those conversions may not preserve every layout, embedded media, spreadsheet formula, or presentation animation. Original-file uploads are limited to 30 MB.</p>
+          <p>Scanned PDFs are not converted to text and do not require OCR to import. CollabDocs keeps the original PDF bytes and renders pages inside its own theme-aware PDF workspace. Added text, freehand annotations, and hand-drawn signatures can be saved back into the PDF; the original page text is not directly editable. DOCX and supported text formats may be converted into editable rich text; those conversions may not preserve every layout, embedded media, spreadsheet formula, or presentation animation. Original-file uploads are limited to 30 MB.</p>
           <p>Do not import files that you are not authorized to access. Keep your account credentials private and review document sharing permissions before inviting collaborators.</p>
         </section>
 
