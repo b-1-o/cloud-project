@@ -2802,7 +2802,7 @@ html.dark .theme-moon-icon {
 
 
 
-/* Product workspace: Gmail inbox, recently used documents and editor inspector */
+/* Product workspace: recently used documents and editor inspector */
 .dashboard-recent { margin-top: 34px; animation: workspaceSectionEnter .46s cubic-bezier(.22,1,.36,1) both; }
 .dashboard-recent .dashboard-section-heading { margin-bottom: 13px; }
 .dashboard-recent-list { display:flex; flex-direction:column; gap:7px; }
@@ -2894,14 +2894,10 @@ html.dark .theme-moon-icon {
   .editor-tool-button-grid { grid-template-columns:repeat(6,minmax(0,1fr)); }
   .editor-tools-panel .editor-tool-section { padding-bottom:8px; border-bottom:1px solid var(--glass-border-soft); }
   .editor-meta,.editor-toolbar { width:calc(100% - 28px); }
-  .gmail-message-list { grid-template-columns:minmax(0,1fr); }
 }
 @media (max-width:560px) {
   .dashboard-recent-empty { align-items:flex-start; flex-wrap:wrap; }
   .dashboard-recent-empty button { margin-left:0; }
-  .gmail-inbox-panel { padding:13px; }
-  .gmail-inbox-header { align-items:flex-start; flex-direction:column; }
-  .gmail-inbox-actions { align-self:flex-end; }
   .signature-dialog { padding:15px; }
   .signature-canvas { height:165px; }
   .signature-options { align-items:flex-start; flex-direction:column; }
