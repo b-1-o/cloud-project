@@ -1338,7 +1338,6 @@ export default function HomePage() {
               )}
             </section>
 
-<GmailInbox onImportFile={handleImportFile} />
               </>
             )}
             <GmailInbox onImportFile={handleImportFile} />
