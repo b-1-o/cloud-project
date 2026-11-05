@@ -3975,3 +3975,195 @@ html.dark .dashboard-new-doc svg,
 html.dark .filtered-new-document,
 html.dark .filtered-new-document span,
 html.dark .filtered-new-document svg { color: #191919 !important; }
+
+
+/* Vixiny first-run guide and replay control. */
+.help-tour-button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  place-items: center;
+  border: 1px solid var(--glass-border-soft);
+  border-radius: 10px;
+  background: var(--glass-1);
+  color: var(--text-muted);
+  transition: color var(--transition), border-color var(--transition), background var(--transition);
+}
+.help-tour-button:hover {
+  color: var(--text);
+  border-color: var(--glass-border);
+  background: var(--glass-2);
+}
+.help-tour-button:focus-visible {
+  outline: 2px solid #91475f;
+  outline-offset: 3px;
+}
+
+.vixiny-tour-layer {
+  position: fixed;
+  z-index: 10000;
+  inset: 0;
+  pointer-events: none;
+}
+.vixiny-tour-dimmer {
+  position: fixed;
+  z-index: 10000;
+  inset: 0;
+  display: block;
+  pointer-events: none;
+}
+.vixiny-tour-spotlight {
+  position: fixed;
+  z-index: 10001;
+  pointer-events: none;
+  border: 1px solid rgba(201, 130, 155, .92);
+  border-radius: 14px;
+  box-shadow: 0 0 0 1px rgba(145, 71, 95, .28), 0 0 34px rgba(145, 71, 95, .22);
+  transition: left .22s ease, top .22s ease, width .22s ease, height .22s ease;
+}
+.vixiny-tour-card {
+  position: fixed;
+  z-index: 10002;
+  display: flex;
+  flex-direction: column;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  padding: 22px;
+  border: 1px solid var(--glass-border);
+  border-radius: 19px;
+  background: color-mix(in srgb, var(--glass-2) 94%, #91475f 6%);
+  color: var(--text);
+  box-shadow: 0 24px 90px rgba(0, 0, 0, .34), 0 4px 18px rgba(0, 0, 0, .12);
+  backdrop-filter: blur(28px) saturate(155%);
+  -webkit-backdrop-filter: blur(28px) saturate(155%);
+  pointer-events: auto;
+  animation: vixinyTourEnter .22s cubic-bezier(.2,.8,.2,1) both;
+}
+.vixiny-tour-layer.is-closing .vixiny-tour-card {
+  animation: vixinyTourExit .18s ease both;
+}
+.vixiny-tour-card-top,
+.vixiny-tour-actions,
+.vixiny-tour-buttons {
+  display: flex;
+  align-items: center;
+}
+.vixiny-tour-card-top,
+.vixiny-tour-actions {
+  justify-content: space-between;
+  gap: 14px;
+}
+.vixiny-tour-eyebrow {
+  color: #a35c75;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.35px;
+}
+html.dark .vixiny-tour-eyebrow { color: #d092a8; }
+.vixiny-tour-skip,
+.vixiny-tour-back {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--glass-border-soft);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.vixiny-tour-skip:hover,
+.vixiny-tour-back:hover {
+  color: var(--text);
+  background: var(--accent-soft);
+}
+.vixiny-tour-progress {
+  display: flex;
+  gap: 4px;
+  margin: 19px 0 18px;
+}
+.vixiny-tour-progress span {
+  display: block;
+  flex: 1;
+  height: 3px;
+  border-radius: 99px;
+  background: var(--glass-border);
+  transition: background .18s ease;
+}
+.vixiny-tour-progress span.is-complete {
+  background: #91475f;
+}
+.vixiny-tour-card h2 {
+  margin: 0;
+  max-width: 34rem;
+  color: var(--text);
+  font-size: clamp(19px, 2.5vw, 23px);
+  font-weight: 720;
+  line-height: 1.2;
+  letter-spacing: -.7px;
+}
+.vixiny-tour-card p {
+  margin: 11px 0 22px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.vixiny-tour-step-count {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .8px;
+}
+.vixiny-tour-buttons { gap: 8px; }
+.vixiny-tour-next {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 15px;
+  border: 1px solid #91475f;
+  border-radius: 10px;
+  background: #91475f;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform .16s ease, background .16s ease, box-shadow .16s ease;
+}
+.vixiny-tour-next:hover {
+  transform: translateY(-1px);
+  background: #a65a74;
+  box-shadow: 0 5px 16px rgba(145, 71, 95, .24);
+}
+.vixiny-tour-next:focus-visible,
+.vixiny-tour-skip:focus-visible,
+.vixiny-tour-back:focus-visible {
+  outline: 2px solid #b56a83;
+  outline-offset: 3px;
+}
+@keyframes vixinyTourEnter {
+  from { opacity: 0; transform: translateY(8px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes vixinyTourExit {
+  to { opacity: 0; transform: translateY(5px) scale(.99); }
+}
+@media (max-width: 640px) {
+  .vixiny-tour-card {
+    padding: 18px;
+    border-radius: 16px;
+  }
+  .vixiny-tour-card p { font-size: 12px; line-height: 1.58; }
+  .vixiny-tour-progress { margin: 15px 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vixiny-tour-card,
+  .vixiny-tour-layer.is-closing .vixiny-tour-card { animation: none; }
+  .vixiny-tour-spotlight,
+  .vixiny-tour-progress span,
+  .vixiny-tour-next { transition: none; }
+}
