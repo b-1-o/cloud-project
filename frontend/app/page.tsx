@@ -908,10 +908,14 @@ export default function HomePage() {
 
 
   const handleTourNavigate = useCallback((panel: WorkspacePanel, revealSidebar: boolean) => {
-    setActive(null);
-    setViewMode("docs");
-    setFilter("all");
-    setDashboardFolder("all");
+    if (panel === "hub") {
+      setActive(null);
+      setViewMode("docs");
+      setFilter("all");
+      setDashboardFolder("all");
+    } else {
+      setViewMode((current) => current === "trash" ? "docs" : current);
+    }
     setWorkspacePanel(panel);
     setSidebarOpen(revealSidebar);
   }, []);
