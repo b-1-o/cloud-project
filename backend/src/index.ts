@@ -218,7 +218,21 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (url.pathname === "/api/health" && request.method === "GET") {
     return response(request, env, { ok: true, service: "collab-docs-api", version: env.APP_VERSION || "dev" });
   }
-  if (parts[0] === "api" && parts[1] === "public" && parts[2] && request.method === "GET") {
+  // Public links are bearer capabilities: resolve the token on every request so
+  // revoked or rotated links immediately lose access to both metadata and files.
+  if (parts.length === 4 && parts[0] === "api" && parts[1] === "public" && parts[2] && parts[3] === "file" &&
+      (request.method === "GET" || request.method === "HEAD")) {
+    const token = parts[2];
+    if (token.length < 16 || token.length > 128) throw new HttpError(404, "Not found");
+    const doc = await env.DB.prepare("SELECT id FROM documents WHERE public_token = ?").bind(token).first<{ id: string }>();
+    if (!doc) throw new HttpError(404, "Not found");
+    const fileUrl = new URL("https://do/__file");
+    fileUrl.searchParams.set("documentId", doc.id);
+    const file = await roomFor(env, doc.id).fetch(new Request(fileUrl.toString(), { method: request.method }));
+    return withFileCors(request, env, file);
+  }
+
+  if (parts.length === 3 && parts[0] === "api" && parts[1] === "public" && parts[2] && request.method === "GET") {
     const token = parts[2];
     if (token.length < 16 || token.length > 128) throw new HttpError(404, "Not found");
     const doc = await env.DB.prepare("SELECT id, title, updated_at FROM documents WHERE public_token = ?").bind(token).first<{ id: string; title: string; updated_at: string }>();

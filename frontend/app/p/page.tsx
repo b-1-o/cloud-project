@@ -9,8 +9,17 @@ import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import Collaboration from "@tiptap/extension-collaboration";
 import * as Y from "yjs";
+import { OriginalFileViewer } from "@/components/original-file-viewer";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+const publicReadOnlySave = async (): Promise<void> => {};
+
+type PublicOriginalFile = {
+  src: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+};
 
 function decode(value: string) {
   const binary = atob(value);
@@ -24,6 +33,8 @@ function PublicViewer() {
   const token = searchParams.get("token") || "";
   const [title, setTitle] = useState("Loading…");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [originalFile, setOriginalFile] = useState<PublicOriginalFile | null>(null);
   const [doc] = useState(() => new Y.Doc());
 
   const editor = useEditor({
@@ -41,11 +52,18 @@ function PublicViewer() {
 
   useEffect(() => {
     let cancelled = false;
+    let objectUrl = "";
+
     async function load() {
+      setLoading(true);
+      setError("");
+      setOriginalFile(null);
       if (!token) {
         setError("Missing share token");
+        setLoading(false);
         return;
       }
+
       try {
         const res = await fetch(API + "/api/public/" + encodeURIComponent(token));
         if (!res.ok) {
@@ -53,19 +71,55 @@ function PublicViewer() {
           throw new Error(body.error || "Document not found");
         }
         const data = (await res.json()) as {
-          document: { title: string };
+          document: { id: string; title: string; updated_at?: string };
           state: string;
         };
         if (cancelled) return;
         setTitle(data.document.title);
         if (data.state) Y.applyUpdate(doc, decode(data.state));
+
+        // Imported originals live in the DocumentRoom file store, separately
+        // from the Yjs editor snapshot. The public token grants read-only access
+        // to that exact file without exposing the authenticated document route.
+        const fileResponse = await fetch(
+          API + "/api/public/" + encodeURIComponent(token) + "/file"
+        );
+        if (fileResponse.status !== 404) {
+          if (!fileResponse.ok) {
+            const message = await fileResponse.text().catch(() => "");
+            throw new Error(message || "Could not load the original file (" + fileResponse.status + ").");
+          }
+          const blob = await fileResponse.blob();
+          const mimeType = fileResponse.headers.get("Content-Type") || blob.type || "application/octet-stream";
+          if (mimeType.includes("application/json")) {
+            throw new Error("The public file endpoint returned an invalid response.");
+          }
+          const encodedName = fileResponse.headers.get("X-Document-File-Name");
+          const fileName = encodedName ? decodeURIComponent(encodedName) : data.document.title;
+          objectUrl = URL.createObjectURL(blob);
+          if (cancelled) {
+            URL.revokeObjectURL(objectUrl);
+            objectUrl = "";
+            return;
+          }
+          setOriginalFile({
+            src: objectUrl,
+            fileName,
+            mimeType,
+            size: Number(fileResponse.headers.get("Content-Length") || blob.size) || blob.size,
+          });
+        }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load");
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     }
+
     void load();
     return () => {
       cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [token, doc]);
 
@@ -85,6 +139,8 @@ function PublicViewer() {
           <h1>Link unavailable</h1>
           <p>{error}</p>
         </div>
+      ) : loading ? (
+        <div className="list-placeholder">Loading document…</div>
       ) : (
         <div className="editor-layout public-editor">
           <div className="editor-meta">
@@ -94,11 +150,23 @@ function PublicViewer() {
               <h1 className="public-title">{title}</h1>
             </div>
           </div>
-          <div className="paper-wrap">
-            <div className="paper paper-a4">
-              <EditorContent editor={editor} />
+          {originalFile ? (
+            <OriginalFileViewer
+              title={title}
+              fileName={originalFile.fileName}
+              mimeType={originalFile.mimeType}
+              size={originalFile.size}
+              src={originalFile.src}
+              onSave={publicReadOnlySave}
+              readOnly
+            />
+          ) : (
+            <div className="paper-wrap">
+              <div className="paper paper-a4">
+                <EditorContent editor={editor} />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
     </main>

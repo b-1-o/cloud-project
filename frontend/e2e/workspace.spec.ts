@@ -660,3 +660,59 @@ test("read-only document viewers can still post comments", async ({ page }) => {
   await page.getByRole("button", { name: "Post comment" }).click();
   await expect.poll(() => postReceived).toBe(true);
 });
+
+
+test("public share links render the original PDF instead of an empty text page", async ({ page }) => {
+  const token = "public-pdf-share-token-123456";
+  const pdfBytes = createTestPdf();
+
+  await page.route(`**/api/public/${token}`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        document: {
+          id: "public-pdf-document",
+          title: "Scan [11 04 2026]",
+          updated_at: new Date().toISOString(),
+        },
+        state: "",
+        mode: "public-readonly",
+      }),
+    });
+  });
+
+  await page.route(`**/api/public/${token}/file`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Length": String(pdfBytes.byteLength),
+        "X-Document-File-Name": encodeURIComponent("Scan [11 04 2026].pdf"),
+      },
+      body: pdfBytes,
+    });
+  });
+
+  await page.goto("/p/?token=" + token);
+
+  await expect(page.locator(".original-file-workspace")).toBeVisible();
+  await expect(page.locator(".pdf-page-count")).toHaveText("1 page");
+  await expect(page.getByRole("button", { name: "Draw" })).toBeDisabled();
+  await expect(page.getByRole("link", { name: "Download original" })).toBeVisible();
+
+  const canvas = page.locator(".pdf-page-slot canvas").first();
+  await expect(canvas).toBeVisible();
+  await expect.poll(() => canvas.evaluate((element) => {
+    const target = element as HTMLCanvasElement;
+    const context = target.getContext("2d");
+    if (!context || target.width === 0 || target.height === 0) return false;
+    const pixels = context.getImageData(55, 42, 280, 65).data;
+    for (let index = 0; index < pixels.length; index += 4) {
+      if (pixels[index] < 235 && pixels[index + 1] < 235 && pixels[index + 2] < 235 && pixels[index + 3] > 0) {
+        return true;
+      }
+    }
+    return false;
+  })).toBe(true);
+});
