@@ -88,6 +88,7 @@
       "vars": {
         "ENVIRONMENT": "production",
         "FRONTEND_ORIGIN": "https://collab-docs-4tb.pages.dev",
+        "FRONTEND_ALLOWED_ORIGINS": "https://collab-docs-4tb.pages.dev,https://www.collabdocs.qd.je",
         "AUTH_MODE": "oidc",
         "APP_VERSION": "0.1.0"
       },
