@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { clearAccessToken, completeOidcLogin, getAccessToken, startOidcLogin } from "@/lib/auth";
 import { CollabEditor } from "@/components/collab-editor";
-import { GmailInbox } from "@/components/gmail-inbox";
 import { importDocumentFile } from "@/lib/document-import";
 import { getLocalDocumentFile, putLocalDocumentFile, deleteLocalDocumentFile } from "@/lib/document-files";
 import { OriginalFileViewer } from "@/components/original-file-viewer";
