@@ -10,7 +10,8 @@ Open **Applications → Applications → the existing SPA → Settings**. Change
 
 Add all of these values to **Allowed Callback URLs**:
 
-- `https://collab-docs-4tb.pages.dev/`
+- `https://vixiny.pages.dev/`
+- `https://collab-docs-4tb.pages.dev/` (legacy)
 - `https://www.collabdocs.qd.je/`
 - `http://localhost:3000/`
 
@@ -18,7 +19,8 @@ Add the same three URLs to **Allowed Logout URLs**.
 
 Add these origins (without a trailing slash) to **Allowed Web Origins**:
 
-- `https://collab-docs-4tb.pages.dev`
+- `https://vixiny.pages.dev`
+- `https://collab-docs-4tb.pages.dev` (legacy)
 - `https://www.collabdocs.qd.je`
 - `http://localhost:3000`
 
@@ -32,8 +34,8 @@ In **Branding → Universal Login**, apply the colors, fonts, borders and logo f
 
 The logo assets remain available at their existing Pages.dev paths to avoid breaking the hosted login while the custom domain is being validated:
 
-- Wordmark: `https://collab-docs-4tb.pages.dev/collab-docs-auth0.svg`
-- Mark / favicon: `https://collab-docs-4tb.pages.dev/collab-docs-auth0-mark.svg`
+- Wordmark: `https://vixiny.pages.dev/collab-docs-auth0.svg`
+- Mark / favicon: `https://vixiny.pages.dev/collab-docs-auth0-mark.svg`
 
 Set the Universal Login text to:
 
