@@ -1,5 +1,5 @@
 {
-  "displayName": "Collab Docs — Production",
+  "displayName": "Vixiny — Production",
   "colors": {
     "primary_button": "#91475F",
     "primary_button_label": "#FFFFFF",
@@ -24,12 +24,30 @@
     "font_url": "",
     "links_style": "normal",
     "reference_text_size": 16,
-    "title": { "size": 150, "bold": true },
-    "subtitle": { "size": 100, "bold": false },
-    "body_text": { "size": 100, "bold": false },
-    "buttons_text": { "size": 95, "bold": true },
-    "input_labels": { "size": 90, "bold": true },
-    "links": { "size": 90, "bold": true }
+    "title": {
+      "size": 150,
+      "bold": true
+    },
+    "subtitle": {
+      "size": 100,
+      "bold": false
+    },
+    "body_text": {
+      "size": 100,
+      "bold": false
+    },
+    "buttons_text": {
+      "size": 95,
+      "bold": true
+    },
+    "input_labels": {
+      "size": 90,
+      "bold": true
+    },
+    "links": {
+      "size": 90,
+      "bold": true
+    }
   },
   "borders": {
     "button_border_weight": 0,
