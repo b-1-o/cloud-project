@@ -74,7 +74,6 @@ const TEMPLATES: Array<{ id: string; title: string }> = [
 ];
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  if (!API) throw new Error("Vixiny API is not configured. Please contact the administrator.");
   const headers = new Headers(init?.headers);
   if (!headers.has("Content-Type") && init?.body) headers.set("Content-Type", "application/json");
 
