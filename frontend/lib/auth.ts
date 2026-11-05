@@ -63,7 +63,7 @@ async function getAuthClient(): Promise<AuthClient> {
     throw new Error("The identity provider must use HTTPS.");
   }
   const clientId = process.env.NEXT_PUBLIC_OIDC_CLIENT_ID!;
-  const redirectUri = process.env.NEXT_PUBLIC_OIDC_REDIRECT_URI || window.location.origin + "/";
+  const redirectUri = window.location.origin + "/";
   const audience = process.env.NEXT_PUBLIC_OIDC_AUDIENCE;
   // offline_access is required for refresh tokens so getTokenSilently works after reopen
   const configuredScopes = process.env.NEXT_PUBLIC_OIDC_SCOPES || "openid profile email offline_access";
