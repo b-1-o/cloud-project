@@ -6,7 +6,7 @@ Committing branding files does not change the hosted Auth0 login page by itself.
 
 ## 1. Update the Auth0 application allowlists
 
-Open **Applications → Applications → the existing Vixiny SPA → Settings**. Keep the existing Client ID, client type, API audience, grant types, and refresh-token configuration.
+Open **Applications → Applications → the existing SPA → Settings**. Change its application **Name** to `Vixiny`, then save. Keep the existing Client ID, client type, API audience, grant types, and refresh-token configuration. Renaming the display label must not create a new application or rotate its Client ID.
 
 Add all of these values to **Allowed Callback URLs**:
 
