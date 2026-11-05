@@ -1339,7 +1339,6 @@ export default function HomePage() {
 
               </>
             )}
-            <GmailInbox onImportFile={handleImportFile} />
             <footer className="dashboard-footer">
               <span><FolderOpen size={14} strokeWidth={1.7} /> Open a recent document or choose a view in the sidebar</span>
               <span><Command size={13} strokeWidth={1.8} /> Command palette <kbd>Ctrl / ⌘ K</kbd></span>
