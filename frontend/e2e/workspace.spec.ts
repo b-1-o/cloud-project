@@ -803,7 +803,7 @@ test("the first-run guide can be replayed and dismissed", async ({ page }) => {
 
 test("mobile workspace keeps navigation, editor tools, and comments usable", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.route(/\\/api\\/documents(?:\\?.*)?$/, async (route) => {
+  await page.route("**/api/documents?*", async (route) => {
     if (route.request().method() === "POST") {
       await route.fulfill({
         status: 201,
