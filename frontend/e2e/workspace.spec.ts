@@ -799,3 +799,59 @@ test("the first-run guide can be replayed and dismissed", async ({ page }) => {
   await page.getByRole("button", { name: "Skip tour" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
+
+
+test("mobile workspace keeps navigation, editor tools, and comments usable", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route(/\\/api\\/documents(?:\\?.*)?$/, async (route) => {
+    if (route.request().method() === "POST") {
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({ document: {
+          id: "e2e-mobile-document",
+          title: "Mobile notes",
+          updated_at: new Date().toISOString(),
+          role: "owner",
+        } }),
+      });
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ documents: [] }) });
+  });
+  await page.route("**/api/documents/*/ticket", async (route) => {
+    await route.fulfill({ status: 503, contentType: "application/json", body: '{"error":"test offline"}' });
+  });
+
+  await page.goto("/");
+  await expect(page.locator(".topbar")).toBeVisible();
+  await expect(page.locator(".menu-toggle")).toBeVisible();
+  await expect(page.locator(".help-tour-button")).toBeVisible();
+
+  const viewportFits = () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+  await expect.poll(viewportFits).toBe(true);
+
+  await page.getByRole("button", { name: "Toggle sidebar" }).click();
+  await expect(page.locator(".sidebar.sidebar-open")).toBeVisible();
+  await page.locator(".workspace-hub-nav").click();
+  await expect(page.getByRole("heading", { name: /workspace hub/i })).toBeVisible();
+  await expect(page.locator(".sidebar.sidebar-open")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Toggle sidebar" }).click();
+  await page.locator(".personal-workspace-nav").click();
+  await expect(page.getByRole("heading", { name: /recently used/i })).toBeVisible();
+  await expect(page.locator(".sidebar.sidebar-open")).toHaveCount(0);
+
+  await page.locator(".dashboard-new-doc").click();
+  await expect(page.getByRole("textbox", { name: "Document title" })).toHaveValue("Mobile notes");
+  await expect(page.getByRole("button", { name: "Bold", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Heading 1" })).toBeAttached();
+  await expect(page.locator(".editor-annotation-toolbar")).toBeVisible();
+  await expect.poll(viewportFits).toBe(true);
+
+  await page.locator(".editor-tools-panel").getByRole("button", { name: "Comments", exact: true }).click();
+  const comments = page.getByRole("complementary", { name: "Comments" });
+  await expect(comments).toBeVisible();
+  await expect.poll(() => comments.evaluate((element) => getComputedStyle(element).position)).toBe("fixed");
+  await expect.poll(viewportFits).toBe(true);
+});

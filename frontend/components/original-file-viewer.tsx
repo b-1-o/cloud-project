@@ -312,7 +312,10 @@ function PdfPage({
               setDraftShape(null);
               onGestureEnd();
             }}
-            style={{ cursor: tool === "select" ? "default" : tool === "eraser" ? "not-allowed" : "crosshair" }}
+            style={{
+              cursor: tool === "select" ? "default" : tool === "eraser" ? "not-allowed" : "crosshair",
+              touchAction: tool === "select" ? "pan-y" : "none",
+            }}
           >
             {pageMarks.map((mark) => {
               const box = boundsForMark(mark);
@@ -515,6 +518,39 @@ export function OriginalFileViewer({ title, fileName, mimeType, size, src, onSav
       if (loadingTask) void loadingTask.destroy();
     };
   }, [sourceUrl, isPdf]);
+
+  useEffect(() => {
+    if (!pdf || typeof window === "undefined") return;
+    let disposed = false;
+    const stage = window.document.querySelector<HTMLElement>(".original-file-stage");
+    const fitToViewport = async () => {
+      try {
+        if (!pdf.numPages) return;
+        const firstPage = await pdf.getPage(1);
+        if (disposed) return;
+        const availableWidth = Math.max(240, (stage?.clientWidth || window.innerWidth) - 18);
+        const pageWidth = firstPage.getViewport({ scale: 1 }).width;
+        const nextScale = window.innerWidth <= 720
+          ? Math.max(0.45, Math.min(1, availableWidth / pageWidth))
+          : 1;
+        setScale((current) => Math.abs(current - nextScale) < 0.025 ? current : nextScale);
+      } catch {
+        // Keep the standard PDF zoom if the viewport cannot be measured.
+      }
+    };
+    void fitToViewport();
+    window.addEventListener("resize", fitToViewport, { passive: true });
+    let observer: ResizeObserver | null = null;
+    if (stage && "ResizeObserver" in window) {
+      observer = new ResizeObserver(() => void fitToViewport());
+      observer.observe(stage);
+    }
+    return () => {
+      disposed = true;
+      window.removeEventListener("resize", fitToViewport);
+      observer?.disconnect();
+    };
+  }, [pdf]);
 
   useEffect(() => () => {
     if (localUrlRef.current) URL.revokeObjectURL(localUrlRef.current);

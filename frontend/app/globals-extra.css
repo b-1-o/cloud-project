@@ -4167,3 +4167,566 @@ html.dark .vixiny-tour-eyebrow { color: var(--text-muted); }
   .vixiny-tour-progress span,
   .vixiny-tour-next { transition: none; }
 }
+
+
+/* ==========================================================================
+   Vixiny mobile workspace — touch-first layout without removing desktop tools.
+   ========================================================================== */
+@media (max-width: 900px) {
+  html, body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+  body {
+    -webkit-text-size-adjust: 100%;
+    overscroll-behavior-x: none;
+  }
+  .shell {
+    width: 100%;
+    min-width: 0;
+    min-height: 100dvh;
+    overflow-x: clip;
+  }
+  .main-panel {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    flex: 1 1 0%;
+    overflow-x: clip;
+  }
+
+  /* A real off-canvas drawer; its full navigation and document actions remain available. */
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 61;
+    width: min(352px, 90vw);
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 0;
+    padding: max(16px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom));
+    overflow: hidden;
+    transform: translateX(-105%);
+    border-right: 1px solid var(--glass-border-soft);
+    box-shadow: var(--shadow-float);
+    background: var(--glass-2);
+    backdrop-filter: blur(18px) saturate(125%);
+    -webkit-backdrop-filter: blur(18px) saturate(125%);
+  }
+  .sidebar.sidebar-open { transform: translateX(0); }
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    background: rgba(10, 10, 12, .48);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  .sidebar .sidebar-bottom {
+    flex-direction: row;
+    align-items: center;
+    padding-bottom: max(4px, env(safe-area-inset-bottom));
+  }
+  .sidebar .sidebar-bottom .avatar { flex: 0 0 34px; width: 34px; height: 34px; }
+  .sidebar .workspace-pill,
+  .sidebar .new-doc,
+  .sidebar .templates-launch,
+  .sidebar .document-link,
+  .sidebar .sort-btn,
+  .sidebar .fav-star,
+  .sidebar .doc-more {
+    min-height: 44px;
+  }
+  .sidebar .sort-row { gap: 5px; }
+  .sidebar .sort-btn { justify-content: center; }
+  .sidebar .document-list {
+    min-height: 90px;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Compact, two-tier app bar. Sign in stays visible on phones. */
+  .topbar {
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 28;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 7px;
+    margin: max(6px, env(safe-area-inset-top, 0px)) 8px 0;
+    padding: 8px 10px;
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--glass-2) 94%, transparent);
+    box-shadow: 0 5px 22px rgba(0,0,0,.07);
+  }
+  .topbar-left {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 100%;
+    gap: 8px;
+  }
+  .menu-toggle {
+    display: grid;
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    place-items: center;
+    border-radius: 11px;
+  }
+  .breadcrumbs {
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: 5px;
+    overflow: hidden;
+    font-size: 11px;
+  }
+  .breadcrumb-home,
+  .breadcrumb-current {
+    min-width: 0;
+    flex: 0 1 auto;
+  }
+  .breadcrumb-current { display: flex; align-items: center; gap: 5px; overflow: hidden; }
+  .breadcrumb-current span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .top-actions {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .top-actions .secure-label { display: none !important; }
+  .top-actions .avatar.small-avatar { display: none !important; }
+  .top-actions .help-tour-button,
+  .top-actions .theme-toggle,
+  .top-actions .share-button,
+  .top-actions .auth-button {
+    display: inline-flex !important;
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    border-radius: 11px;
+  }
+  .top-actions .help-tour-button,
+  .top-actions .theme-toggle { width: 44px; padding: 0; }
+  .top-actions .share-button,
+  .top-actions .auth-button { padding: 0 12px; white-space: nowrap; }
+  .top-actions .share-button svg,
+  .top-actions .auth-button svg { flex: 0 0 auto; }
+  .error-banner {
+    width: calc(100% - 16px);
+    margin: 8px auto 0;
+    align-items: center;
+    flex-wrap: wrap;
+    line-height: 1.5;
+  }
+
+  /* Give every screen a single, predictable viewport-width content column. */
+  .workspace-dashboard.dashboard,
+  .filtered-documents,
+  .trash-workspace,
+  .workspace-home,
+  .original-file-workspace,
+  .editor-layout {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+  .workspace-dashboard.dashboard { padding-bottom: max(42px, env(safe-area-inset-bottom)); }
+  .dashboard-footer { flex-wrap: wrap; gap: 8px 14px; }
+  .dashboard-section-heading { gap: 12px; min-width: 0; }
+  .dashboard-section-heading > div { min-width: 0; }
+  .dashboard-recent-item { min-height: 62px; gap: 9px; padding: 10px; }
+  .dashboard-recent-copy { min-width: 0; }
+  .dashboard-recent-copy strong,
+  .dashboard-recent-copy small { overflow-wrap: anywhere; }
+  .workspace-hub-layout,
+  .workspace-hub-main,
+  .workspace-hub-section,
+  .workspace-hub-grid { min-width: 0; }
+  .workspace-hub-layout .workspace-hub-card { min-width: 0; }
+  .filtered-documents { padding-bottom: max(42px, env(safe-area-inset-bottom)); }
+  .trash-workspace { padding-bottom: max(42px, env(safe-area-inset-bottom)); }
+
+  /* Document editor: paper fits the device; full toolsets remain swipeable. */
+  .editor-layout { min-height: calc(100dvh - 112px); }
+  .editor-meta {
+    width: calc(100% - 20px);
+    margin: 17px auto 10px;
+    gap: 8px;
+    align-items: center;
+  }
+  .title-input { min-width: 0; font-size: 19px; line-height: 1.25; }
+  .editor-meta-actions { flex: 0 0 auto; }
+  .editor-more-btn { min-width: 44px; min-height: 44px; }
+  .editor-toolbar {
+    display: flex;
+    width: calc(100% - 16px);
+    max-width: none;
+    min-width: 0;
+    flex-wrap: nowrap;
+    gap: 5px;
+    margin: 0 8px 9px;
+    padding: 5px 7px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    touch-action: pan-x;
+  }
+  .editor-toolbar::-webkit-scrollbar,
+  .editor-annotation-toolbar::-webkit-scrollbar,
+  .pdf-editor-toolbar::-webkit-scrollbar { display: none; }
+  .toolbar-left {
+    display: flex;
+    flex: 0 0 auto;
+    width: max-content;
+    flex-wrap: nowrap;
+    gap: 3px;
+  }
+  .toolbar-left .tool {
+    flex: 0 0 auto;
+    min-width: 40px;
+    min-height: 42px;
+    padding: 8px 10px;
+  }
+  .tool-divider { flex: 0 0 1px; }
+  .connection-status {
+    flex: 0 0 auto;
+    min-height: 36px;
+    gap: 5px;
+    padding: 0 5px;
+    font-size: 9px;
+    white-space: nowrap;
+  }
+  .editor-annotation-toolbar {
+    width: calc(100% - 16px);
+    max-width: none;
+    margin: 0 8px 10px;
+    padding: 4px 5px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x;
+    scrollbar-width: none;
+  }
+  .editor-annotation-group { min-width: max-content; flex-wrap: nowrap; gap: 4px; }
+  .editor-annotation-label { position: sticky; left: 0; z-index: 1; }
+  .annotation-tool-button {
+    min-width: 44px;
+    min-height: 44px;
+    flex: 0 0 auto;
+    padding: 0 9px;
+    border-radius: 9px;
+  }
+  .editor-content-grid {
+    display: grid;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    margin: 0;
+  }
+  .editor-canvas-column { width: 100%; min-width: 0; }
+  .editor-content-grid .paper-wrap {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    justify-content: center;
+    padding: 0 8px 28px;
+  }
+  .paper,
+  .paper-a4 {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0;
+    min-height: max(72dvh, 620px);
+    padding: clamp(22px, 6vw, 30px) clamp(17px, 5vw, 24px);
+    border-radius: 4px;
+  }
+  .tiptap-editor {
+    min-width: 0;
+    font-size: 16px;
+    line-height: 1.68;
+    overflow-wrap: anywhere;
+  }
+  .tiptap-editor img,
+  .tiptap-editor video,
+  .tiptap-editor table { max-width: 100%; }
+  .tiptap-editor pre,
+  .tiptap-editor table { display: block; max-width: 100%; overflow-x: auto; }
+  .editor-tools-panel {
+    display: grid;
+    width: calc(100% - 16px);
+    min-width: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin: 0 8px 16px;
+    padding: 14px;
+  }
+  .editor-tools-heading { grid-column: 1 / -1; }
+  .editor-tool-section { min-width: 0; }
+  .editor-tool-section:last-child { grid-column: 1 / -1; }
+  .editor-tool-row,
+  .editor-tool-primary { min-height: 44px; }
+  .editor-footer {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    width: calc(100% - 20px);
+    margin: 0 auto;
+    padding: 10px 0 max(16px, env(safe-area-inset-bottom));
+    font-size: 10px;
+  }
+  .document-annotation-entry {
+    width: calc(100% - 16px);
+    margin: 0 8px 9px;
+    flex-wrap: wrap;
+  }
+  .document-annotation-entry input { flex: 1 1 100%; min-width: 0; }
+  .focus-exit { position: fixed; top: max(10px, env(safe-area-inset-top)); right: 10px; z-index: 35; }
+
+  /* Comments and history become reachable bottom sheets rather than narrow drawers. */
+  .comments-panel {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 75;
+    width: 100%;
+    height: min(76dvh, 640px);
+    max-height: calc(100dvh - 20px);
+    border: 1px solid var(--glass-border-soft);
+    border-bottom: 0;
+    border-radius: 18px 18px 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+    box-shadow: 0 -14px 44px rgba(0,0,0,.18);
+    overflow: hidden;
+  }
+  .comments-header { min-height: 56px; padding: 10px 15px; }
+  .comments-list { min-height: 0; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  .comment-compose { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  .comment-compose textarea { min-height: 84px; font-size: 16px; }
+  .find-bar {
+    display: grid;
+    left: 10px;
+    right: 10px;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    top: auto;
+    width: auto;
+    max-width: none;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+    padding: 10px;
+  }
+  .find-bar input { width: 100%; min-width: 0; min-height: 44px; grid-column: 1 / -1; font-size: 16px; }
+  .find-bar button { min-height: 44px; min-width: 0; padding: 7px 8px; }
+
+  /* Original files and PDF annotation controls stay usable on touch screens. */
+  .original-file-workspace {
+    display: flex;
+    width: 100%;
+    height: calc(100dvh - 118px);
+    min-height: 460px;
+    gap: 8px;
+    padding: 4px 8px max(10px, env(safe-area-inset-bottom));
+  }
+  .original-file-toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px;
+  }
+  .original-file-heading { flex: 1 1 100%; }
+  .original-file-actions { width: 100%; justify-content: flex-start; gap: 6px; }
+  .original-file-action { min-height: 44px; font-size: 10px; }
+  .original-file-stage { min-width: 0; border-radius: 12px; }
+  .original-file-stage.is-pdf-stage {
+    display: block;
+    overflow: auto;
+    padding: 10px 5px 22px;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .pdf-page-list { width: 100%; align-items: center; gap: 14px; }
+  .pdf-page-slot { max-width: 100%; margin: 0 auto; }
+  .pdf-page-surface { max-width: 100%; }
+  .pdf-page-number { bottom: -17px; }
+  .pdf-editor-toolbar {
+    display: flex;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    flex-wrap: nowrap !important;
+    align-items: center;
+    gap: 5px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 5px 7px;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    touch-action: pan-x;
+  }
+  .pdf-tool-group { flex: 0 0 auto; }
+  .pdf-toolbar-spacer { display: none !important; }
+  .pdf-tool-button,
+  .pdf-icon-button { width: 42px; min-width: 42px; height: 42px; min-height: 42px; }
+  .pdf-save-button { min-height: 42px; white-space: nowrap; }
+  .pdf-text-entry { order: 0 !important; flex: 0 0 190px; width: 190px !important; min-width: 150px; min-height: 42px; font-size: 16px; }
+  .pdf-style-controls { flex: 0 0 auto; }
+  .pdf-selection-panel { align-items: center; flex-wrap: wrap; gap: 7px; }
+  .pdf-selection-panel input { min-width: 0; max-width: 100%; }
+  .pdf-tool-hint { flex: 0 0 auto; font-size: 11px; line-height: 1.45; }
+  .pdf-page-surface canvas { max-width: 100%; }
+  .pdf-markup-layer { touch-action: none; }
+
+  /* Dialogs, pickers and menus use the available screen instead of overflowing it. */
+  .modal-backdrop {
+    align-items: center;
+    justify-content: center;
+    padding: max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom));
+  }
+  .share-modal {
+    width: 100%;
+    max-width: 520px;
+    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 20px);
+    overflow: auto;
+    padding: 17px;
+    border-radius: 17px;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .modal-heading { align-items: flex-start; }
+  .modal-close { min-width: 44px; min-height: 44px; }
+  .editor-dropdown,
+  .context-menu { max-width: calc(100vw - 24px); }
+  .vixiny-tour-card { max-width: calc(100vw - 24px); }
+  .command-palette,
+  .command-dialog { width: calc(100vw - 20px); max-width: 520px; }
+
+  /* Keep long labels and data inside their cards instead of widening the page. */
+  .dashboard-stat-grid,
+  .dashboard-document-grid,
+  .collection-folder-grid,
+  .workspace-action-grid { min-width: 0; }
+  .stat-card,
+  .dash-card,
+  .collection-folder,
+  .workspace-action-card,
+  .workspace-hub-card { min-width: 0; }
+  .stat-card *,
+  .workspace-hub-card *,
+  .workspace-action-card *,
+  .dashboard-recent-item * { overflow-wrap: anywhere; }
+  .share-modal input,
+  .share-modal textarea,
+  .share-modal select,
+  .modal-backdrop input,
+  .modal-backdrop textarea,
+  .modal-backdrop select,
+  .sidebar input,
+  .editor-layout input,
+  .editor-layout textarea,
+  .editor-layout select {
+    max-width: 100%;
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 560px) {
+  .topbar { gap: 6px; margin-right: 6px; margin-left: 6px; padding: 7px 8px; }
+  .topbar-left { gap: 6px; }
+  .breadcrumb-home { display: inline-flex; width: 42px; min-width: 42px; min-height: 42px; justify-content: center; }
+  .breadcrumb-home span { display: none; }
+  .breadcrumbs .slash { display: none; }
+  .breadcrumb-current { flex: 1 1 auto; }
+  .top-actions { gap: 5px; }
+  .top-actions .share-button,
+  .top-actions .auth-button { min-height: 42px; padding: 0 10px; font-size: 11px; }
+  .top-actions .help-tour-button,
+  .top-actions .theme-toggle { min-width: 42px; width: 42px; min-height: 42px; }
+  .workspace-dashboard.dashboard { padding: 22px 13px max(42px, env(safe-area-inset-bottom)); }
+  .dashboard-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .workspace-dashboard .stat-card { min-height: 142px; padding: 11px; }
+  .stat-card-top { gap: 6px; }
+  .stat-card-code { font-size: 7px; }
+  .workspace-dashboard .stat-card-value { font-size: clamp(23px, 7vw, 29px); }
+  .dashboard-hero-actions { flex-wrap: wrap; }
+  .dashboard-new-doc { min-height: 44px; }
+  .dashboard-recent-heading { gap: 10px; }
+  .dashboard-recent-item { grid-template-columns: 22px 34px minmax(0,1fr) 14px; }
+  .dashboard-recent-index { font-size: 9px; }
+  .dashboard-recent-copy small { line-height: 1.4; }
+  .workspace-hub-layout .workspace-hub-grid { grid-template-columns: minmax(0, 1fr); }
+  .workspace-hub-layout .workspace-hub-card { min-height: 90px; }
+  .editor-meta { width: calc(100% - 16px); margin-top: 12px; }
+  .paper, .paper-a4 { min-height: 70dvh; padding: 23px 17px; }
+  .editor-tools-panel { grid-template-columns: minmax(0, 1fr); }
+  .editor-tools-heading,
+  .editor-tool-section:last-child { grid-column: auto; }
+  .original-file-workspace { height: calc(100dvh - 112px); min-height: 420px; padding-right: 6px; padding-left: 6px; }
+  .pdf-editor-toolbar { gap: 4px; }
+  .pdf-tool-button, .pdf-icon-button { width: 40px; min-width: 40px; height: 40px; min-height: 40px; }
+  .pdf-page-list { gap: 12px; }
+  .trash-page-hero { align-items: flex-start; }
+  .trash-page-heading { min-width: 0; }
+}
+
+@media (max-width: 380px) {
+  .top-actions .share-button,
+  .top-actions .auth-button { padding: 0 8px; font-size: 10px; }
+  .topbar { margin-right: 5px; margin-left: 5px; }
+  .workspace-dashboard .stat-card { min-height: 134px; }
+  .workspace-dashboard .stat-card-value { font-size: 22px; }
+  .dashboard-stat-grid { gap: 7px; }
+  .paper, .paper-a4 { padding: 20px 14px; }
+}
+
+@media (pointer: coarse) {
+  .menu-toggle,
+  .theme-toggle,
+  .help-tour-button,
+  .auth-button,
+  .share-button,
+  .workspace-pill,
+  .new-doc,
+  .templates-launch,
+  .document-link,
+  .sort-btn,
+  .tool,
+  .annotation-tool-button,
+  .pdf-tool-button,
+  .pdf-icon-button,
+  .pdf-save-button,
+  .modal-close,
+  .editor-more-btn,
+  .workspace-hub-card,
+  .dashboard-new-doc {
+    min-height: 44px;
+  }
+  .menu-toggle,
+  .theme-toggle,
+  .help-tour-button { min-width: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .topbar,
+  .comments-panel,
+  .pdf-editor-toolbar {
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}
