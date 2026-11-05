@@ -3996,7 +3996,7 @@ html.dark .filtered-new-document svg { color: #191919 !important; }
   background: var(--glass-2);
 }
 .help-tour-button:focus-visible {
-  outline: 2px solid #91475f;
+  outline: 2px solid var(--text);
   outline-offset: 3px;
 }
 
@@ -4017,9 +4017,9 @@ html.dark .filtered-new-document svg { color: #191919 !important; }
   position: fixed;
   z-index: 10001;
   pointer-events: none;
-  border: 1px solid rgba(201, 130, 155, .92);
+  border: 1px solid color-mix(in srgb, var(--text) 58%, transparent);
   border-radius: 14px;
-  box-shadow: 0 0 0 1px rgba(145, 71, 95, .28), 0 0 34px rgba(145, 71, 95, .22);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 12%, transparent), 0 0 30px color-mix(in srgb, var(--text) 10%, transparent);
   transition: left .22s ease, top .22s ease, width .22s ease, height .22s ease;
 }
 .vixiny-tour-card {
@@ -4033,7 +4033,7 @@ html.dark .filtered-new-document svg { color: #191919 !important; }
   padding: 22px;
   border: 1px solid var(--glass-border);
   border-radius: 19px;
-  background: color-mix(in srgb, var(--glass-2) 94%, #91475f 6%);
+  background: var(--glass-2);
   color: var(--text);
   box-shadow: 0 24px 90px rgba(0, 0, 0, .34), 0 4px 18px rgba(0, 0, 0, .12);
   backdrop-filter: blur(28px) saturate(155%);
@@ -4056,12 +4056,12 @@ html.dark .filtered-new-document svg { color: #191919 !important; }
   gap: 14px;
 }
 .vixiny-tour-eyebrow {
-  color: #a35c75;
+  color: var(--text-muted);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 1.35px;
 }
-html.dark .vixiny-tour-eyebrow { color: #d092a8; }
+html.dark .vixiny-tour-eyebrow { color: var(--text-muted); }
 .vixiny-tour-skip,
 .vixiny-tour-back {
   min-height: 34px;
@@ -4093,7 +4093,7 @@ html.dark .vixiny-tour-eyebrow { color: #d092a8; }
   transition: background .18s ease;
 }
 .vixiny-tour-progress span.is-complete {
-  background: #91475f;
+  background: var(--text);
 }
 .vixiny-tour-card h2 {
   margin: 0;
@@ -4125,10 +4125,10 @@ html.dark .vixiny-tour-eyebrow { color: #d092a8; }
   justify-content: center;
   gap: 10px;
   padding: 0 15px;
-  border: 1px solid #91475f;
+  border: 1px solid var(--text);
   border-radius: 10px;
-  background: #91475f;
-  color: #fff;
+  background: var(--text);
+  color: var(--bg);
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
@@ -4136,13 +4136,13 @@ html.dark .vixiny-tour-eyebrow { color: #d092a8; }
 }
 .vixiny-tour-next:hover {
   transform: translateY(-1px);
-  background: #a65a74;
-  box-shadow: 0 5px 16px rgba(145, 71, 95, .24);
+  background: var(--glass-3);
+  box-shadow: var(--shadow);
 }
 .vixiny-tour-next:focus-visible,
 .vixiny-tour-skip:focus-visible,
 .vixiny-tour-back:focus-visible {
-  outline: 2px solid #b56a83;
+  outline: 2px solid var(--text);
   outline-offset: 3px;
 }
 @keyframes vixinyTourEnter {
