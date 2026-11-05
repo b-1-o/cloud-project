@@ -22,6 +22,7 @@ export interface Env {
   AUTH_ISSUER?: string;
   AUTH_AUDIENCE?: string;
   FRONTEND_ORIGIN?: string;
+  FRONTEND_ALLOWED_ORIGINS?: string;
   APP_VERSION?: string;
   SENTRY_DSN?: string;
   HYPERDRIVE?: { connectionString: string };
