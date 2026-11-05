@@ -35,4 +35,4 @@ Last updated: 2026-10-14
 
 ## Vixiny brand update
 
-The Cloudflare Pages project resource was renamed to `vixiny`. Cloudflare retained the existing public Pages hostname `collab-docs-4tb.pages.dev`, so the old URL remains the stable deployment origin while `www.collabdocs.qd.je` is being connected. The Worker/API resource names and Auth0 tenant issuer remain unchanged to preserve existing tokens and API URLs.
+A new Cloudflare Pages project `vixiny` now owns `vixiny.pages.dev`. The previous site is preserved as `vixiny-legacy` at `collab-docs-4tb.pages.dev`. The custom domain `www.collabdocs.qd.je` has been moved to the new project and awaits its DNS CNAME to `vixiny.pages.dev`. The Worker/API resource names and Auth0 tenant issuer remain unchanged to preserve existing tokens and API URLs.
