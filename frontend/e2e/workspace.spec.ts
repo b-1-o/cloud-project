@@ -725,7 +725,7 @@ test("public share links render the original PDF instead of an empty text page",
 
 
 test("Vixiny logo returns to Personal workspace without a page reload", async ({ page }) => {
-  await page.route(/\\/api\\/documents\\?.*$/, async (route) => {
+  await page.route("**/api/documents?*", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -761,7 +761,7 @@ test("Vixiny logo returns to Personal workspace without a page reload", async ({
 
 test("workspace load errors are visible and can be retried", async ({ page }) => {
   let attempts = 0;
-  await page.route(/\\/api\\/documents\\?.*$/, async (route) => {
+  await page.route("**/api/documents?*", async (route) => {
     attempts += 1;
     if (attempts === 1) {
       await route.fulfill({ status: 503, contentType: "application/json", body: '{"error":"Workspace temporarily unavailable"}' });
