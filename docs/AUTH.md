@@ -29,14 +29,18 @@ The SPA derives its Auth0 callback from the current browser origin. Add all depl
 
 Allowed Callback URLs and Allowed Logout URLs:
 
-- `https://collab-docs-4tb.pages.dev/`
+- `https://vixiny.pages.dev/`
+- `https://collab-docs-4tb.pages.dev/` (legacy)
 - `https://www.collabdocs.qd.je/`
 - `http://localhost:3000/`
 
 Allowed Web Origins:
 
-- `https://collab-docs-4tb.pages.dev`
+- `https://vixiny.pages.dev`
+- `https://collab-docs-4tb.pages.dev` (legacy)
 - `https://www.collabdocs.qd.je`
 - `http://localhost:3000`
 
 Keep the Auth0 tenant issuer, JWKS URL and API audience unchanged. The underlying tenant domain is an identity-provider infrastructure name, not the product's public brand.
+
+The new canonical Pages origin is `https://vixiny.pages.dev`. The previous `https://collab-docs-4tb.pages.dev` address remains available on the legacy Pages project. The Worker accepts both origins during the transition.
