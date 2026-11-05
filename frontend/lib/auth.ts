@@ -174,6 +174,20 @@ export async function getAccessToken(): Promise<string | null> {
     ) {
       return null;
     }
+    if (code === "redirect_uri_mismatch") {
+      throw new Error(
+        "Auth0 blocked silent sign-in because this callback URL is not allowed: " +
+          window.location.origin +
+          "/. Add this exact URL to Allowed Callback URLs in Auth0 Dashboard → Applications → your Vixiny SPA."
+      );
+    }
+    if (code === "origin_not_allowed") {
+      throw new Error(
+        "Auth0 does not allow this website origin: " +
+          window.location.origin +
+          ". Add it to Allowed Web Origins in Auth0 Dashboard → Applications → your Vixiny SPA."
+      );
+    }
     throw new Error("Could not refresh your sign-in session. Check your connection or sign in again.");
   }
 }
