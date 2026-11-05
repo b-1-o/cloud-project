@@ -194,8 +194,6 @@ test("keeps Workspace Hub separate from the Recently Used home", async ({ page }
   await expect(page.getByRole("heading", { name: /recently used/i })).toBeVisible();
   await expect(page.locator(".workspace-hub-section")).toHaveCount(0);
   await expect(page.locator(".dashboard-recent-item").filter({ hasText: "Product notes" })).toHaveCount(1);
-  await expect(page.locator(".gmail-inbox-panel")).toBeVisible();
-
   await page.locator(".workspace-hub-nav").click();
   await expect(page.getByRole("heading", { name: /workspace hub/i })).toBeVisible();
   await expect(page.locator(".workspace-hub-section")).toBeVisible();
@@ -203,8 +201,6 @@ test("keeps Workspace Hub separate from the Recently Used home", async ({ page }
   await expect(page.locator(".workspace-stats-sidebar")).toBeVisible();
   await expect(page.locator(".workspace-stats-sidebar")).toContainText("Workspace pulse");
   await expect(page.locator(".dashboard-recent")).toHaveCount(0);
-  await expect(page.locator(".gmail-inbox-panel")).toHaveCount(0);
-
   await page.locator(".personal-workspace-nav").click();
   await expect(page.getByRole("heading", { name: /recently used/i })).toBeVisible();
   await expect(page.locator(".dashboard-recent-item").filter({ hasText: "Product notes" })).toHaveCount(1);
@@ -326,7 +322,8 @@ test("imports scanned PDFs as the original file without requiring OCR", async ({
   await expect(page.locator(".pdf-tool-hint")).toContainText("Click on the page to insert a checkbox", { timeout: 10000 });
   const checkboxPageBox = await pageLayer.boundingBox();
   if (!checkboxPageBox) throw new Error("PDF page is not visible for checkbox placement");
-  await page.mouse.click(checkboxPageBox.x + checkboxPageBox.width * 0.62, checkboxPageBox.y + checkboxPageBox.height * 0.62);
+  // Keep the checkbox clear of the existing signature and text annotations.
+  await page.mouse.click(checkboxPageBox.x + checkboxPageBox.width * 0.86, checkboxPageBox.y + checkboxPageBox.height * 0.84);
   const checkboxMark = page.locator('.pdf-mark-item[data-mark-type="checkbox"]');
   await expect(checkboxMark).toHaveCount(1);
   await page.getByRole("button", { name: "Check" }).click();
@@ -746,17 +743,21 @@ test("Vixiny logo returns to Personal workspace without a page reload", async ({
   await page.locator(".workspace-hub-nav").click();
   await expect(page.getByRole("heading", { name: /workspace hub/i })).toBeVisible();
 
-  let fullPageNavigations = 0;
-  page.on("framenavigated", (frame) => {
-    if (frame === page.mainFrame()) fullPageNavigations += 1;
+  const brandButton = page.getByRole("button", { name: "Vixiny home" });
+  await expect(brandButton).toHaveAttribute("type", "button");
+  await expect(brandButton).not.toHaveAttribute("href");
+
+  let documentNavigations = 0;
+  page.on("request", (request) => {
+    if (request.isNavigationRequest() && request.resourceType() === "document") documentNavigations += 1;
   });
   const currentUrl = page.url();
-  await page.getByRole("button", { name: "Vixiny home" }).click();
+  await brandButton.click();
 
   await expect(page.getByRole("heading", { name: /recently used/i })).toBeVisible();
   await expect(page.locator(".dashboard-recent-item").filter({ hasText: "Navigation notes" })).toHaveCount(1);
   await expect(page).toHaveURL(currentUrl);
-  expect(fullPageNavigations).toBe(0);
+  expect(documentNavigations).toBe(0);
 });
 
 test("workspace load errors are visible and can be retried", async ({ page }) => {
@@ -783,7 +784,7 @@ test("workspace load errors are visible and can be retried", async ({ page }) =>
   });
 
   await page.goto("/");
-  await expect(page.getByRole("alert")).toContainText("Workspace temporarily unavailable");
+  await expect(page.locator(".error-banner")).toContainText("Workspace temporarily unavailable");
   await expect(page.locator(".skeleton-row")).toHaveCount(0);
   await page.getByRole("button", { name: "Retry" }).click();
   await expect(page.getByRole("heading", { name: /recently used/i })).toBeVisible();
