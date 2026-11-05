@@ -7,7 +7,7 @@ This section records the last read-only inspection; it is not a claim that the a
 - D1 database `collab-docs-db` is schema-initialized. SQL inspection verified `0001_init.sql` in `d1_migrations`, all seven application tables, the three seeded roles, and three expected indexes. The D1 list endpoint's `num_tables` summary did not match SQL-catalog results, so the catalog and migration journal were used for verification.
 - KV namespace `collab-docs-flags` exists.
 - Queues `document-events` and `document-events-dlq` exist.
-- Pages project `collab-docs` exists at `https://collab-docs-4tb.pages.dev`, but it has no deployment yet.
+- Pages project `vixiny` (formerly `collab-docs`) exists at `https://collab-docs-4tb.pages.dev`, but it has no deployment yet.
 - No production Worker script was deployed at the time of inspection.
 - The account's `workers.dev` subdomain is `collab-docs-b1o`. The intended production Worker URL is `https://collab-docs-api-production.collab-docs-b1o.workers.dev`; it will serve requests after the gated deployment creates the Worker.
 - The Neon project `collab-docs-analytics` exists. A Hyperdrive configuration has not been created; analytics remains optional.
