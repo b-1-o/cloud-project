@@ -4021,3 +4021,27 @@ html.dark .dashboard-new-doc svg,
 html.dark .filtered-new-document,
 html.dark .filtered-new-document span,
 html.dark .filtered-new-document svg { color: #191919 !important; }
+
+
+/* Gmail document discovery: sender metadata, imported files and external document links */
+.gmail-inbox-panel { margin-bottom: 24px; }
+.gmail-privacy-note { margin: 10px 0 0; color: var(--text-muted); font-size: 9px; line-height: 1.55; }
+.gmail-account-label { display:inline-flex; align-items:center; gap:6px; margin-top:12px; padding:6px 9px; border:1px solid var(--glass-border-soft); border-radius:999px; background:var(--glass-1); color:var(--text-muted); font-size:9px; }
+.gmail-account-label svg { color:#57977d; }
+.gmail-account-label strong { color:var(--text); font-weight:700; }
+.gmail-message-heading-row { display:flex; align-items:flex-start; gap:8px; }
+.gmail-message-heading-row .gmail-message-meta { flex:1; min-width:0; }
+.gmail-open-message { display:grid; flex:0 0 27px; width:27px; height:27px; place-items:center; border:1px solid var(--glass-border-soft); border-radius:8px; background:var(--glass-2); color:var(--text-muted); }
+.gmail-open-message:hover,.gmail-document-link:hover { border-color:var(--glass-border); color:var(--text); }
+.gmail-message-snippet { display:-webkit-box; overflow:hidden; margin:0 0 8px; color:var(--text-muted); font-size:9px; line-height:1.5; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+.gmail-document-links { display:flex; flex-direction:column; gap:5px; margin-top:7px; }
+.gmail-document-link { display:flex; min-width:0; align-items:center; gap:7px; padding:7px 8px; border:1px solid var(--glass-border-soft); border-radius:8px; background:var(--glass-2); color:var(--text); text-decoration:none; }
+.gmail-document-link>svg { flex:0 0 auto; color:var(--accent); }
+.gmail-document-link span { overflow:hidden; min-width:0; flex:1; font-size:9px; text-overflow:ellipsis; white-space:nowrap; }
+.gmail-document-link small { color:var(--text-muted); font-size:8px; white-space:nowrap; }
+.gmail-attachment:hover { border-color:var(--glass-border); }
+@media (max-width: 720px) {
+  .gmail-inbox-header { align-items:flex-start; flex-direction:column; }
+  .gmail-message-list { grid-template-columns:minmax(0,1fr); }
+  .gmail-inbox-actions { width:100%; justify-content:flex-end; }
+}

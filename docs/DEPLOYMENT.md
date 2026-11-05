@@ -62,6 +62,15 @@ The remote migration journal already records `0001_init.sql`; a deployment run s
 
 Once the identity provider, GitHub secrets, repository variables, and Worker subdomain are configured, enable the deployment opt-in and run the deploy workflow. It applies pending migrations, deploys the Worker, configures Worker secrets, builds the static frontend with the public OIDC values, then deploys Pages. Validate the production login, JWT rejection/acceptance, viewer write rejection, and ticket-based WebSocket connection before claiming the app is live.
 
+
+## Gmail document inbox
+
+The browser connects directly to Google's Gmail API using the public Web OAuth client ID. Enable the Gmail API, create a Web application OAuth client, and add `https://collab-docs-4tb.pages.dev` plus `http://localhost:3000` to Authorized JavaScript origins. Set `NEXT_PUBLIC_GOOGLE_CLIENT_ID` as a GitHub repository variable and as the local frontend environment variable. The deploy workflow already passes this optional public value into the Pages build; do not create a browser client secret.
+
+During development, configure the OAuth consent screen for External testing and add the Google account you will use as a test user. The integration requests only `gmail.readonly`, searches the last 180 days for document attachments and supported document-provider links, and retrieves attachment bytes only after the user explicitly imports a file. OAuth access tokens and detected message details remain in browser memory and are not sent to the CollabDocs Worker. The integration must be reconnected after a page reload.
+
+`https://www.googleapis.com/auth/gmail.readonly` is a restricted Google scope. A public release requires the applicable OAuth restricted-scope verification; server-side handling of restricted Gmail data can also trigger Google's independent security-assessment requirement. See [Google's restricted-scope verification guide](https://developers.google.com/identity/protocols/oauth2/production-readiness/restricted-scope-verification).
+
 ## Remaining integrations
 
 Grafana has a dashboard but custom application metrics are not yet flowing. Sentry is present in code but requires a real DSN/project to enable. Neon analytics is optional and does not block the main document API; configure it only if wanted, then provision its connection through Cloudflare's Hyperdrive settings without putting database credentials in source or logs.

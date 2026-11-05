@@ -50,19 +50,21 @@ The local demo identity is not suitable for public deployments. Configure the OI
 - Formats that use content extraction become editable text/rich-text representations and do not preserve every original layout, image, chart, formula, animation, font, or embedded object. PDFs are not passed through text extraction or OCR: they remain the original PDF, including scanned/image-only pages. Legacy binary XLS/PPT and Apple iWork files without a content extractor are retained as original files; convert them first only when you need their contents editable inside CollabDocs. PDF annotations and signatures are flattened into the saved PDF; existing PDF text is not yet directly editable. This is not yet a native-fidelity replacement for Word, Excel, or PowerPoint.
 - Hand-drawn signatures can be inserted at the current editor cursor in rich-text documents, or placed on a PDF page and saved together with annotations. A touch screen or stylus supports direct drawing; a standard laptop trackpad uses the browser's press-and-drag pointer input.
 
-## Gmail attachment inbox
+## Gmail document inbox
 
-The optional **New from Gmail** panel uses Google's browser Identity Services token client and the Gmail API. It requests only `https://www.googleapis.com/auth/gmail.readonly`, lists recent messages with attachments, and downloads an attachment only after the user selects it. Access tokens are held in page memory and are not sent to the CollabDocs Worker. Imported text then follows the normal document storage and collaboration path. Disconnecting clears the in-page token; reloading the page requires reconnecting.
+The optional **Documents from email** panel uses Google's browser Identity Services token client and the Gmail API. It requests only `https://www.googleapis.com/auth/gmail.readonly` and searches recent messages for document-type attachments and supported document links (Google Docs/Drive, Dropbox, OneDrive, SharePoint, Box, DocuSign, Adobe Acrobat, and Notion). The panel shows the sender, subject, date, and detected files/links. An attachment is fetched only after the user selects **Import**; document links open at their original provider. The app does not send, delete, archive, or modify email.
+
+Access tokens are held in page memory only and are sent directly from the browser to Google, never to the CollabDocs Worker. Message summaries are kept in browser memory for the current page session; email bodies and Gmail attachments are not stored by CollabDocs. Imported files then follow the normal document storage and collaboration path. Disconnecting revokes the current token grant and clears the in-page data; reloading the page requires reconnecting.
 
 To configure the integration:
 
 1. Create a Google Cloud project and enable the Gmail API.
 2. Create an OAuth Client ID for a Web application.
-3. Add the CollabDocs site origin and your local development origin (for example, `http://localhost:3000`) to Authorized JavaScript origins.
-4. Configure the OAuth consent screen and add your own account as a test user while developing.
-5. Set `NEXT_PUBLIC_GOOGLE_CLIENT_ID` in the frontend environment and the Cloudflare Pages build environment, then rebuild the frontend.
+3. Add the CollabDocs production origin (`https://collab-docs-4tb.pages.dev`) and local development origin (`http://localhost:3000`) to Authorized JavaScript origins.
+4. Configure the OAuth consent screen as External while developing, and add your Google account as a test user.
+5. Set `NEXT_PUBLIC_GOOGLE_CLIENT_ID` as a GitHub Actions repository variable and in the frontend's local environment. The Pages deployment workflow passes it into the static build; no client secret is used in the browser.
 
-Google classifies `gmail.readonly` as a restricted scope. Public release may require Google's restricted-scope verification and, depending on how Gmail-derived content is handled, additional security review. Do not advertise Gmail integration as production-ready until the relevant Google review and privacy requirements are completed. See Google's [Gmail API scope guide](https://developers.google.com/workspace/gmail/api/auth/scopes) and [restricted-scope verification requirements](https://developers.google.com/identity/protocols/oauth2/production-readiness/restricted-scope-verification).
+Google classifies `gmail.readonly` as a restricted scope. Public release may require restricted-scope verification and, where restricted Gmail data is accessed from or transmitted through a server, an approved security assessment. Keep the feature limited to the stated read-only purpose and do not enable additional scopes without a clear need. See Google's [Gmail API scope guide](https://developers.google.com/workspace/gmail/api/auth/scopes) and [restricted-scope verification requirements](https://developers.google.com/identity/protocols/oauth2/production-readiness/restricted-scope-verification).
 
 ## Privacy
 
