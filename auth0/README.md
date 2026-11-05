@@ -1,66 +1,74 @@
-# Collab Docs — Auth0 branding and production setup
+# Vixiny — Auth0 branding and production setup
 
-These files prepare the branding assets and theme payload for the Auth0 tenant used by Collab Docs. **Committing them does not automatically change the hosted Auth0 login page**: Auth0 branding is configured in the Auth0 tenant separately.
+Vixiny uses Auth0 as a public Single Page Application (SPA) with Authorization Code Flow + PKCE. The tenant domain, API audience, issuer and JWKS URL are infrastructure identifiers and intentionally remain unchanged during the product rebrand.
 
-## 1. Brand the hosted login page
+Committing branding files does not change the hosted Auth0 login page by itself. Apply the files below in the Auth0 Dashboard.
 
-After the Pages deployment finishes, verify these assets are publicly available:
+## 1. Update the Auth0 application allowlists
 
-- Wordmark: https://collab-docs-4tb.pages.dev/collab-docs-auth0.svg
-- Favicon mark: https://collab-docs-4tb.pages.dev/collab-docs-auth0-mark.svg
+Open **Applications → Applications → the existing Vixiny SPA → Settings**. Keep the existing Client ID, client type, API audience, grant types, and refresh-token configuration.
 
-In the Auth0 Dashboard, open **Branding → Universal Login** and edit the theme. Use `universal-login-theme.json` as the design reference:
+Add all of these values to **Allowed Callback URLs**:
 
-- Background: `#0B0A10`
-- Login panel: `#15141B`
-- Primary button / accents: `#91475F`
-- Inputs: `#1E1B25`, border `#3C3442`
-- Main text: `#F9F6F8`; secondary text: `#C6C0CB`
-- Rounded controls, 20 px panel corners, subtle panel shadow
-- Logo position: centered; logo height: 56 px
-- Social buttons: top, so Google appears before the email form
+- `https://collab-docs-4tb.pages.dev/`
+- `https://www.collabdocs.qd.je/`
+- `http://localhost:3000/`
 
-Use `branding-settings.json` for tenant-level logo, favicon, primary color, and page background. If you apply settings through the Management API rather than the Dashboard editor, merge them with the existing configuration; do not replace unrelated tenant settings.
+Add the same three URLs to **Allowed Logout URLs**.
 
-For a fully custom theme API update, first read the **default** theme at `GET /api/v2/branding/themes/default`, then update that theme using the returned theme ID. Universal Login uses the default theme, so creating an unrelated additional theme will not change the live login page.
+Add these origins (without a trailing slash) to **Allowed Web Origins**:
 
-## 2. Remove the tenant name from the login copy
+- `https://collab-docs-4tb.pages.dev`
+- `https://www.collabdocs.qd.je`
+- `http://localhost:3000`
 
-The default sentence can expose the internal tenant name, for example `Log in to dev-… to continue to Collab Docs`. In Auth0's Universal Login text customization for the login prompt, use product-facing copy such as:
+Save the application settings. The frontend now derives its callback from the current website origin, so the same build can run on the current Pages.dev address and the Vixiny custom domain. Auth0 must allow each origin explicitly.
 
-- Title: `Sign in to Collab Docs`
-- Description: `Continue to your workspace, documents, and teammates.`
+The custom domain remains pending until its DNS CNAME is published and Cloudflare validates the domain. Keep the Pages.dev URLs allowed so existing users can still sign in.
 
-Keep the sign-up, password-reset, and error messages consistent with the same product voice. This changes the text users see, not the tenant's underlying domain.
+## 2. Apply the Vixiny login branding
 
-## 3. Mark the tenant as Production
+In **Branding → Universal Login**, apply the colors, fonts, borders and logo from `universal-login-theme.json`. In the Auth0 Dashboard's tenant branding settings, use `branding-settings.json` for the logo, favicon, primary color and page background.
 
-In the Auth0 Dashboard, open **Settings → General → Environment Tag** and select **Production**, if the tenant/account plan allows it. This is an Auth0 tenant setting, not a Next.js `NODE_ENV` change.
+The logo assets remain available at their existing Pages.dev paths to avoid breaking the hosted login while the custom domain is being validated:
 
-The environment tag does **not** rename the tenant domain and does **not** clear a development-keys alert by itself. Auth0 does not allow a tenant's canonical name/domain to be renamed after creation.
+- Wordmark: `https://collab-docs-4tb.pages.dev/collab-docs-auth0.svg`
+- Mark / favicon: `https://collab-docs-4tb.pages.dev/collab-docs-auth0-mark.svg`
 
-## 4. Replace social development keys
+Set the Universal Login text to:
 
-The **Dev Keys** warning means a social connection is still using Auth0's shared test credentials. For Google sign-in:
+- Title: `Sign in to Vixiny`
+- Description: `Continue to your documents, workspace, and collaborators.`
 
-1. Create/configure a Google OAuth 2.0 client for a Web application in Google Cloud.
-2. Add this exact redirect URI to that Google OAuth client:
-   `https://dev-iy8rk4v6x2psslz4.us.auth0.com/login/callback`
-3. In Auth0, open **Authentication → Social → Google** and replace the shared development credentials with that Google client's Client ID and Client Secret.
-4. Keep the Client Secret only in Auth0's connection settings; never add it to this repository or frontend environment variables.
-5. Make sure the Google consent screen is published/configured for the people who should be able to sign in. Google may restrict an app left in testing mode to test users.
+If using the Branding Management API, first read the current branding settings and the **default** Universal Login theme. Merge changes into the existing settings; do not replace unrelated tenant configuration or create a separate theme that is not active.
 
-If Google sign-in is not needed, disable the Google connection instead of leaving it configured with shared development credentials.
+## 3. Keep the existing identity infrastructure
 
-## 5. Optional: use a product-owned authentication domain
+The existing tenant domain is `dev-iy8rk4v6x2psslz4.us.auth0.com`. Auth0 does not let you rename the tenant's canonical domain. This is expected and does not prevent the product from being branded as Vixiny.
 
-The canonical tenant domain cannot be renamed. To remove `dev-…us.auth0.com` from the browser's address bar, configure an Auth0 custom domain on a domain you own and verify its DNS. Then change the Cloudflare Pages variable `NEXT_PUBLIC_OIDC_AUTHORIZATION_URL` to that HTTPS domain and update the Auth0 application's allowed callback, logout, and web-origin settings as required.
+Keep these identifiers unchanged:
 
-A custom domain is separate from the visual theme and from the Production environment tag. Do not enter a made-up domain: it must be owned and verified first.
+- Issuer: `https://dev-iy8rk4v6x2psslz4.us.auth0.com/`
+- JWKS: `https://dev-iy8rk4v6x2psslz4.us.auth0.com/.well-known/jwks.json`
+- API audience: `https://collab-docs-api`
+
+The API audience and issuer are verified by the Cloudflare Worker. Renaming them would require a coordinated Auth0 API and Worker-secret migration, so the brand update does not change them.
+
+## 4. Google social connection
+
+If Google sign-in is enabled, replace Auth0's shared development credentials with a Google OAuth client that you control. The Google OAuth redirect URI remains:
+
+`https://dev-iy8rk4v6x2psslz4.us.auth0.com/login/callback`
+
+Keep the Google Client Secret only in Auth0's social connection settings. Never add it to frontend variables or source control. Publish/configure the Google consent screen for the intended audience, or disable the connection if it is not needed.
+
+## 5. Optional custom Auth0 domain
+
+The Auth0 tenant's canonical domain cannot be renamed. A separate Auth0 custom domain can hide the tenant subdomain in the browser, but it requires a domain you own, DNS verification, and a corresponding Auth0 tenant configuration. Do not invent or add one until the custom domain is active.
 
 ## Files
 
-- `universal-login-theme.json` — theme payload for the Auth0 default Universal Login theme.
-- `branding-settings.json` — tenant-level logo, favicon, and color payload.
-- `../frontend/public/collab-docs-auth0.svg` — horizontal wordmark for the login panel.
-- `../frontend/public/collab-docs-auth0-mark.svg` — compact favicon mark.
+- `universal-login-theme.json` — Vixiny styling for the active default Universal Login theme.
+- `branding-settings.json` — Vixiny logo, favicon and colors.
+- `../frontend/public/collab-docs-auth0.svg` — existing wordmark path, now displaying Vixiny.
+- `../frontend/public/collab-docs-auth0-mark.svg` — existing favicon path, now branded Vixiny.
