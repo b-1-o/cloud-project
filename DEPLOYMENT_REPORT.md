@@ -1,4 +1,4 @@
-# Deployment Report — Collab Docs
+# Deployment Report — Vixiny
 
 Last updated: 2026-10-14
 
@@ -31,3 +31,8 @@ Last updated: 2026-10-14
 3. Store the required GitHub Actions secrets and repository variables as documented in `docs/DEPLOYMENT.md`.
 4. Run CI to green on the latest commit, then enable deployment and run the deploy workflow.
 5. Verify health endpoint, successful/failed JWT cases, viewer read-only behavior, two-client WebSocket sync, and production Pages rendering.
+
+
+## Vixiny brand update
+
+The Cloudflare Pages project resource was renamed to `vixiny`. Cloudflare retained the existing public Pages hostname `collab-docs-4tb.pages.dev`, so the old URL remains the stable deployment origin while `www.collabdocs.qd.je` is being connected. The Worker/API resource names and Auth0 tenant issuer remain unchanged to preserve existing tokens and API URLs.
