@@ -3,8 +3,8 @@ import "./globals.css";
 import "./globals-extra.css";
 
 export const metadata: Metadata = {
-  title: "CollabDocs — Workspace",
-  description: "Your workspace for documents, collaboration, review, and signatures.",
+  title: "Vixiny — Workspace",
+  description: "A calm workspace for documents, collaboration, review, and signatures.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
