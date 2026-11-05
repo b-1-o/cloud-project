@@ -178,6 +178,13 @@ a { color: inherit; text-decoration: none; }
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
   font-weight: 720;
   letter-spacing: -0.3px;
   margin-bottom: 4px;
@@ -1374,4 +1381,24 @@ html.dark .modal-backdrop {
   html.dark .comments-panel {
     background: #161822;
   }
+}
+
+
+.error-banner > span {
+  flex: 1;
+  min-width: 0;
+}
+.error-banner .error-banner-retry {
+  flex: 0 0 auto;
+  border: 1px solid currentColor;
+  border-radius: 7px;
+  padding: 3px 9px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+.error-banner .error-banner-retry:hover {
+  background: color-mix(in srgb, currentColor 8%, transparent);
 }

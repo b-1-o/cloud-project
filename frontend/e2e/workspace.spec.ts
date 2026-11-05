@@ -1,5 +1,11 @@
 import { expect, test } from "@playwright/test";
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("vixiny-first-run-tour-v1", "complete");
+  });
+});
+
 function createTestPdf(): Buffer {
   const stream = "BT /F1 18 Tf 72 720 Td (Scanned test PDF) Tj ET";
   const objects = [
@@ -715,4 +721,80 @@ test("public share links render the original PDF instead of an empty text page",
     }
     return false;
   })).toBe(true);
+});
+
+
+test("Vixiny logo returns to Personal workspace without a page reload", async ({ page }) => {
+  await page.route(/\\/api\\/documents\\?.*$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ documents: [{
+        id: "e2e-brand-navigation",
+        title: "Navigation notes",
+        updated_at: new Date().toISOString(),
+        role: "owner",
+      }] }),
+    });
+  });
+  await page.route("**/api/documents/*/ticket", async (route) => {
+    await route.fulfill({ status: 503, contentType: "application/json", body: '{"error":"test offline"}' });
+  });
+
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: /recently used/i })).toBeVisible();
+  await page.locator(".workspace-hub-nav").click();
+  await expect(page.getByRole("heading", { name: /workspace hub/i })).toBeVisible();
+
+  let fullPageNavigations = 0;
+  page.on("framenavigated", (frame) => {
+    if (frame === page.mainFrame()) fullPageNavigations += 1;
+  });
+  const currentUrl = page.url();
+  await page.getByRole("button", { name: "Vixiny home" }).click();
+
+  await expect(page.getByRole("heading", { name: /recently used/i })).toBeVisible();
+  await expect(page.locator(".dashboard-recent-item").filter({ hasText: "Navigation notes" })).toHaveCount(1);
+  await expect(page).toHaveURL(currentUrl);
+  expect(fullPageNavigations).toBe(0);
+});
+
+test("workspace load errors are visible and can be retried", async ({ page }) => {
+  let attempts = 0;
+  await page.route(/\\/api\\/documents\\?.*$/, async (route) => {
+    attempts += 1;
+    if (attempts === 1) {
+      await route.fulfill({ status: 503, contentType: "application/json", body: '{"error":"Workspace temporarily unavailable"}' });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ documents: [{
+        id: "e2e-retry-document",
+        title: "Recovered workspace",
+        updated_at: new Date().toISOString(),
+        role: "owner",
+      }] }),
+    });
+  });
+  await page.route("**/api/documents/*/ticket", async (route) => {
+    await route.fulfill({ status: 503, contentType: "application/json", body: '{"error":"test offline"}' });
+  });
+
+  await page.goto("/");
+  await expect(page.getByRole("alert")).toContainText("Workspace temporarily unavailable");
+  await expect(page.locator(".skeleton-row")).toHaveCount(0);
+  await page.getByRole("button", { name: "Retry" }).click();
+  await expect(page.getByRole("heading", { name: /recently used/i })).toBeVisible();
+  await expect(page.locator(".dashboard-recent-item").filter({ hasText: "Recovered workspace" })).toHaveCount(1);
+});
+
+test("the first-run guide can be replayed and dismissed", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: /replay the vixiny guide/i })).toBeVisible();
+  await page.getByRole("button", { name: /replay the vixiny guide/i }).click();
+  await expect(page.getByRole("dialog", { name: /your workspace, all in one place/i })).toBeVisible();
+  await page.getByRole("button", { name: "Skip tour" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 });

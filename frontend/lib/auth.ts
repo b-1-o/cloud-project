@@ -82,6 +82,7 @@ async function getAuthClient(): Promise<AuthClient> {
     useRefreshTokens: true,
     useRefreshTokensFallback: true,
     cacheLocation: "localstorage",
+    httpTimeoutInSeconds: 10,
   });
 
   try {
@@ -159,7 +160,7 @@ export async function getAccessToken(): Promise<string | null> {
   try {
     const client = await getAuthClient();
     // Prefer refresh-token path; cache in localStorage survives tab/browser close
-    return (await client.getTokenSilently({ cacheMode: "on" })) || null;
+    return (await client.getTokenSilently({ cacheMode: "on", timeoutInSeconds: 10 })) || null;
   } catch (error) {
     const code = errorCode(error);
     if (
@@ -225,7 +226,9 @@ export async function completeOidcLogin(url: URL): Promise<boolean> {
     }
     if (code === "redirect_uri_mismatch") {
       throw new Error(
-        "Auth0 rejected the callback URL (redirect_uri_mismatch). The redirect URI in the application must exactly match https://collab-docs-4tb.pages.dev/."
+        "Auth0 blocked sign-in because this callback URL is not allowed: " +
+          window.location.origin +
+          "/. Add this exact URL to Allowed Callback URLs in Auth0 Dashboard → Applications → your Vixiny SPA, then save and retry."
       );
     }
     if (

@@ -74,11 +74,27 @@ const TEMPLATES: Array<{ id: string; title: string }> = [
 ];
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  if (!API) throw new Error("Vixiny API is not configured. Please contact the administrator.");
   const headers = new Headers(init?.headers);
   if (!headers.has("Content-Type") && init?.body) headers.set("Content-Type", "application/json");
+
+  // Auth0 silent renewal must not hold the workspace UI indefinitely.
   const token = await getAccessToken();
   if (token && !headers.has("Authorization")) headers.set("Authorization", "Bearer " + token);
-  const response = await fetch(API + path, { ...init, headers });
+
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 15_000);
+  let response: Response;
+  try {
+    response = await fetch(API + path, { ...init, headers, signal: controller.signal });
+  } catch (cause) {
+    if (controller.signal.aborted) {
+      throw new Error("Vixiny could not reach the workspace server in time. Check your connection and retry.");
+    }
+    throw cause;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as { error?: string };
     if (response.status === 401) {
@@ -301,6 +317,9 @@ export default function HomePage() {
     const localKey = nextMode === "trash" ? LOCAL_TRASH_KEY : LOCAL_DOCUMENTS_KEY;
     try {
       const localDocuments = readLocalDocuments(localKey);
+      // Render the local workspace immediately; remote sync can complete afterward.
+      setDocuments(localDocuments);
+      setLoading(false);
       if (!allowRemote) {
         setDocuments(localDocuments);
         if (nextMode === "docs") {
@@ -338,7 +357,9 @@ export default function HomePage() {
       }
       setError("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load documents");
+      const message = err instanceof Error ? err.message : "Could not load documents";
+      if (message.includes("Authentication required")) setSignedIn(false);
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -462,6 +483,7 @@ export default function HomePage() {
 
   function showPersonalWorkspace() {
     clearDocumentSelection();
+    setLoading(false);
     setWorkspacePanel("recent");
     setViewMode("docs");
     setFilter("all");
@@ -941,9 +963,9 @@ export default function HomePage() {
 
       {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} aria-hidden />}
       <aside className={"sidebar" + (sidebarOpen ? " sidebar-open" : "")}>
-        <a className="brand" data-tour="brand" href="/" aria-label="Vixiny home" onClick={() => { pendingDocId.current = null; setActive(null); setWorkspacePanel("recent"); setViewMode("docs"); setFilter("all"); setDashboardFolder("all"); window.scrollTo({ top: 0, behavior: "auto" }); }}>
+        <button type="button" className="brand" data-tour="brand" aria-label="Vixiny home" onClick={showPersonalWorkspace}>
           <span className="brand-mark">V</span><span>Vixiny</span>
-        </a>
+        </button>
         <div className="sidebar-label">WORKSPACE</div>
         <button
           type="button"
@@ -1029,7 +1051,13 @@ export default function HomePage() {
             <span className="avatar small-avatar" title="Account" aria-label="Account"><UserRound size={14} strokeWidth={1.8} aria-hidden="true" /></span>
           </div>
         </header>
-        {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError("")} aria-label="Dismiss error"><X size={15} /></button></div>}
+        {error && (
+          <div className="error-banner" role="alert">
+            <span>{error}</span>
+            <button type="button" className="error-banner-retry" onClick={() => void refresh(viewMode, signedIn)}>Retry</button>
+            <button type="button" onClick={() => setError("")} aria-label="Dismiss error"><X size={15} /></button>
+          </div>
+        )}
         {active ? activeOriginalFile?.documentId === active.id ? (
           <OriginalFileViewer
             title={active.title}
