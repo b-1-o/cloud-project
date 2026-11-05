@@ -10,8 +10,9 @@ import { WorkspaceCalendar } from "@/components/workspace-calendar";
 import { formatDistanceToNow } from "date-fns";
 import { Toaster, toast } from "sonner";
 import { CommandPalette, type CommandItem } from "@/components/command-palette";
+import VixinyFirstRunTour from "@/components/first-run-tour";
 import HoldButton from "@/components/HoldButton";
-import { ArrowRight, ArrowUpRight, Check, CheckCircle2, Cloud, Code2, Command, FileText, FileUp, HardDrive, House, LayoutTemplate, LogIn, LogOut, NotebookPen, Plus, Sparkles, Target, Users, Wifi, Clock3, Files, ShieldCheck, Star, Trash2, FolderOpen, Pencil, Inbox, MessageCircle, CalendarDays, ListChecks, BarChart3, Sun, Moon, Activity, Menu, Share2, UserRound, MoreHorizontal, X } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, CheckCircle2, Cloud, Code2, Command, HelpCircle, FileText, FileUp, HardDrive, House, LayoutTemplate, LogIn, LogOut, NotebookPen, Plus, Sparkles, Target, Users, Wifi, Clock3, Files, ShieldCheck, Star, Trash2, FolderOpen, Pencil, Inbox, MessageCircle, CalendarDays, ListChecks, BarChart3, Sun, Moon, Activity, Menu, Share2, UserRound, MoreHorizontal, X } from "lucide-react";
 
 type DashboardFolder = "all" | "mine" | "shared" | "favorites";
 type WorkspacePanel = "recent" | "hub";
@@ -133,6 +134,7 @@ export default function HomePage() {
   const [cmdOpen, setCmdOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [tourReplayKey, setTourReplayKey] = useState(0);
   const [openCommentsForId, setOpenCommentsForId] = useState<string | null>(null);
   const [sheetTransitionId, setSheetTransitionId] = useState<string | null>(null);
   const contextRef = useRef<HTMLDivElement>(null);
@@ -678,7 +680,7 @@ export default function HomePage() {
       toast.success(imported.kind === "original-file" ? "Original file imported" : "Document imported", {
         description: imported.kind === "original-file"
           ? file.name + " was saved without changing its contents."
-          : "The extracted content is now an editable CollabDocs document.",
+          : "The extracted content is now an editable Vixiny document.",
       });
     } catch (cause) {
       if (createdDocument) {
@@ -905,6 +907,17 @@ export default function HomePage() {
 
 
 
+  const handleTourNavigate = useCallback((panel: WorkspacePanel, revealSidebar: boolean) => {
+    setActive(null);
+    setViewMode("docs");
+    setFilter("all");
+    setDashboardFolder("all");
+    setWorkspacePanel(panel);
+    setSidebarOpen(revealSidebar);
+  }, []);
+
+  const handleTourClose = useCallback(() => setSidebarOpen(false), []);
+
   return (
     <main className="shell">
       <Toaster position="bottom-right" richColors closeButton />
@@ -924,12 +937,13 @@ export default function HomePage() {
 
       {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} aria-hidden />}
       <aside className={"sidebar" + (sidebarOpen ? " sidebar-open" : "")}>
-        <a className="brand" href="/" aria-label="Collab Docs home" onClick={() => { pendingDocId.current = null; setActive(null); setWorkspacePanel("recent"); setViewMode("docs"); setFilter("all"); setDashboardFolder("all"); window.scrollTo({ top: 0, behavior: "auto" }); }}>
-          <span className="brand-mark">C</span><span>collab<span className="brand-light">docs</span></span>
+        <a className="brand" data-tour="brand" href="/" aria-label="Vixiny home" onClick={() => { pendingDocId.current = null; setActive(null); setWorkspacePanel("recent"); setViewMode("docs"); setFilter("all"); setDashboardFolder("all"); window.scrollTo({ top: 0, behavior: "auto" }); }}>
+          <span className="brand-mark">V</span><span>Vixiny</span>
         </a>
         <div className="sidebar-label">WORKSPACE</div>
         <button
           type="button"
+          data-tour="hub"
           className={"workspace-pill workspace-hub-nav" + (workspacePanel === "hub" && !active ? " is-active" : "")}
           onClick={showWorkspaceHub}
           aria-current={workspacePanel === "hub" && !active ? "page" : undefined}
@@ -944,7 +958,7 @@ export default function HomePage() {
         >
           <FolderOpen size={14} strokeWidth={1.8} aria-hidden="true" /><span>Personal workspace</span>
         </button>
-        <div className="search-wrap"><input className="search-input" type="search" placeholder="Search documents…" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search documents" /></div>
+        <div className="search-wrap" data-tour="search"><input className="search-input" type="search" placeholder="Search documents…" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search documents" /></div>
         <div className="sort-row">
           <button type="button" className={sortBy === "updated" ? "sort-btn active" : "sort-btn"} onClick={() => setSortBy("updated")}>Recent</button>
           <button type="button" className={sortBy === "name" ? "sort-btn active" : "sort-btn"} onClick={() => setSortBy("name")}>Name</button>
@@ -956,9 +970,9 @@ export default function HomePage() {
           <button type="button" aria-current={viewMode === "trash" ? "page" : undefined} className={viewMode === "trash" ? "sort-btn workspace-route-button active" : "sort-btn workspace-route-button"} onClick={showTrash}><Trash2 size={13} aria-hidden="true" /><span>Trash</span></button>
         </div>
         <div className="sidebar-label docs-label">{viewMode === "trash" ? "TRASH" : "PERSONAL WORKSPACE"}</div>
-        <button className="new-doc" onClick={createDocument} disabled={creating || viewMode === "trash"}><span>＋</span> New document</button>
-        <button className="new-doc import-doc-button" onClick={() => importFileInputRef.current?.click()} disabled={creating || viewMode === "trash"}><FileUp size={15} /> {creating ? "Importing…" : "Import document"}</button>
-        <button type="button" className="templates-launch" onClick={() => setTemplateOpen(true)} disabled={creating || viewMode === "trash"}>
+        <button className="new-doc" data-tour="create" onClick={createDocument} disabled={creating || viewMode === "trash"}><span>＋</span> New document</button>
+        <button className="new-doc import-doc-button" data-tour="import" onClick={() => importFileInputRef.current?.click()} disabled={creating || viewMode === "trash"}><FileUp size={15} /> {creating ? "Importing…" : "Import document"}</button>
+        <button type="button" className="templates-launch" data-tour="templates" onClick={() => setTemplateOpen(true)} disabled={creating || viewMode === "trash"}>
           <span className="templates-launch-icon" aria-hidden="true"><LayoutTemplate size={17} strokeWidth={1.8} /></span>
           <span className="templates-launch-copy"><strong>Templates</strong><small>Start with a structure</small></span>
           <span className="templates-launch-trailing"><span>04</span><ArrowUpRight size={14} /></span>
@@ -990,7 +1004,7 @@ export default function HomePage() {
         <div className="sidebar-bottom"><span className="avatar">B</span><div><strong>{signedIn ? "Signed-in account" : "Local workspace"}</strong><small>{signedIn ? "Authenticated session" : "Development session"}</small></div></div>
       </aside>
       <section className="main-panel">
-        <header className="topbar">
+        <header className="topbar" data-tour="workspace">
           <div className="topbar-left">
             <button type="button" className="menu-toggle" aria-label="Toggle sidebar" onClick={() => setSidebarOpen((o) => !o)}><Menu size={17} strokeWidth={1.8} /></button>
             <div className="breadcrumbs">
@@ -1003,10 +1017,10 @@ export default function HomePage() {
             </div>
           </div>
           <div className="top-actions">
-            <button type="button" className="theme-toggle" onClick={toggleTheme} aria-label="Toggle color theme" title="Toggle color theme"><span className="theme-toggle-icon" aria-hidden="true"><Sun className="theme-sun-icon" size={17} strokeWidth={1.8} /><Moon className="theme-moon-icon" size={17} strokeWidth={1.8} /></span></button>
+            <button type="button" className="theme-toggle" data-tour="theme" onClick={toggleTheme} aria-label="Toggle color theme" title="Toggle color theme"><span className="theme-toggle-icon" aria-hidden="true"><Sun className="theme-sun-icon" size={17} strokeWidth={1.8} /><Moon className="theme-moon-icon" size={17} strokeWidth={1.8} /></span></button>
             <span className="secure-label">{signedIn ? <CheckCircle2 size={14} strokeWidth={1.9} aria-hidden="true" /> : <HardDrive size={14} strokeWidth={1.9} aria-hidden="true" />}<span>{signedIn ? "Autosave enabled" : "Saved on this device"}</span></span>
-            <button className="share-button" onClick={() => { if (!signedIn || active?.local) { toast.info("Sign in to unlock sharing and collaboration."); return; } setShareMessage(""); setPublicLink(""); setShareOpen(true); }} disabled={!active || active.role !== "owner" || active.local}><Share2 size={14} strokeWidth={1.9} /> <span>Share</span></button>
-            {process.env.NEXT_PUBLIC_OIDC_AUTHORIZATION_URL && (signedIn ? <button className="auth-button" onClick={signOut}><LogOut size={14} strokeWidth={1.9} aria-hidden="true" /><span>Sign out</span></button> : <button className="auth-button" onClick={signIn}><LogIn size={14} strokeWidth={1.9} aria-hidden="true" /><span>Sign in</span></button>)}
+            <button className="share-button" data-tour="share" onClick={() => { if (!signedIn || active?.local) { toast.info("Sign in to unlock sharing and collaboration."); return; } setShareMessage(""); setPublicLink(""); setShareOpen(true); }} disabled={!active || active.role !== "owner" || active.local}><Share2 size={14} strokeWidth={1.9} /> <span>Share</span></button>
+            {process.env.NEXT_PUBLIC_OIDC_AUTHORIZATION_URL && (signedIn ? <button className="auth-button" data-tour="signin" onClick={signOut}><LogOut size={14} strokeWidth={1.9} aria-hidden="true" /><span>Sign out</span></button> : <button className="auth-button" data-tour="signin" onClick={signIn}><LogIn size={14} strokeWidth={1.9} aria-hidden="true" /><span>Sign in</span></button>)}
             <span className="avatar small-avatar" title="Account" aria-label="Account"><UserRound size={14} strokeWidth={1.8} aria-hidden="true" /></span>
           </div>
         </header>
@@ -1254,7 +1268,7 @@ export default function HomePage() {
               </div>
               <div className="workspace-hub-layout">
                 <div className="workspace-hub-main">
-                  <div className="workspace-hub-grid">
+                  <div className="workspace-hub-grid" data-tour="hub-overview">
                 <button type="button" className="workspace-hub-card hub-inbox" onClick={() => chooseDashboardFolder("shared")}>
                   <span className="hub-card-icon"><Inbox size={19} strokeWidth={1.7} /></span>
                   <span className="hub-card-copy"><span className="hub-card-kicker">INBOX</span><strong>Shared with you</strong><small>Open documents from collaborators.</small></span>
@@ -1499,6 +1513,7 @@ export default function HomePage() {
           </div>
         )}
       </section>
+      <VixinyFirstRunTour replayKey={tourReplayKey} onNavigate={handleTourNavigate} onClose={handleTourClose} />
       <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} items={commandItems} />
       {templateOpen && (
         <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setTemplateOpen(false); }}>
