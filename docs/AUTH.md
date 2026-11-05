@@ -8,7 +8,7 @@ In Auth0, enable Refresh Token Rotation for the SPA and enable Allow Offline Acc
 
 The frontend requests an access token for the API identifier `https://collab-docs-api`. If the API's user-access policy requires a client grant, the SPA must be explicitly authorized for that API or Auth0 returns `Client is not authorized to access resource server` before issuing a code.
 
-In Auth0 Dashboard, open **Applications → Applications → Collab Docs → APIs**, select **Edit** for the API identified by `https://collab-docs-api`, and set **User-Delegated Access** to **Authorized**. Select only the API permissions the application should be allowed to request, then save. This is a user-delegated authorization-code flow; do not enable Client Credentials or add a client secret to the SPA. The frontend currently requests `openid profile email offline_access`; API permissions are not currently used as the application's RBAC source of truth. The Worker's database-backed workspace/document membership checks remain authoritative.
+In Auth0 Dashboard, open **Applications → Applications → Vixiny → APIs**, select **Edit** for the API identified by `https://collab-docs-api`, and set **User-Delegated Access** to **Authorized**. Select only the API permissions the application should be allowed to request, then save. This is a user-delegated authorization-code flow; do not enable Client Credentials or add a client secret to the SPA. The frontend currently requests `openid profile email offline_access`; API permissions are not currently used as the application's RBAC source of truth. The Worker's database-backed workspace/document membership checks remain authoritative.
 
 If the API has a user access policy of `require_client_grant`, the per-application user-delegated grant is the intended fix. Avoid changing the API to `allow_all` just to work around a missing per-app grant, because that widens access for other applications.
 
@@ -21,3 +21,22 @@ Workspace members inherit the workspace role. An explicit document member role c
 Document access is enforced by the Worker's database-backed membership checks before it issues a one-time ticket. The app's current authorization source of truth is its workspace/document membership tables; it does not trust role names supplied by the browser. Auth0 API permissions/roles can be extended later, but configuring them alone does not replace these database checks.
 
 Document access is checked by the Worker before issuing a one-time ticket. Ticket use is consumed transactionally in the document's SQLite storage. A websocket can no longer rely on custom Authorization headers (the browser WebSocket API doesn't expose them); instead it receives the short-lived single-use ticket and the Durable Object validates that same ticket and document scope. Viewers are rejected from sending CRDT edits.
+
+
+## Vixiny production origins
+
+The SPA derives its Auth0 callback from the current browser origin. Add all deployed origins to the existing Auth0 SPA application so the same build can authenticate on either hostname.
+
+Allowed Callback URLs and Allowed Logout URLs:
+
+- `https://collab-docs-4tb.pages.dev/`
+- `https://www.collabdocs.qd.je/`
+- `http://localhost:3000/`
+
+Allowed Web Origins:
+
+- `https://collab-docs-4tb.pages.dev`
+- `https://www.collabdocs.qd.je`
+- `http://localhost:3000`
+
+Keep the Auth0 tenant issuer, JWKS URL and API audience unchanged. The underlying tenant domain is an identity-provider infrastructure name, not the product's public brand.
