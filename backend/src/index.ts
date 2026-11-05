@@ -42,17 +42,41 @@ class HttpError extends Error {
 
 const jwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 
+function configuredFrontendOrigins(env: Env): string[] {
+  return Array.from(new Set([
+    env.FRONTEND_ORIGIN || "",
+    ...(env.FRONTEND_ALLOWED_ORIGINS || "").split(",")
+  ].map((origin) => origin.trim()).filter(Boolean)));
+}
+
+function corsAllowOrigin(request: Request, env: Env): string | null {
+  const requestOrigin = request.headers.get("Origin");
+  const allowed = configuredFrontendOrigins(env);
+  if (!requestOrigin) return env.FRONTEND_ORIGIN || allowed[0] || null;
+  if (allowed.includes("*")) return "*";
+  return allowed.includes(requestOrigin) ? requestOrigin : null;
+}
+
+function frontendUrlOrigin(request: Request, env: Env): string {
+  const requestOrigin = request.headers.get("Origin");
+  const allowed = configuredFrontendOrigins(env);
+  if (requestOrigin && (allowed.includes(requestOrigin) || allowed.includes("*"))) {
+    return requestOrigin;
+  }
+  return env.FRONTEND_ORIGIN || "";
+}
+
 function response(request: Request, env: Env, value: unknown, status = 200): Response {
-  const origin = env.FRONTEND_ORIGIN || "*";
   const headers = new Headers({
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
-    "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type,Authorization,Idempotency-Key,X-File-Name",
     "Access-Control-Expose-Headers": "Content-Disposition,Content-Length,X-Document-File-Name,X-Document-File-Updated",
     "Vary": "Origin"
   });
+  const allowedOrigin = corsAllowOrigin(request, env);
+  if (allowedOrigin) headers.set("Access-Control-Allow-Origin", allowedOrigin);
   return new Response(JSON.stringify(value), { status, headers });
 }
 
@@ -193,7 +217,8 @@ const MAX_DOCUMENT_FILE_SIZE = 30 * 1024 * 1024;
 
 function withFileCors(request: Request, env: Env, upstream: Response): Response {
   const headers = new Headers(upstream.headers);
-  headers.set("Access-Control-Allow-Origin", env.FRONTEND_ORIGIN || "*");
+  const allowedOrigin = corsAllowOrigin(request, env);
+  if (allowedOrigin) headers.set("Access-Control-Allow-Origin", allowedOrigin);
   headers.set("Access-Control-Allow-Methods", "GET,HEAD,PUT,DELETE,OPTIONS");
   headers.set("Access-Control-Allow-Headers", "Content-Type,Authorization,Idempotency-Key,X-File-Name");
   headers.set("Access-Control-Expose-Headers", "Content-Disposition,Content-Length,X-Document-File-Name,X-Document-File-Updated");
@@ -206,17 +231,19 @@ async function route(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const parts = url.pathname.split("/").filter(Boolean);
   if (request.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: {
-      "Access-Control-Allow-Origin": env.FRONTEND_ORIGIN || "*",
+    const corsHeaders = new Headers({
       "Access-Control-Allow-Methods": "GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type,Authorization,Idempotency-Key,X-File-Name",
       "Access-Control-Expose-Headers": "Content-Disposition,Content-Length,X-Document-File-Name,X-Document-File-Updated",
       "Access-Control-Max-Age": "86400",
       "Vary": "Origin"
-    }});
+    });
+    const allowedOrigin = corsAllowOrigin(request, env);
+    if (allowedOrigin) corsHeaders.set("Access-Control-Allow-Origin", allowedOrigin);
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
   if (url.pathname === "/api/health" && request.method === "GET") {
-    return response(request, env, { ok: true, service: "collab-docs-api", version: env.APP_VERSION || "dev" });
+    return response(request, env, { ok: true, service: "vixiny-api", version: env.APP_VERSION || "dev" });
   }
   // Public links are bearer capabilities: resolve the token on every request so
   // revoked or rotated links immediately lose access to both metadata and files.
@@ -523,7 +550,7 @@ async function route(request: Request, env: Env): Promise<Response> {
       token = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
       await env.DB.prepare("UPDATE documents SET public_token = ? WHERE id = ?").bind(token, documentId).run();
     }
-    const origin = env.FRONTEND_ORIGIN || "";
+    const origin = frontendUrlOrigin(request, env);
     return response(request, env, {
       token,
       publicUrl: origin ? origin.replace(/\/$/, "") + "/p/?token=" + token : "/p/?token=" + token
