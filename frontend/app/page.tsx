@@ -12,7 +12,7 @@ import { Toaster, toast } from "sonner";
 import { CommandPalette, type CommandItem } from "@/components/command-palette";
 import VixinyFirstRunTour from "@/components/first-run-tour";
 import HoldButton from "@/components/HoldButton";
-import { ArrowRight, ArrowUpRight, Check, CheckCircle2, Cloud, Code2, Command, HelpCircle, FileText, FileUp, HardDrive, House, LayoutTemplate, LogIn, LogOut, NotebookPen, Plus, Sparkles, Target, Users, Wifi, Clock3, Files, ShieldCheck, Star, Trash2, FolderOpen, Pencil, Inbox, MessageCircle, CalendarDays, ListChecks, BarChart3, Sun, Moon, Activity, Menu, Share2, UserRound, MoreHorizontal, X } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, CheckCircle2, Cloud, Code2, Command, CircleHelp, FileText, FileUp, HardDrive, House, LayoutTemplate, LogIn, LogOut, NotebookPen, Plus, Sparkles, Target, Users, Wifi, Clock3, Files, ShieldCheck, Star, Trash2, FolderOpen, Pencil, Inbox, MessageCircle, CalendarDays, ListChecks, BarChart3, Sun, Moon, Activity, Menu, Share2, UserRound, MoreHorizontal, X } from "lucide-react";
 
 type DashboardFolder = "all" | "mine" | "shared" | "favorites";
 type WorkspacePanel = "recent" | "hub";
@@ -1017,7 +1017,7 @@ export default function HomePage() {
             </div>
           </div>
           <div className="top-actions">
-            <button type="button" className="help-tour-button" onClick={() => setTourReplayKey((value) => value + 1)} aria-label="Replay the Vixiny guide" title="Help and tour"><HelpCircle size={16} strokeWidth={1.8} /></button>
+            <button type="button" className="help-tour-button" onClick={() => setTourReplayKey((value) => value + 1)} aria-label="Replay the Vixiny guide" title="Help and tour"><CircleHelp size={16} strokeWidth={1.8} /></button>
             <button type="button" className="theme-toggle" data-tour="theme" onClick={toggleTheme} aria-label="Toggle color theme" title="Toggle color theme"><span className="theme-toggle-icon" aria-hidden="true"><Sun className="theme-sun-icon" size={17} strokeWidth={1.8} /><Moon className="theme-moon-icon" size={17} strokeWidth={1.8} /></span></button>
             <span className="secure-label">{signedIn ? <CheckCircle2 size={14} strokeWidth={1.9} aria-hidden="true" /> : <HardDrive size={14} strokeWidth={1.9} aria-hidden="true" />}<span>{signedIn ? "Autosave enabled" : "Saved on this device"}</span></span>
             <button className="share-button" data-tour="share" onClick={() => { if (!signedIn || active?.local) { toast.info("Sign in to unlock sharing and collaboration."); return; } setShareMessage(""); setPublicLink(""); setShareOpen(true); }} disabled={!active || active.role !== "owner" || active.local}><Share2 size={14} strokeWidth={1.9} /> <span>Share</span></button>
