@@ -7,7 +7,7 @@ This section records the last read-only inspection; it is not a claim that the a
 - D1 database `collab-docs-db` is schema-initialized. SQL inspection verified `0001_init.sql` in `d1_migrations`, all seven application tables, the three seeded roles, and three expected indexes. The D1 list endpoint's `num_tables` summary did not match SQL-catalog results, so the catalog and migration journal were used for verification.
 - KV namespace `collab-docs-flags` exists.
 - Queues `document-events` and `document-events-dlq` exist.
-- Pages project `vixiny` (formerly `collab-docs`) exists at `https://collab-docs-4tb.pages.dev`, but it has no deployment yet.
+- Pages project `vixiny` is the new production site at `https://vixiny.pages.dev`; the previous deployment remains available at `https://collab-docs-4tb.pages.dev` through the `vixiny-legacy` Pages project.
 - No production Worker script was deployed at the time of inspection.
 - The account's `workers.dev` subdomain is `collab-docs-b1o`. The intended production Worker URL is `https://collab-docs-api-production.collab-docs-b1o.workers.dev`; it will serve requests after the gated deployment creates the Worker.
 - The Neon project `collab-docs-analytics` exists. A Hyperdrive configuration has not been created; analytics remains optional.
@@ -20,7 +20,7 @@ Each `DocumentRoom` Durable Object stores Yjs updates in its SQLite storage. Aft
 
 ## OIDC setup
 
-Auth0 Free is the selected provider for the existing generic OIDC/PKCE client. Create a Single Page Application (public client) and an API whose identifier is exactly `https://collab-docs-api`. Register both `https://collab-docs-4tb.pages.dev/` and `https://www.collabdocs.qd.je/` as allowed callback and logout URLs; add both corresponding origins to Allowed Web Origins. The frontend derives its callback from the active site origin. Enable Refresh Token Rotation on the SPA and Allow Offline Access on the API. The frontend uses Auth0's SPA SDK with PKCE and the offline_access scope; do not create or use a browser client secret.
+Auth0 Free is the selected provider for the existing generic OIDC/PKCE client. Create a Single Page Application (public client) and an API whose identifier is exactly `https://collab-docs-api`. Register `https://vixiny.pages.dev/`, `https://collab-docs-4tb.pages.dev/` (legacy), and `https://www.collabdocs.qd.je/` as allowed callback and logout URLs; add all three corresponding origins to Allowed Web Origins. The frontend derives its callback from the active site origin. Enable Refresh Token Rotation on the SPA and Allow Offline Access on the API. The frontend uses Auth0's SPA SDK with PKCE and the offline_access scope; do not create or use a browser client secret.
 
 The configured Auth0 tenant URLs are:
 
@@ -70,12 +70,24 @@ Grafana has a dashboard but custom application metrics are not yet flowing. Sent
 
 ## Vixiny custom domain and Auth0 allowlists
 
-The Cloudflare Pages project is named `vixiny`. Its existing Pages.dev hostname remains `https://collab-docs-4tb.pages.dev` so the old address continues to work. The custom application hostname is `https://www.collabdocs.qd.je`; Cloudflare Pages must show the custom domain as active before it is used as the primary public URL.
+The new Cloudflare Pages project is named `vixiny` and serves `https://vixiny.pages.dev`. The previous `https://collab-docs-4tb.pages.dev` site is preserved separately as `vixiny-legacy`. The custom application hostname `https://www.collabdocs.qd.je` is attached to the new project; its DNS CNAME must point to `vixiny.pages.dev` before Cloudflare can validate it.
 
 The frontend callback is derived from `window.location.origin`. In the existing Auth0 SPA application, add both production origins to Allowed Callback URLs and Allowed Logout URLs (with trailing slash), and to Allowed Web Origins (without trailing slash):
 
-- `https://collab-docs-4tb.pages.dev/`
+- `https://vixiny.pages.dev/`
+- `https://collab-docs-4tb.pages.dev/` (legacy)
 - `https://www.collabdocs.qd.je/`
 - `http://localhost:3000/`
 
 Do not change the existing Auth0 issuer, JWKS URL, client ID, or API audience as part of the brand update. Auth0's canonical tenant domain and the Worker/API resource names remain infrastructure identifiers.
+
+## Google OAuth origins for Vixiny
+
+For the Gmail browser integration, add these Authorized JavaScript origins to the existing Google OAuth Web client:
+
+- `https://vixiny.pages.dev`
+- `https://collab-docs-4tb.pages.dev` (legacy)
+- `https://www.collabdocs.qd.je`
+- `http://localhost:3000`
+
+The Google OAuth Client ID and Gmail scope remain unchanged. This is separate from Auth0's callback and web-origin allowlists.
