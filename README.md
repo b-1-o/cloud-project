@@ -54,10 +54,6 @@ The local demo identity is not suitable for public deployments. Configure the OI
 - Hand-drawn signatures can be inserted at the current editor cursor in rich-text documents, or placed on a PDF page and saved together with annotations. A touch screen or stylus supports direct drawing; a standard laptop trackpad uses the browser's press-and-drag pointer input.
 
 
-## Privacy
-
-See [the Vixiny privacy notice](/privacy) for details about local documents, workspace storage, Gmail access, and imported files.
-
 ## Trade-offs
 
 Yjs CRDTs handle concurrent and offline edits without a central transform pipeline, at the cost of extra metadata and compaction needs. Durable Objects coordinate each room without a separate Redis cluster. D1 owns product metadata; Neon is optional analytics only. The current portfolio setup keeps the latest compacted snapshot in Durable Object SQLite. KV is a short-lived cache, not an authorization source.
